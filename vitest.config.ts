@@ -24,10 +24,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      '@/components/ui': path.resolve(__dirname, './src/components/ui'),
-      '@/components/kopia': path.resolve(__dirname, './src/components/kopia'),
-      '@/lib/utils': path.resolve(__dirname, './src/lib/utils'),
-      '@/lib/kopia': path.resolve(__dirname, './src/lib/kopia'),
     },
   },
 });

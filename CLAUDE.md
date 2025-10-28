@@ -32,36 +32,39 @@ pnpm test:e2e     # Run end-to-end tests
 ## Tech Stack
 
 ### Core
+
 - **React 19** + TypeScript (strict mode)
 - **Tauri** (backend + frontend)
 - **Vite** (bundling + HMR)
 - **pnpm** (required package manager)
 
 ### UI
+
 - **Tailwind CSS 4** + shadcn/ui
 - **React Router v6**
 
 ### Data & Forms
+
 - **Zustand** or React Context
 - **react-hook-form** + Zod validation
 
 ### i18n
+
 - **react-i18next** (EN/ES)
 
 ### Testing
+
 - **Vitest** (unit + integration)
 - **React Testing Library**
 - **Playwright** (E2E)
 
 ### Import Aliases
+
 ```typescript
-@/*                  // Root directory
-@/components/ui      // shadcn components
-@/components/kopia   // Kopia-specific components
-@/lib/utils          // Utilities
-@/lib/kopia          // Kopia API client
-@/tauri              // Tauri backend
+@/*                  // Simplified: maps to ./src/* (covers all subdirectories)
 ```
+
+**Note:** All imports use the single `@/*` alias. Example: `import { cn } from '@/lib/utils'`
 
 ---
 
@@ -86,7 +89,7 @@ let kopia_process = Command::new(kopia_binary_path)
     "--ui",                                  // Enable REST API endpoints
     "--address=localhost:0",                 // Random port (security)
     "--tls-generate-cert",                   // Self-signed HTTPS cert
-    "--tls-generate-cert-name=localhost",    
+    "--tls-generate-cert-name=localhost",
     "--random-password",                     // Secure local-only access
     "--shutdown-on-stdin",                   // Exit when Tauri quits
     "--config-file", &config_path
@@ -97,10 +100,12 @@ let kopia_process = Command::new(kopia_binary_path)
 ### Binary Locations
 
 **Development:**
+
 - `./bin/kopia` (platform-specific, downloaded on setup)
 - Or use `KOPIA_PATH` env var for custom install
 
 **Production (bundled):**
+
 - Windows: `resources/bin/kopia.exe`
 - macOS: `KopiaUI.app/Contents/Resources/bin/kopia`
 - Linux: `resources/bin/kopia`
@@ -118,6 +123,7 @@ Repositories / Snapshots / Storage
 ```
 
 **Key Points:**
+
 - Localhost-only (no remote access)
 - TLS with self-signed cert
 - Random password per session
@@ -130,17 +136,20 @@ Repositories / Snapshots / Storage
 ### Tauri Process Model
 
 **Backend (Core)** (`/src-tauri/src`)
+
 - Rust environment, full OS access
 - Manages Kopia server lifecycle
 - Command handlers for frontend communication
 - App lifecycle management
 
 **Frontend (Webview)** (`/src`)
+
 - WebView (platform-native), sandboxed
 - React application
 - UI and user interactions
 
 **Tauri Commands** (Rust backend)
+
 - Bridge between frontend and backend
 - Exposes safe APIs via Tauri's invoke system
 - Type-safe command channels
@@ -148,6 +157,7 @@ Repositories / Snapshots / Storage
 ### Command Pattern
 
 **Backend Command Handler:**
+
 ```rust
 // src-tauri/src/commands/kopia.rs
 #[tauri::command]
@@ -161,18 +171,20 @@ async fn list_snapshots(options: SnapshotOptions) -> Result<Vec<Snapshot>, Strin
 ```
 
 **Frontend Client:**
+
 ```typescript
 // src/lib/kopia/client.ts
 import { invoke } from '@tauri-apps/api/tauri';
 
 export const kopiaClient = {
   snapshots: {
-    list: (opts) => invoke('list_snapshots', { options: opts })
-  }
+    list: (opts) => invoke('list_snapshots', { options: opts }),
+  },
 };
 ```
 
 **Command Registration:**
+
 ```rust
 // src-tauri/src/main.rs
 fn main() {
@@ -192,7 +204,9 @@ fn main() {
 ## Important Implementation Notes
 
 ### Policy Inheritance System
+
 Policies use a 4-level hierarchy with inheritance:
+
 ```
 Global (*/*/*)
   ↓ inherits
@@ -206,40 +220,48 @@ Per-Path (user@host/path)
 More specific settings override less specific ones. This is complex but powerful!
 
 ### Snapshot Sources Format
+
 Sources are identified as: `user@host:/path`
+
 - Local snapshots: current `user@host`
 - All snapshots: any `user@host`
 
 ### Task Management
+
 - Scheduled snapshots run in background (only when server mode is running)
 - Multiple snapshots can run in parallel (configurable)
 - Tasks can be long-running (hours for large datasets)
 - Must handle task cancellation gracefully
 
 ### Repository Config
+
 - Stored in `~/.config/kopia/` (Linux/macOS) or `%APPDATA%\kopia` (Windows)
 - Files ending in `*.config` are auto-detected by KopiaUI
 - Password is required for connection
 - Multiple repos = multiple config files
 
 ### .kopiaignore Files
+
 - Per-directory ignore rules (like .gitignore)
 - Must be handled correctly during snapshot tree traversal
 - Can be overridden by policy ignore rules
 
 ### Performance Considerations
+
 - Parallel snapshots setting affects CPU/memory
 - Parallel file reads affects upload speed
 - Compression trades CPU for storage
 - Large repositories (>10TB) need special handling
 
 ### Authentication
+
 - Local server: `--random-password` generates per-session password
 - Server stores password for API access
 - HTTPS with self-signed cert for localhost
 - CSRF token checks (can disable with `--disable-csrf-token-checks` for dev)
 
 ### Common Gotchas
+
 1. **Actions disabled by default** - Must enable in config
 2. **WebSocket reconnection** - Handle server restarts
 3. **Incomplete snapshots** - Show clearly in UI (checkpoint behavior)
@@ -252,30 +274,35 @@ Sources are identified as: `user@host:/path`
 ## Testing Strategy
 
 ### Unit Tests (Vitest)
+
 - Component logic and utilities
 - Validation schemas (Zod)
 - API client functions
 - Store/state management
 
 ### Integration Tests (Vitest + RTL)
+
 - Component interactions
 - Form submissions
 - Command mocks
 - API flows
 
 ### E2E Tests (Playwright)
+
 - Critical user journeys
 - Repository setup flow
 - Snapshot create/restore
 - Multi-window scenarios
 
 ### Requirements
+
 - ✅ All features require tests
 - ✅ 80%+ coverage for utils/API
 - ✅ E2E for critical workflows
 - ✅ Tests pass before merge
 
 ### Commands
+
 ```bash
 pnpm test              # Run all tests
 pnpm test:watch        # Watch mode
@@ -291,6 +318,7 @@ pnpm test:e2e:ui       # Playwright UI
 ### Define Once, Use Everywhere
 
 **Schema Definition:**
+
 ```typescript
 // lib/validations/backup-policy.ts
 export const BackupPolicySchema = z.object({
@@ -305,13 +333,15 @@ export const BackupPolicySchema = z.object({
 ```
 
 **Form Usage:**
+
 ```typescript
 const form = useForm({
-  resolver: zodResolver(BackupPolicySchema)
+  resolver: zodResolver(BackupPolicySchema),
 });
 ```
 
 **API Validation:**
+
 ```typescript
 const result = BackupPolicySchema.safeParse(data);
 if (!result.success) throw new ValidationError(result.error);
@@ -324,6 +354,7 @@ if (!result.success) throw new ValidationError(result.error);
 ### Principle: Fail Fast, Report Clearly
 
 **API Errors:**
+
 ```typescript
 try {
   const result = await invoke('kopia_command', { args });
@@ -339,6 +370,7 @@ try {
 ```
 
 **Validation Errors:**
+
 ```typescript
 const result = BackupPolicySchema.safeParse(formData);
 if (!result.success) {
@@ -349,6 +381,7 @@ if (!result.success) {
 ```
 
 **Backend Errors:**
+
 ```rust
 #[tauri::command]
 fn risky_operation() -> Result<String, String> {
@@ -473,6 +506,7 @@ kopia-ui/
 ## Key Dependencies
 
 ### Frontend
+
 ```json
 {
   "react": "^19.0.0",
@@ -488,6 +522,7 @@ kopia-ui/
 ```
 
 ### Backend (Cargo.toml)
+
 ```toml
 [dependencies]
 tauri = { version = "1.5", features = ["shell-open"] }
@@ -498,6 +533,7 @@ tokio = { version = "1", features = ["full"] }
 ```
 
 ### Development
+
 ```json
 {
   "@tauri-apps/cli": "^1.5.0",
@@ -517,6 +553,7 @@ tokio = { version = "1", features = ["full"] }
 ### 🏗️ Phase 1: Foundation (Start Here)
 
 **Project Setup**
+
 - [x] Initialize Tauri + React + Vite
 - [ ] Configure TypeScript strict mode
 - [ ] Setup Tailwind CSS + shadcn/ui
@@ -526,6 +563,7 @@ tokio = { version = "1", features = ["full"] }
 - [ ] Setup Zustand stores
 
 **Kopia Server Integration**
+
 - [ ] Implement Kopia binary management
 - [ ] Server spawn/shutdown lifecycle
 - [ ] Port/password detection
@@ -533,6 +571,7 @@ tokio = { version = "1", features = ["full"] }
 - [ ] Graceful error handling
 
 **Basic UI Shell**
+
 - [ ] App layout (sidebar + content)
 - [ ] Navigation routing
 - [ ] Theme system (light/dark)
@@ -542,6 +581,7 @@ tokio = { version = "1", features = ["full"] }
 ### 🔧 Phase 2: Core Features
 
 **Repository Management**
+
 - [ ] Connect to existing repository
 - [ ] Create new repository
 - [ ] Repository status display
@@ -549,6 +589,7 @@ tokio = { version = "1", features = ["full"] }
 - [ ] Multi-repository support
 
 **Snapshot Operations**
+
 - [ ] List snapshots (with filters)
 - [ ] View snapshot details
 - [ ] Create manual snapshots
@@ -556,6 +597,7 @@ tokio = { version = "1", features = ["full"] }
 - [ ] Compare snapshots (diff)
 
 **Policy Management**
+
 - [ ] View/edit backup policies
 - [ ] Retention configuration
 - [ ] Scheduling configuration
@@ -563,6 +605,7 @@ tokio = { version = "1", features = ["full"] }
 - [ ] Exclusion rules
 
 **Restore Operations**
+
 - [ ] Browse snapshot contents
 - [ ] Select files/folders
 - [ ] Restore to location
@@ -570,6 +613,7 @@ tokio = { version = "1", features = ["full"] }
 - [ ] Progress monitoring
 
 **Monitoring**
+
 - [ ] Backup success/failure rates
 - [ ] Storage usage trends
 - [ ] Snapshot size trends
@@ -595,6 +639,7 @@ The Kopia server exposes REST API endpoints that your UI will consume.
 ### Key API Endpoints
 
 **Repository**
+
 - `GET /api/v1/repo/status` - Repository status and stats
 - `POST /api/v1/repo/connect` - Connect to repository
 - `POST /api/v1/repo/disconnect` - Disconnect
@@ -602,6 +647,7 @@ The Kopia server exposes REST API endpoints that your UI will consume.
 - `GET /api/v1/repo/algorithms` - Available algorithms
 
 **Snapshots**
+
 - `POST /api/v1/snapshots` - List snapshots (with filters)
 - `POST /api/v1/sources` - List snapshot sources
 - `POST /api/v1/snapshots/{id}` - Get snapshot details
@@ -610,45 +656,54 @@ The Kopia server exposes REST API endpoints that your UI will consume.
 - `POST /api/v1/snapshots/compare` - Compare snapshots
 
 **Policies**
+
 - `GET /api/v1/policies` - List all policies
 - `GET /api/v1/policy/{target}` - Get specific policy
 - `PUT /api/v1/policy/{target}` - Set/update policy
 - `DELETE /api/v1/policy/{target}` - Delete policy
 
 **Tasks**
+
 - `GET /api/v1/tasks` - List active tasks
 - `GET /api/v1/tasks/{id}` - Get task details
 - `POST /api/v1/tasks/{id}/cancel` - Cancel task
 - `GET /api/v1/tasks/summary` - Task summary
 
 **Restore**
+
 - `POST /api/v1/restore` - Start restore operation
 - `GET /api/v1/restore/{id}` - Get restore progress
 
 **Mount**
+
 - `POST /api/v1/mounts` - Mount snapshot
 - `GET /api/v1/mounts` - List active mounts
 - `DELETE /api/v1/mounts/{id}` - Unmount
 
 **Maintenance**
+
 - `POST /api/v1/repo/maintenance/run` - Run maintenance
 - `GET /api/v1/repo/maintenance/info` - Maintenance info
 
 **Notifications**
+
 - `GET /api/v1/notification-profiles` - List profiles
 - `POST /api/v1/notification-profiles` - Create profile
 - `PUT /api/v1/notification-profiles/{id}` - Update profile
 
 **Preferences**
+
 - `GET /api/v1/ui-preferences` - Get UI preferences
 - `PUT /api/v1/ui-preferences` - Save UI preferences
 
 ### WebSocket Updates
 
 Connect to WebSocket for real-time updates:
+
 - `ws://localhost:{port}/api/v1/ws`
 
 Events:
+
 - `task-progress` - Task progress updates
 - `snapshot-progress` - Snapshot creation progress
 - `error` - Error notifications
@@ -659,17 +714,20 @@ Events:
 ## Security Considerations
 
 **Credentials**
+
 - Use Tauri's secure storage for Kopia passwords
 - Never log sensitive data
 - Clear credentials on disconnect
 
 **Command Security**
+
 - Validate all frontend data
 - Use Rust's type system for safety
 - Sanitize file paths
 - Explicit consent for self-signed certs
 
 **Content Security**
+
 - Implement strict CSP
 - Sanitize all user inputs
 - Validate file paths
@@ -680,6 +738,7 @@ Events:
 ## UI/UX Design Guidelines
 
 ### Critical User Warnings
+
 ⚠️ These messages MUST be prominent:
 
 1. **Password Loss** - "There is NO way to recover your repository password. Store it securely!"
@@ -688,18 +747,21 @@ Events:
 4. **Snapshot Deletion** - "Deleted snapshots cannot be recovered"
 
 ### Status Indicators
+
 - **Repository**: Connected (green), Disconnected (gray), Error (red)
 - **Tasks**: Running (blue spinner), Success (green check), Failed (red X), Incomplete (yellow)
 - **Snapshots**: Complete, Incomplete, Failed, Verifying
 - **Server**: Running (green), Stopped (red), Starting (yellow)
 
 ### User Feedback
+
 - Show progress for long operations (snapshots, restore, maintenance)
 - Display file count, byte count, and estimated time remaining
 - Show errors inline with actionable messages
 - Toast notifications for background completions
 
 ### Navigation Structure
+
 ```
 Main Window
 ├── Repository Tab
@@ -732,6 +794,7 @@ System Tray
 ```
 
 ### Form Design
+
 - Policy forms are COMPLEX - use clear sections
 - Show inherited values vs overridden values
 - Provide sensible defaults
@@ -739,18 +802,21 @@ System Tray
 - Validate inputs before submission
 
 ### Empty States
+
 - No repositories: Prompt to create or connect
 - No snapshots: Show "Create your first backup" CTA
 - No policies: Explain policy hierarchy
 - No tasks: "No background tasks running"
 
 ### Error Handling
+
 - Network errors: "Cannot connect to Kopia server"
 - Auth errors: "Invalid repository password"
 - Server errors: Show detailed error message + action button
 - Validation errors: Inline with specific field
 
 ### Accessibility
+
 - Keyboard navigation for all actions
 - Screen reader support
 - High contrast mode
@@ -762,16 +828,19 @@ System Tray
 ## Performance Best Practices
 
 **Data Loading**
+
 - Lazy load snapshot data
 - Paginate large lists
 - Virtual scrolling (`react-window`)
 
 **Command Optimization**
+
 - Batch multiple calls
 - Stream large data transfers
 - Implement request cancellation
 
 **Memory Management**
+
 - Monitor Tauri memory
 - Clean up listeners on unmount
 - Use async Rust for heavy ops
@@ -781,21 +850,23 @@ System Tray
 ## Common Kopia Operations
 
 ### Connect Repository
+
 ```typescript
 import { invoke } from '@tauri-apps/api/tauri';
 
 await invoke('connect_repository', {
   type: 'filesystem',
   path: '/backup/repository',
-  password: 'secure-password'
+  password: 'secure-password',
 });
 ```
 
 ### Create Snapshot
+
 ```typescript
 await invoke('create_snapshot', {
   source: '/data/to/backup',
-  policy: 'default'
+  policy: 'default',
 });
 
 // Progress updates via Tauri events
@@ -807,20 +878,22 @@ listen('snapshot-progress', (event) => {
 ```
 
 ### List Snapshots
+
 ```typescript
 const snapshots = await invoke('list_snapshots', {
   source: 'host@path',
   limit: 100,
-  sortBy: 'time'
+  sortBy: 'time',
 });
 ```
 
 ### Restore Files
+
 ```typescript
 await invoke('restore_files', {
   snapshotId: 'k123abc',
   targetPath: '/restore/destination',
-  overwrite: false
+  overwrite: false,
 });
 ```
 
@@ -829,6 +902,7 @@ await invoke('restore_files', {
 ## Tauri-Specific Features
 
 ### System Tray
+
 ```rust
 use tauri::{CustomMenuItem, SystemTray, SystemTrayMenu, SystemTrayMenuItem};
 
@@ -846,6 +920,7 @@ let system_tray = SystemTray::new().with_menu(tray_menu);
 ```
 
 ### Native Notifications
+
 ```rust
 use tauri::api::notification::Notification;
 
@@ -856,6 +931,7 @@ Notification::new(&app.handle())
 ```
 
 ### Auto-Updates
+
 ```rust
 use tauri::updater::UpdateResponse;
 
@@ -870,6 +946,7 @@ if update_response.is_update_available() {
 ## Remember
 
 This is a **backup management interface**. Prioritize:
+
 - ✅ **Reliability** - Data integrity is paramount
 - ✅ **Clarity** - Clear feedback and error messages
 - ✅ **Recovery** - Handle errors gracefully

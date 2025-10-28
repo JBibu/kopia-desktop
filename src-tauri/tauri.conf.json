@@ -18,9 +18,9 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": ["../bin/kopia*"],
+    "resources": ["../bin/kopia*", "../bin/kopia"],
     "externalBin": [],
-    "copyright": "",
+    "copyright": "Copyright © 2025 Kopia UI Contributors",
     "category": "Utility",
     "shortDescription": "Modern Desktop UI for Kopia Backup",
     "longDescription": "A modern, intuitive desktop application for managing Kopia backups, including repository management, snapshots, policies, and restore operations."
@@ -38,7 +38,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: asset: https://asset.localhost; font-src 'self' data:;"
     },
     "trayIcon": {
       "iconPath": "icons/icon.png",

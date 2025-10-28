@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run linter (includes formatting via ESLint)
+echo "Running linter..."
+pnpm lint:check || exit 1
+
+echo "✓ Pre-commit checks passed!"

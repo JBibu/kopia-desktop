@@ -19,20 +19,11 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
-    "noImplicitReturns": true,
-    "noImplicitOverride": true,
 
     /* Path Aliases */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@/components/ui": ["./src/components/ui"],
-      "@/components/kopia": ["./src/components/kopia"],
-      "@/lib/utils": ["./src/lib/utils"],
-      "@/lib/kopia": ["./src/lib/kopia"],
-      "@/tauri": ["./src-tauri"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src"],

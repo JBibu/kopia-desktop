@@ -22,8 +22,6 @@ pnpm tauri:dev
 
 **First build takes 5-10 minutes** (compiling Rust). Be patient!
 
-**Need help?** See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed setup instructions.
-
 ---
 
 ## Common Commands
@@ -99,8 +97,8 @@ kopia-ui/
 
 ## Documentation
 
-- **[DEVELOPMENT.md](DEVELOPMENT.md)** - Complete development guide (setup, workflow, troubleshooting)
 - **[CLAUDE.md](CLAUDE.md)** - Architecture and development guidelines
+- **[CLEANUP_SUMMARY.md](CLEANUP_SUMMARY.md)** - Recent codebase cleanup details
 
 ---
 
@@ -109,7 +107,7 @@ kopia-ui/
 - **Node.js 20.19+** or **22.12+**
 - **pnpm 10+**
 - **Rust toolchain** ([install here](https://rustup.rs/))
-- **System dependencies** (Linux only - see [DEVELOPMENT.md](DEVELOPMENT.md))
+- **System dependencies** (Linux only - see [CLAUDE.md](CLAUDE.md) for details)
 
 ---
 

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useThemeStore } from './stores/theme';
 import './styles/globals.css';
 
-function App() {
+function App(): React.JSX.Element {
   const theme = useThemeStore((state) => state.theme);
 
   useEffect(() => {
