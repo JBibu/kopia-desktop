@@ -18,7 +18,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": ["../bin/kopia*", "../bin/kopia"],
+    "resources": ["../bin/kopia*"],
     "externalBin": [],
     "copyright": "Copyright © 2025 Kopia UI Contributors",
     "category": "Utility",

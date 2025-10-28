@@ -29,7 +29,18 @@ download_binary() {
     echo "   URL: $url"
 
     cd /tmp
-    if wget -q "$url"; then
+
+    # Use curl (cross-platform) or fall back to wget
+    if command -v curl &> /dev/null; then
+        curl -L -o "$filename" "$url" 2>&1 | grep -v "^  % Total" || true
+    elif command -v wget &> /dev/null; then
+        wget -q "$url"
+    else
+        echo "❌ Error: Neither curl nor wget found"
+        return 1
+    fi
+
+    if [ -f "$filename" ]; then
         echo "✓ Downloaded: $filename"
 
         # Extract based on file type
@@ -72,27 +83,63 @@ download_binary() {
     echo ""
 }
 
-# Download binaries for all platforms
-echo "📥 Downloading Kopia binaries for all platforms..."
-echo ""
+# Determine which platforms to download
+# If PLATFORM_ONLY is set, only download for current platform (CI optimization)
+# Otherwise download all platforms (local development)
+if [ -n "$PLATFORM_ONLY" ]; then
+    echo "📥 Downloading Kopia binary for current platform only..."
+    echo ""
 
-# Linux x64
-download_binary "Linux x64" "kopia-${VERSION#v}-linux-x64.tar.gz" "kopia-linux-x64"
+    # Detect current platform
+    OS=$(uname -s)
+    ARCH=$(uname -m)
 
-# Linux ARM64
-download_binary "Linux ARM64" "kopia-${VERSION#v}-linux-arm64.tar.gz" "kopia-linux-arm64"
+    case "$OS" in
+        Linux)
+            if [ "$ARCH" = "x86_64" ]; then
+                download_binary "Linux x64" "kopia-${VERSION#v}-linux-x64.tar.gz" "kopia-linux-x64"
+            elif [ "$ARCH" = "aarch64" ]; then
+                download_binary "Linux ARM64" "kopia-${VERSION#v}-linux-arm64.tar.gz" "kopia-linux-arm64"
+            fi
+            ;;
+        Darwin)
+            if [ "$ARCH" = "x86_64" ]; then
+                download_binary "macOS x64" "kopia-${VERSION#v}-macOS-x64.tar.gz" "kopia-darwin-x64"
+            elif [ "$ARCH" = "arm64" ]; then
+                download_binary "macOS ARM64" "kopia-${VERSION#v}-macOS-arm64.tar.gz" "kopia-darwin-arm64"
+            fi
+            ;;
+        MINGW*|MSYS*|CYGWIN*)
+            if [ "$ARCH" = "x86_64" ]; then
+                download_binary "Windows x64" "kopia-${VERSION#v}-windows-x64.zip" "kopia-windows-x64.exe"
+            elif [ "$ARCH" = "aarch64" ]; then
+                download_binary "Windows ARM64" "kopia-${VERSION#v}-windows-arm64.zip" "kopia-windows-arm64.exe"
+            fi
+            ;;
+    esac
+else
+    # Download binaries for all platforms
+    echo "📥 Downloading Kopia binaries for all platforms..."
+    echo ""
 
-# macOS x64 (Intel)
-download_binary "macOS x64" "kopia-${VERSION#v}-macOS-x64.tar.gz" "kopia-darwin-x64"
+    # Linux x64
+    download_binary "Linux x64" "kopia-${VERSION#v}-linux-x64.tar.gz" "kopia-linux-x64"
 
-# macOS ARM64 (Apple Silicon)
-download_binary "macOS ARM64" "kopia-${VERSION#v}-macOS-arm64.tar.gz" "kopia-darwin-arm64"
+    # Linux ARM64
+    download_binary "Linux ARM64" "kopia-${VERSION#v}-linux-arm64.tar.gz" "kopia-linux-arm64"
 
-# Windows x64
-download_binary "Windows x64" "kopia-${VERSION#v}-windows-x64.zip" "kopia-windows-x64.exe"
+    # macOS x64 (Intel)
+    download_binary "macOS x64" "kopia-${VERSION#v}-macOS-x64.tar.gz" "kopia-darwin-x64"
 
-# Windows ARM64
-download_binary "Windows ARM64" "kopia-${VERSION#v}-windows-arm64.zip" "kopia-windows-arm64.exe"
+    # macOS ARM64 (Apple Silicon)
+    download_binary "macOS ARM64" "kopia-${VERSION#v}-macOS-arm64.tar.gz" "kopia-darwin-arm64"
+
+    # Windows x64
+    download_binary "Windows x64" "kopia-${VERSION#v}-windows-x64.zip" "kopia-windows-x64.exe"
+
+    # Windows ARM64
+    download_binary "Windows ARM64" "kopia-${VERSION#v}-windows-arm64.zip" "kopia-windows-arm64.exe"
+fi
 
 echo ""
 echo "✅ All Kopia binaries downloaded!"

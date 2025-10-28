@@ -1,7 +1,11 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
-# Run linter (includes formatting via ESLint)
+# Run Prettier formatting check
+echo "Running Prettier..."
+pnpm format:check || exit 1
+
+# Run linter (includes code quality via ESLint)
 echo "Running linter..."
 pnpm lint:check || exit 1
 
