@@ -1,0 +1,70 @@
+version: 2
+updates:
+  # Frontend dependencies (npm/pnpm)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    groups:
+      # Group React ecosystem updates
+      react:
+        patterns:
+          - "react*"
+          - "@types/react*"
+      # Group Tauri updates
+      tauri:
+        patterns:
+          - "@tauri-apps/*"
+      # Group testing libraries
+      testing:
+        patterns:
+          - "vitest*"
+          - "@vitest/*"
+          - "@testing-library/*"
+          - "@playwright/*"
+      # Group Tailwind ecosystem
+      tailwind:
+        patterns:
+          - "tailwind*"
+          - "@tailwindcss/*"
+      # Group ESLint and Prettier
+      linting:
+        patterns:
+          - "eslint*"
+          - "@eslint/*"
+          - "prettier*"
+          - "typescript-eslint"
+    labels:
+      - "dependencies"
+      - "frontend"
+
+  # Rust dependencies (Cargo)
+  - package-ecosystem: "cargo"
+    directory: "/src-tauri"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      # Group Tauri core dependencies
+      tauri-rust:
+        patterns:
+          - "tauri*"
+      # Group Serde ecosystem
+      serde:
+        patterns:
+          - "serde*"
+    labels:
+      - "dependencies"
+      - "rust"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependencies"
+      - "ci"
