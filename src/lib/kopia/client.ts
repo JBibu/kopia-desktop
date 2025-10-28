@@ -15,6 +15,17 @@ import type {
   SystemInfo,
 } from './types';
 
+// Re-export types for convenience
+export type {
+  RepositoryStatus,
+  RepositoryConnectRequest,
+  KopiaServerInfo,
+  KopiaServerStatus,
+  SystemInfo,
+  StorageType,
+  StorageConfig,
+} from './types';
+
 // ============================================================================
 // Kopia Server Lifecycle
 // ============================================================================
