@@ -68,6 +68,11 @@
   }
 }
 
+/* Make buttons show pointer cursor */
+button {
+  cursor: pointer;
+}
+
 /* Radix UI fixes */
 [data-radix-popper-content-wrapper],
 [data-radix-select-content],
