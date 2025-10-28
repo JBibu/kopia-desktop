@@ -23,7 +23,7 @@ export function AppLayout() {
 
       {/* Desktop Sidebar */}
       {!isMobile && (
-        <aside className="hidden md:flex md:w-56 md:flex-col border-r bg-card pt-8">
+        <aside className="hidden md:flex md:w-48 md:flex-col md:pt-8 border-r bg-card">
           <AppSidebar />
         </aside>
       )}
@@ -31,7 +31,7 @@ export function AppLayout() {
       {/* Mobile Sidebar */}
       {isMobile && (
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-          <SheetContent side="left" className="w-56 p-0">
+          <SheetContent side="left" className="w-48 p-0">
             <AppSidebar onNavigate={() => setSidebarOpen(false)} />
           </SheetContent>
         </Sheet>

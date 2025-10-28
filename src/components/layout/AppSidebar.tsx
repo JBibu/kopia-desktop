@@ -43,7 +43,7 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
                   to={item.path}
                   onClick={onNavigate}
                   className={cn(
-                    'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-all',
+                    'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-all',
                     isActive
                       ? 'bg-primary text-primary-foreground shadow-sm'
                       : 'text-muted-foreground hover:bg-accent hover:text-foreground'

@@ -9,9 +9,9 @@ import { ListTodo, Calendar, Timer, Archive, FileX } from 'lucide-react';
 export function Policies() {
   return (
     <div className="space-y-6">
-      <div>
+      <div className="space-y-1">
         <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold">Policies</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Policies</h1>
           <Badge variant="outline" className="text-xs">
             Coming Soon
           </Badge>

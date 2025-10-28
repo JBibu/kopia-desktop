@@ -72,8 +72,8 @@ export function Repository() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Repository</h1>
+      <div className="space-y-1">
+        <h1 className="text-3xl font-bold tracking-tight">Repository</h1>
         <p className="text-sm text-muted-foreground">Connect to your backup storage</p>
       </div>
 
@@ -93,7 +93,7 @@ export function Repository() {
             </div>
           ) : isConnected && status ? (
             <div className="space-y-3">
-              <div className="flex items-center gap-2 text-green-500">
+              <div className="flex items-center gap-2 text-success">
                 <CheckCircle className="h-5 w-5" />
                 <span className="font-medium">Connected</span>
               </div>

@@ -9,9 +9,9 @@ import { FolderArchive, FileArchive, History, Search, Download } from 'lucide-re
 export function Snapshots() {
   return (
     <div className="space-y-6">
-      <div>
+      <div className="space-y-1">
         <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold">Snapshots</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Snapshots</h1>
           <Badge variant="outline" className="text-xs">
             Coming Soon
           </Badge>

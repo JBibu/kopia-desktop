@@ -36,8 +36,8 @@ export function Overview() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Dashboard</h1>
+      <div className="space-y-1">
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-sm text-muted-foreground">Monitor your backup system status</p>
       </div>
 
@@ -51,7 +51,9 @@ export function Overview() {
                 <Server className="h-4 w-4" />
                 Kopia Server
               </CardTitle>
-              {isServerRunning && <Badge className="bg-green-500">Active</Badge>}
+              {isServerRunning && (
+                <Badge className="bg-success text-success-foreground">Active</Badge>
+              )}
             </div>
           </CardHeader>
           <CardContent>
@@ -62,7 +64,7 @@ export function Overview() {
               </div>
             ) : isServerRunning ? (
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-green-500">
+                <div className="flex items-center gap-2 text-success">
                   <CheckCircle className="h-5 w-5" />
                   <span className="font-medium">Online</span>
                 </div>
@@ -95,7 +97,9 @@ export function Overview() {
                 <Database className="h-4 w-4" />
                 Repository
               </CardTitle>
-              {isRepoConnected && <Badge className="bg-green-500">Connected</Badge>}
+              {isRepoConnected && (
+                <Badge className="bg-success text-success-foreground">Connected</Badge>
+              )}
             </div>
           </CardHeader>
           <CardContent>
@@ -106,7 +110,7 @@ export function Overview() {
               </div>
             ) : isRepoConnected ? (
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-green-500">
+                <div className="flex items-center gap-2 text-success">
                   <CheckCircle className="h-5 w-5" />
                   <span className="font-medium">Connected</span>
                 </div>

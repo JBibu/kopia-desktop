@@ -25,8 +25,8 @@ export function Preferences() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Preferences</h1>
+      <div className="space-y-1">
+        <h1 className="text-3xl font-bold tracking-tight">Preferences</h1>
         <p className="text-sm text-muted-foreground">Customize your experience</p>
       </div>
 
@@ -44,7 +44,7 @@ export function Preferences() {
               Theme
             </Label>
             <Select value={theme} onValueChange={setTheme}>
-              <SelectTrigger id="theme" className="w-[140px]">
+              <SelectTrigger id="theme" className="w-36">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -86,7 +86,7 @@ export function Preferences() {
               Interface Language
             </Label>
             <Select defaultValue="en">
-              <SelectTrigger id="language" className="w-[140px]">
+              <SelectTrigger id="language" className="w-36">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

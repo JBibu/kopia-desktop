@@ -33,6 +33,7 @@ export function Titlebar() {
       {/* Right side - Window controls */}
       <div className="flex items-center">
         <button
+          type="button"
           onClick={handleMinimize}
           className="h-8 w-10 inline-flex items-center justify-center hover:bg-accent hover:text-accent-foreground transition-colors rounded-sm"
           title="Minimize"
@@ -41,6 +42,7 @@ export function Titlebar() {
           <Minus className="h-4 w-4" />
         </button>
         <button
+          type="button"
           onClick={handleMaximize}
           className="h-8 w-10 inline-flex items-center justify-center hover:bg-accent hover:text-accent-foreground transition-colors rounded-sm"
           title="Maximize"
@@ -49,6 +51,7 @@ export function Titlebar() {
           <Maximize className="h-4 w-4" />
         </button>
         <button
+          type="button"
           onClick={handleClose}
           className="h-8 w-10 inline-flex items-center justify-center hover:bg-destructive hover:text-destructive-foreground transition-colors rounded-sm"
           title="Close"
