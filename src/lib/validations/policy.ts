@@ -16,26 +16,33 @@ export const RetentionPolicySchema = z.object({
  * Scheduling policy validation schema
  */
 export const SchedulingPolicySchema = z.object({
-  interval: z.string().regex(/^\d+[hdm]$/, 'Invalid interval format (e.g., 24h, 30m)'),
+  interval: z
+    .string()
+    .regex(/^\d+[hdm]$/, 'Invalid interval format (e.g., 24h, 30m)')
+    .optional(),
   manual: z.boolean().optional(),
 });
 
 /**
  * Compression policy validation schema
  */
-export const CompressionPolicySchema = z.object({
-  compressorName: z.enum(['gzip', 'zstd', 'none']),
-  minSize: z.number().int().nonnegative().optional(),
-  maxSize: z.number().int().positive().optional(),
-});
+export const CompressionPolicySchema = z
+  .object({
+    compressorName: z.enum(['gzip', 'zstd', 'none']).optional(),
+    minSize: z.number().int().nonnegative().optional(),
+    maxSize: z.number().int().positive().optional(),
+    onlyCompress: z.array(z.string()).optional(),
+    neverCompress: z.array(z.string()).optional(),
+  })
+  .optional();
 
 /**
  * Full backup policy validation schema
  */
 export const BackupPolicySchema = z.object({
-  retentionPolicy: RetentionPolicySchema.optional(),
-  schedulingPolicy: SchedulingPolicySchema.optional(),
-  compressionPolicy: CompressionPolicySchema.optional(),
+  retention: RetentionPolicySchema.optional(),
+  scheduling: SchedulingPolicySchema.optional(),
+  compression: CompressionPolicySchema.optional(),
   excludeRules: z.array(z.string()).optional(),
 });
 
