@@ -33,7 +33,7 @@
     "deps:update": "pnpm update --latest --interactive",
     "kopia:download": "bash scripts/download-kopia.sh",
     "prepare": "husky",
-    "postinstall": "echo '✓ Dependencies installed. Run: pnpm tauri:dev'"
+    "postinstall": "bash scripts/download-kopia.sh && echo '✓ Dependencies and Kopia binaries installed. Run: pnpm tauri:dev'"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

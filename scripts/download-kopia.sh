@@ -31,9 +31,18 @@ download_binary() {
 
     # Use curl (cross-platform) or fall back to wget
     if command -v curl &> /dev/null; then
-        curl -L -o "$filename" "$url" 2>&1 | grep -v "^  % Total" || true
+        HTTP_CODE=$(curl -L -w "%{http_code}" -o "$filename" "$url" 2>&1 | tail -n1)
+        if [ "$HTTP_CODE" != "200" ]; then
+            echo "⚠️  Warning: Binary not available (HTTP $HTTP_CODE)"
+            rm -f "$filename"
+            return 0
+        fi
     elif command -v wget &> /dev/null; then
-        wget -q "$url"
+        if ! wget -q "$url"; then
+            echo "⚠️  Warning: Binary not available"
+            rm -f "$filename"
+            return 0
+        fi
     else
         echo "❌ Error: Neither curl nor wget found"
         return 1
@@ -111,9 +120,8 @@ if [ -n "$PLATFORM_ONLY" ]; then
         MINGW*|MSYS*|CYGWIN*)
             if [ "$ARCH" = "x86_64" ]; then
                 download_binary "Windows x64" "kopia-${VERSION#v}-windows-x64.zip" "kopia-windows-x64.exe"
-            elif [ "$ARCH" = "aarch64" ]; then
-                download_binary "Windows ARM64" "kopia-${VERSION#v}-windows-arm64.zip" "kopia-windows-arm64.exe"
             fi
+            # Note: Windows ARM64 not available in v0.21.1
             ;;
     esac
 else
@@ -136,8 +144,7 @@ else
     # Windows x64
     download_binary "Windows x64" "kopia-${VERSION#v}-windows-x64.zip" "kopia-windows-x64.exe"
 
-    # Windows ARM64
-    download_binary "Windows ARM64" "kopia-${VERSION#v}-windows-arm64.zip" "kopia-windows-arm64.exe"
+    # Note: Windows ARM64 not available in v0.21.1
 fi
 
 echo ""
