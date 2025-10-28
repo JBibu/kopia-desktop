@@ -6,39 +6,55 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
+      time: "09:00"
     open-pull-requests-limit: 10
+    versioning-strategy: increase
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "frontend"
     groups:
-      # Group React ecosystem updates
+      # Group minor/patch updates for dev dependencies
+      development-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+      # Group patch updates for production dependencies
+      production-dependencies:
+        dependency-type: "production"
+        update-types:
+          - "patch"
+      # Group React ecosystem updates (all types)
       react:
         patterns:
           - "react*"
           - "@types/react*"
-      # Group Tauri updates
+      # Group Tauri updates (all types)
       tauri:
         patterns:
           - "@tauri-apps/*"
-      # Group testing libraries
+      # Group testing libraries (all types)
       testing:
         patterns:
           - "vitest*"
           - "@vitest/*"
           - "@testing-library/*"
           - "@playwright/*"
-      # Group Tailwind ecosystem
+      # Group Tailwind ecosystem (all types)
       tailwind:
         patterns:
           - "tailwind*"
           - "@tailwindcss/*"
-      # Group ESLint and Prettier
+      # Group ESLint and Prettier (all types)
       linting:
         patterns:
           - "eslint*"
           - "@eslint/*"
           - "prettier*"
           - "typescript-eslint"
-    labels:
-      - "dependencies"
-      - "frontend"
 
   # Rust dependencies (Cargo)
   - package-ecosystem: "cargo"
@@ -46,25 +62,38 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
+      time: "09:00"
     open-pull-requests-limit: 5
-    groups:
-      # Group Tauri core dependencies
-      tauri-rust:
-        patterns:
-          - "tauri*"
-      # Group Serde ecosystem
-      serde:
-        patterns:
-          - "serde*"
+    versioning-strategy: increase
+    commit-message:
+      prefix: "chore"
+      include: "scope"
     labels:
       - "dependencies"
       - "rust"
+    groups:
+      # Group minor/patch updates
+      rust-dependencies:
+        update-types:
+          - "minor"
+          - "patch"
+      # Group Tauri core dependencies (all types)
+      tauri-rust:
+        patterns:
+          - "tauri*"
+      # Group Serde ecosystem (all types)
+      serde:
+        patterns:
+          - "serde*"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "monthly"
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "chore"
     labels:
       - "dependencies"
-      - "ci"
+      - "ci/cd"
