@@ -3,5 +3,6 @@ dist
 build
 .tauri
 target
+coverage
 *.lock
 pnpm-lock.yaml
