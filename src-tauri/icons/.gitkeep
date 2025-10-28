@@ -1,0 +1,2 @@
+# Icons will be generated using Tauri icon command
+# Run: pnpm tauri icon path/to/app-icon.png

@@ -1,0 +1,38 @@
+{
+  "app": {
+    "name": "Kopia UI",
+    "description": "Interfaz de Escritorio Moderna para Copias de Seguridad Kopia"
+  },
+  "navigation": {
+    "repository": "Repositorio",
+    "snapshots": "Instantáneas",
+    "policies": "Políticas",
+    "tasks": "Tareas",
+    "preferences": "Preferencias"
+  },
+  "common": {
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "create": "Crear",
+    "connect": "Conectar",
+    "disconnect": "Desconectar"
+  },
+  "repository": {
+    "status": "Estado del Repositorio",
+    "connected": "Conectado",
+    "disconnected": "Desconectado",
+    "connectToRepository": "Conectar al Repositorio",
+    "createRepository": "Crear Repositorio"
+  },
+  "warnings": {
+    "passwordLoss": "NO hay forma de recuperar la contraseña del repositorio. ¡Guárdela de forma segura!",
+    "maintenanceDuration": "El mantenimiento del repositorio puede tardar varias horas para repositorios grandes",
+    "repositoryDeletion": "Eliminar un repositorio es permanente e irrecuperable",
+    "snapshotDeletion": "Las instantáneas eliminadas no se pueden recuperar"
+  }
+}
