@@ -29,6 +29,9 @@ dist-ssr
 src-tauri/target
 src-tauri/gen
 
+# Rust analyzer (IDE)
+/target
+
 # Testing
 coverage
 playwright-report
