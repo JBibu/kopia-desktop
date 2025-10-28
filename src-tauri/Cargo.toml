@@ -2,7 +2,7 @@
 name = "kopia-ui"
 version = "0.1.0"
 description = "Modern Desktop UI for Kopia Backup"
-authors = ["you"]
+authors = ["Kopia UI Contributors"]
 edition = "2021"
 
 [lib]

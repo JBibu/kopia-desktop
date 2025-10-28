@@ -98,7 +98,6 @@ kopia-ui/
 ## Documentation
 
 - **[CLAUDE.md](CLAUDE.md)** - Architecture and development guidelines
-- **[CLEANUP_SUMMARY.md](CLEANUP_SUMMARY.md)** - Recent codebase cleanup details
 
 ---
 
