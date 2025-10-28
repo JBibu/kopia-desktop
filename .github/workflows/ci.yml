@@ -71,6 +71,7 @@ jobs:
 
   build-frontend:
     name: Build Frontend
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -93,6 +94,7 @@ jobs:
 
   build-tauri:
     name: Build Tauri (${{ matrix.platform }})
+    if: github.ref == 'refs/heads/main'
     needs: [lint-and-typecheck, test]
     strategy:
       fail-fast: false
