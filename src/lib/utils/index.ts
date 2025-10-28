@@ -3,3 +3,4 @@
  */
 
 export { cn } from './cn';
+export { getErrorMessage, isErrorType } from './errors';

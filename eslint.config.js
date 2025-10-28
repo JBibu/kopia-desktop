@@ -32,5 +32,12 @@ export default tseslint.config(
         },
       ],
     },
+  },
+  {
+    // Disable react-refresh warnings for UI component files (shadcn/ui pattern)
+    files: ['src/components/ui/**/*.{ts,tsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
   }
 );
