@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { AppSidebar } from './AppSidebar';
+import { Titlebar } from './Titlebar';
 import { Toaster } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -28,9 +29,12 @@ export function AppLayout() {
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
+      {/* Custom Titlebar */}
+      <Titlebar />
+
       {/* Desktop Sidebar */}
       {!isMobile && (
-        <aside className="hidden md:flex md:w-64 md:flex-col border-r bg-card">
+        <aside className="hidden md:flex md:w-56 md:flex-col border-r bg-card pt-8">
           <AppSidebar />
         </aside>
       )}
@@ -38,16 +42,16 @@ export function AppLayout() {
       {/* Mobile Sidebar */}
       {isMobile && (
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-          <SheetContent side="left" className="w-64 p-0">
+          <SheetContent side="left" className="w-56 p-0">
             <AppSidebar onNavigate={() => setSidebarOpen(false)} />
           </SheetContent>
         </Sheet>
       )}
 
       {/* Main Content Area */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden pt-8">
         {/* Header */}
-        <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4">
+        <header className="sticky top-2 z-10 flex h-12 items-center gap-4 border-b bg-background px-4">
           {isMobile && (
             <Button
               variant="ghost"

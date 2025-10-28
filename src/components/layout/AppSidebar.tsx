@@ -3,7 +3,7 @@
  */
 
 import { Link, useLocation } from 'react-router-dom';
-import { Database, FolderArchive, Settings, ListTodo, Home, Shield } from 'lucide-react';
+import { Database, FolderArchive, Settings, ListTodo, Home } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
@@ -30,22 +30,9 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
 
   return (
     <div className="flex h-full w-full flex-col bg-card">
-      {/* Header */}
-      <div className="border-b p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Shield className="h-6 w-6" />
-          </div>
-          <div className="flex flex-col">
-            <h1 className="text-lg font-bold leading-tight">Kopia UI</h1>
-            <p className="text-xs text-muted-foreground">Backup Manager</p>
-          </div>
-        </div>
-      </div>
-
       {/* Navigation */}
-      <nav className="flex-1 overflow-auto p-3">
-        <ul className="space-y-1">
+      <nav className="flex-1 overflow-auto px-2 py-3">
+        <ul className="space-y-0.5">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
@@ -56,15 +43,15 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
                   to={item.path}
                   onClick={onNavigate}
                   className={cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                    'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-all',
                     isActive
                       ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                   )}
                   title={item.description}
                 >
-                  <Icon className="h-5 w-5 shrink-0" />
-                  <span>{item.name}</span>
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{item.name}</span>
                 </Link>
               </li>
             );
@@ -73,9 +60,9 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="border-t p-4">
-        <p className="text-xs text-muted-foreground">
-          Version {import.meta.env.VITE_APP_VERSION || '0.1.0'}
+      <div className="border-t px-3 py-2.5">
+        <p className="text-xs text-muted-foreground/70">
+          v{import.meta.env.VITE_APP_VERSION || '0.1.0'}
         </p>
       </div>
     </div>
