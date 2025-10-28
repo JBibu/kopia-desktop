@@ -4,3 +4,4 @@
 
 export { useKopiaServer } from './useKopiaServer';
 export { useRepository } from './useRepository';
+export { useIsMobile } from './useIsMobile';

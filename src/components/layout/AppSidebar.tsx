@@ -1,21 +1,10 @@
 /**
- * Application sidebar using shadcn/ui sidebar component
+ * Application sidebar - simplified version
  */
 
 import { Link, useLocation } from 'react-router-dom';
 import { Database, FolderArchive, Settings, ListTodo, Home, Shield } from 'lucide-react';
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from '@/components/ui/sidebar';
-import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 interface NavItem {
   name: string;
@@ -32,13 +21,18 @@ const navItems: NavItem[] = [
   { name: 'Preferences', path: '/preferences', icon: Settings, description: 'App settings' },
 ];
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  onNavigate?: () => void;
+}
+
+export function AppSidebar({ onNavigate }: AppSidebarProps) {
   const location = useLocation();
 
   return (
-    <Sidebar>
-      <SidebarHeader className="border-b">
-        <div className="flex items-center gap-3 px-4 py-3">
+    <div className="flex h-full w-full flex-col bg-card">
+      {/* Header */}
+      <div className="border-b p-4">
+        <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Shield className="h-6 w-6" />
           </div>
@@ -47,42 +41,43 @@ export function AppSidebar() {
             <p className="text-xs text-muted-foreground">Backup Manager</p>
           </div>
         </div>
-      </SidebarHeader>
+      </div>
 
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent className="px-2 py-2">
-            <SidebarMenu>
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = location.pathname === item.path;
+      {/* Navigation */}
+      <nav className="flex-1 overflow-auto p-3">
+        <ul className="space-y-1">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.path;
 
-                return (
-                  <SidebarMenuItem key={item.path}>
-                    <SidebarMenuButton asChild isActive={isActive} tooltip={item.description}>
-                      <Link to={item.path} className="gap-3">
-                        <Icon className="h-5 w-5" />
-                        <span className="font-medium">{item.name}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
+            return (
+              <li key={item.path}>
+                <Link
+                  to={item.path}
+                  onClick={onNavigate}
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                    isActive
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                  title={item.description}
+                >
+                  <Icon className="h-5 w-5 shrink-0" />
+                  <span>{item.name}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
 
-      <SidebarFooter className="border-t">
-        <div className="px-4 py-3">
-          <Separator className="mb-3" />
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">
-              Version {import.meta.env.VITE_APP_VERSION || '0.1.0'}
-            </p>
-          </div>
-        </div>
-      </SidebarFooter>
-    </Sidebar>
+      {/* Footer */}
+      <div className="border-t p-4">
+        <p className="text-xs text-muted-foreground">
+          Version {import.meta.env.VITE_APP_VERSION || '0.1.0'}
+        </p>
+      </div>
+    </div>
   );
 }

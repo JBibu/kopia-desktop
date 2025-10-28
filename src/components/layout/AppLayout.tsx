@@ -2,11 +2,14 @@
  * Main app layout with sidebar and content area
  */
 
+import { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { AppSidebar } from './AppSidebar';
 import { Toaster } from '@/components/ui/sonner';
-import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { Home, Database, FolderArchive, ListTodo, Settings } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Home, Database, FolderArchive, ListTodo, Settings, Menu } from 'lucide-react';
+import { useIsMobile } from '@/hooks';
 
 const routeNames: Record<string, { name: string; icon: React.ElementType }> = {
   '/': { name: 'Overview', icon: Home },
@@ -20,32 +23,57 @@ export function AppLayout() {
   const location = useLocation();
   const currentRoute = routeNames[location.pathname] || { name: 'Kopia UI', icon: Home };
   const Icon = currentRoute.icon;
+  const isMobile = useIsMobile();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <SidebarProvider>
-      <div className="flex h-screen w-full overflow-hidden bg-background">
-        <AppSidebar />
-        <SidebarInset>
-          <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="flex flex-1 items-center gap-2 px-4">
-              <SidebarTrigger className="-ml-1" />
-              <div className="h-4 w-px bg-border" />
-              <div className="flex items-center gap-2 text-sm">
-                <Icon className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium">{currentRoute.name}</span>
-              </div>
-            </div>
-          </header>
-          <main className="flex-1 overflow-auto">
-            <div className="container mx-auto p-6 md:p-8 max-w-7xl">
-              <Outlet />
-            </div>
-          </main>
-        </SidebarInset>
+    <div className="flex h-screen w-full overflow-hidden bg-background">
+      {/* Desktop Sidebar */}
+      {!isMobile && (
+        <aside className="hidden md:flex md:w-64 md:flex-col border-r bg-card">
+          <AppSidebar />
+        </aside>
+      )}
+
+      {/* Mobile Sidebar */}
+      {isMobile && (
+        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+          <SheetContent side="left" className="w-64 p-0">
+            <AppSidebar onNavigate={() => setSidebarOpen(false)} />
+          </SheetContent>
+        </Sheet>
+      )}
+
+      {/* Main Content Area */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Header */}
+        <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4">
+          {isMobile && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden"
+              onClick={() => setSidebarOpen(true)}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          )}
+          <div className="flex items-center gap-2">
+            <Icon className="h-5 w-5 text-primary" />
+            <h1 className="text-lg font-semibold">{currentRoute.name}</h1>
+          </div>
+        </header>
+
+        {/* Main Content */}
+        <main className="flex-1 overflow-auto">
+          <div className="container mx-auto p-4 sm:p-6 md:p-8 max-w-7xl">
+            <Outlet />
+          </div>
+        </main>
       </div>
 
       {/* Toast notifications */}
-      <Toaster />
-    </SidebarProvider>
+      <Toaster richColors closeButton position="bottom-right" />
+    </div>
   );
 }

@@ -10,6 +10,7 @@ import {
   type KopiaServerInfo,
   type KopiaServerStatus,
 } from '@/lib/kopia/client';
+import { getErrorMessage } from '@/lib/utils';
 
 interface UseKopiaServerReturn {
   serverStatus: KopiaServerStatus | null;
@@ -31,7 +32,7 @@ export function useKopiaServer(): UseKopiaServerReturn {
       const status = await getKopiaServerStatus();
       setServerStatus(status);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(getErrorMessage(err));
       setServerStatus({ running: false });
     }
   }, []);
@@ -44,8 +45,7 @@ export function useKopiaServer(): UseKopiaServerReturn {
       await refreshStatus();
       return info;
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setError(message);
+      setError(getErrorMessage(err));
       return null;
     } finally {
       setIsLoading(false);
@@ -59,8 +59,7 @@ export function useKopiaServer(): UseKopiaServerReturn {
       await stopKopiaServer();
       await refreshStatus();
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setError(message);
+      setError(getErrorMessage(err));
     } finally {
       setIsLoading(false);
     }

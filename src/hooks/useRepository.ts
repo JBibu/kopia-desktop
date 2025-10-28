@@ -10,6 +10,7 @@ import {
   type RepositoryStatus,
   type RepositoryConnectRequest,
 } from '@/lib/kopia/client';
+import { getErrorMessage } from '@/lib/utils';
 
 interface UseRepositoryReturn {
   status: RepositoryStatus | null;
@@ -32,7 +33,7 @@ export function useRepository(): UseRepositoryReturn {
       const repoStatus = await getRepositoryStatus();
       setStatus(repoStatus);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      const message = getErrorMessage(err);
       // Don't set error for "not connected" - that's a valid state
       if (!message.includes('not running') && !message.includes('not connected')) {
         setError(message);
@@ -55,8 +56,7 @@ export function useRepository(): UseRepositoryReturn {
       setStatus(repoStatus);
       return repoStatus.connected;
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setError(message);
+      setError(getErrorMessage(err));
       return false;
     } finally {
       setIsLoading(false);
@@ -70,8 +70,7 @@ export function useRepository(): UseRepositoryReturn {
       await disconnectRepository();
       await refreshStatus();
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setError(message);
+      setError(getErrorMessage(err));
     } finally {
       setIsLoading(false);
     }

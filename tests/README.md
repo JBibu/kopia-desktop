@@ -9,14 +9,11 @@ tests/
 ├── setup.ts                      # Vitest global setup (React Testing Library)
 ├── unit/                         # Unit tests (fast, isolated)
 │   └── lib/
-│       ├── kopia/
-│       │   └── client.test.ts    # API client tests
-│       └── validations/
-│           ├── policy.test.ts    # Policy validation tests
-│           └── repository.test.ts # Repository validation tests
+│       └── kopia/
+│           └── client.test.ts    # API client tests
 │
 ├── integration/                  # Integration tests (multiple units)
-│   └── (to be added)
+│   └── (to be added in Phase 2)
 │
 └── e2e/                          # End-to-end tests (Playwright)
     └── example.spec.ts           # Example E2E test
