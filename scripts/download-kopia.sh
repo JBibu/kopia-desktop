@@ -6,13 +6,12 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIN_DIR="$SCRIPT_DIR/../bin"
 
-echo "🔍 Fetching latest Kopia release info..."
+echo "🔍 Using pinned Kopia version..."
 
-# Get latest release info from GitHub API
-LATEST_RELEASE=$(curl -s https://api.github.com/repos/kopia/kopia/releases/latest)
-VERSION=$(echo "$LATEST_RELEASE" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+# Hardcoded version (pinned for stability)
+VERSION="v0.21.1"
 
-echo "📦 Latest Kopia version: $VERSION"
+echo "📦 Kopia version: $VERSION"
 echo ""
 
 # Create bin directory if it doesn't exist
