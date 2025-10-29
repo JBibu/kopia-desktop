@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { useThemeStore } from './stores/theme';
 import { AppLayout } from './components/layout/AppLayout';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { Overview, Repository, Snapshots, Policies, Preferences } from './pages';
+import { Overview, Repository, Snapshots, Policies, Tasks, Preferences } from './pages';
 import './styles/globals.css';
 
 function App(): React.JSX.Element {
@@ -32,6 +32,7 @@ function App(): React.JSX.Element {
             <Route path="repository" element={<Repository />} />
             <Route path="snapshots" element={<Snapshots />} />
             <Route path="policies" element={<Policies />} />
+            <Route path="tasks" element={<Tasks />} />
             <Route path="preferences" element={<Preferences />} />
           </Route>
         </Routes>

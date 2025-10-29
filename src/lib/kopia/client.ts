@@ -463,9 +463,8 @@ export function connectWebSocket(
 
       ws.onmessage = (event) => {
         try {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-          const parsed = JSON.parse(event.data as string) as WebSocketEvent;
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+          const parsed = JSON.parse(event.data as string) as import('./types').WebSocketEvent;
+
           onEvent(parsed);
         } catch (err) {
           console.error('Failed to parse WebSocket message:', err);
