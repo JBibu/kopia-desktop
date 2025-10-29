@@ -52,12 +52,29 @@ pub fn get_default_config_dir() -> Result<String, String> {
 // ============================================================================
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RepositoryStatus {
     pub connected: bool,
     pub config_file: Option<String>,
-    pub storage: Option<String>,
+    pub format_version: Option<String>,
     pub hash: Option<String>,
     pub encryption: Option<String>,
+    pub ecc: Option<String>,
+    pub ecc_overhead_percent: Option<i32>,
+    pub splitter: Option<String>,
+    pub max_pack_size: Option<i32>,
+    pub storage: Option<String>,
+    #[serde(rename = "apiServerURL")]
+    pub api_server_url: Option<String>,
+    pub supports_content_compression: Option<bool>,
+    // ClientOptions fields (embedded in Go via struct embedding)
+    pub description: Option<String>,
+    pub username: Option<String>,
+    pub hostname: Option<String>,
+    pub readonly: Option<bool>,
+    // Repository initialization task ID
+    #[serde(rename = "initTaskID")]
+    pub init_task_id: Option<String>,
 }
 
 /// Get repository status
@@ -93,10 +110,12 @@ pub struct StorageConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RepositoryConnectRequest {
     pub storage: StorageConfig,
     pub password: String,
     pub token: Option<String>,
+    pub client_options: Option<crate::types::ClientOptions>,
 }
 
 /// Connect to an existing repository
@@ -184,6 +203,10 @@ pub async fn repository_create(
 }
 
 /// Check if repository exists
+///
+/// The Kopia API returns:
+/// - Success (200) with empty object `{}` if repository exists
+/// - Error with `{"code": "NOT_INITIALIZED", "error": "..."}` if repository doesn't exist
 #[tauri::command]
 pub async fn repository_exists(
     server: State<'_, KopiaServerState>,
@@ -223,17 +246,8 @@ pub async fn repository_exists(
         return Err(format!("Failed to check repository: {}", error_text));
     }
 
-    #[derive(Deserialize)]
-    struct ExistsResponse {
-        exists: bool,
-    }
-
-    let result: ExistsResponse = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
-
-    Ok(result.exists)
+    // Success response is just an empty object {}, which means repository exists
+    Ok(true)
 }
 
 /// Get available algorithms
@@ -327,10 +341,10 @@ pub async fn snapshot_create(
         "createSnapshot": true
     });
 
-    if let Some(user) = user_name {
+    if let Some(ref user) = user_name {
         payload["userName"] = serde_json::json!(user);
     }
-    if let Some(h) = host {
+    if let Some(ref h) = host {
         payload["host"] = serde_json::json!(h);
     }
 
@@ -349,10 +363,11 @@ pub async fn snapshot_create(
         return Err(format!("Failed to create snapshot: {}", error_text));
     }
 
+    // The API returns {"snapshotted": bool} indicating if snapshot was started
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct CreateResponse {
-        source: crate::types::SourceInfo,
+        snapshotted: bool,
     }
 
     let result: CreateResponse = response
@@ -360,7 +375,16 @@ pub async fn snapshot_create(
         .await
         .map_err(|e| format!("Failed to parse response: {}", e))?;
 
-    Ok(result.source)
+    if !result.snapshotted {
+        return Err("Snapshot was not started".to_string());
+    }
+
+    // Return the source info that was used for the snapshot
+    Ok(crate::types::SourceInfo {
+        user_name: user_name.unwrap_or_else(|| std::env::var("USER").unwrap_or_default()),
+        host: host.unwrap_or_else(|| hostname::get().ok().and_then(|h| h.into_string().ok()).unwrap_or_default()),
+        path,
+    })
 }
 
 /// Cancel a snapshot
@@ -468,9 +492,10 @@ pub async fn snapshot_delete(
 ) -> Result<i64, String> {
     let (server_url, client) = get_server_client(&server)?;
 
+    // The API expects "snapshotManifestIds" (not "manifestIDs")
     let response = client
         .post(format!("{}/api/v1/snapshots/delete", server_url))
-        .json(&serde_json::json!({ "manifestIDs": manifest_ids }))
+        .json(&serde_json::json!({ "snapshotManifestIds": manifest_ids }))
         .send()
         .await
         .map_err(|e| format!("Failed to delete snapshots: {}", e))?;

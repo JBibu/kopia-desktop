@@ -176,7 +176,7 @@ export interface SnapshotsResponse {
  * Snapshot edit request
  */
 export interface SnapshotEditRequest {
-  manifestIDs: string[];
+  snapshots: string[]; // API expects "snapshots", not "manifestIDs"
   description?: string;
   addPins?: string[];
   removePins?: string[];
@@ -361,8 +361,11 @@ export interface PoliciesResponse {
  * Resolved policy response
  */
 export interface ResolvedPolicyResponse {
-  effectivePolicy: PolicyDefinition;
+  effective: PolicyDefinition;
+  definition?: PolicyDefinition;
+  defined?: PolicyDefinition;
   upcomingSnapshotTimes: string[];
+  schedulingError?: string;
 }
 
 // ============================================================================

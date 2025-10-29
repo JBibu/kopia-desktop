@@ -107,13 +107,6 @@ export function RepositoryConnectForm({
         // Repository exists, proceed to password step
         setStep('password');
       } else {
-        // Should not happen - repositoryExists should throw NOT_INITIALIZED
-        setError('Repository not found at this location');
-      }
-    } catch (err) {
-      const message = getErrorMessage(err);
-
-      if (message.includes('NOT_INITIALIZED')) {
         // Repository doesn't exist - suggest creating one
         if (onNeedsCreate) {
           toast.info('No repository found at this location. You need to create one first.');
@@ -123,9 +116,10 @@ export function RepositoryConnectForm({
             'No repository exists at this location. Please create one first or choose a different path.'
           );
         }
-      } else {
-        setError(message);
       }
+    } catch (err) {
+      const message = getErrorMessage(err);
+      setError(message);
     } finally {
       setIsVerifying(false);
     }

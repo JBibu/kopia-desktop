@@ -44,6 +44,7 @@ pub struct ClientOptions {
     pub description: Option<String>,
     pub username: Option<String>,
     pub hostname: Option<String>,
+    pub readonly: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -171,7 +172,7 @@ pub struct SnapshotSummary {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotEditRequest {
-    pub manifest_ids: Vec<String>,
+    pub snapshots: Vec<String>,  // API expects "snapshots", not "manifest_ids"
     pub description: Option<String>,
     pub add_pins: Option<Vec<String>>,
     pub remove_pins: Option<Vec<String>>,
@@ -403,8 +404,11 @@ pub struct LoggingEntriesPolicy {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolvedPolicyResponse {
-    pub effective_policy: PolicyDefinition,
+    pub effective: PolicyDefinition,
+    pub definition: Option<PolicyDefinition>,
+    pub defined: Option<PolicyDefinition>,
     pub upcoming_snapshot_times: Vec<String>,
+    pub scheduling_error: Option<String>,
 }
 
 // ============================================================================

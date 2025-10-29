@@ -122,15 +122,7 @@ export function RepositoryCreateForm({ onSuccess, showCard = true }: RepositoryC
       setStep('password');
     } catch (err) {
       const message = getErrorMessage(err);
-
-      // If the path doesn't exist, offer to create it (for filesystem storage)
-      if (storageType === 'filesystem' && message.includes('no such file or directory')) {
-        setError(
-          `Directory doesn't exist: ${path}. Please create it first or choose an existing directory.`
-        );
-      } else {
-        setError(message);
-      }
+      setError(message);
     } finally {
       setIsLoading(false);
     }
