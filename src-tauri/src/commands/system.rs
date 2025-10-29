@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use tauri::AppHandle;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SystemInfo {
@@ -30,4 +31,44 @@ pub async fn get_current_user() -> Result<(String, String), String> {
         .to_string();
 
     Ok((username, hostname))
+}
+
+/// Open folder picker dialog
+#[tauri::command]
+pub async fn select_folder(app: AppHandle, default_path: Option<String>) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let mut dialog = app.dialog().file();
+
+    // Set initial directory if provided
+    if let Some(path) = default_path {
+        dialog = dialog.set_directory(path);
+    }
+
+    // Pick folder and convert to string
+    let result = dialog
+        .blocking_pick_folder()
+        .map(|path| path.to_string());
+
+    Ok(result)
+}
+
+/// Open file picker dialog
+#[tauri::command]
+pub async fn select_file(app: AppHandle, default_path: Option<String>) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let mut dialog = app.dialog().file();
+
+    // Set initial directory if provided
+    if let Some(path) = default_path {
+        dialog = dialog.set_directory(path);
+    }
+
+    // Pick file and convert to string
+    let result = dialog
+        .blocking_pick_file()
+        .map(|path| path.to_string());
+
+    Ok(result)
 }

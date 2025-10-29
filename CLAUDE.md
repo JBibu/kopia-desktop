@@ -2,10 +2,25 @@
 
 Guidance for Claude Code (claude.ai/code) when working with this repository.
 
-## Project Status: NOT YET INITIALIZED ⚠️
+## Project Status: ACTIVE DEVELOPMENT 🚧
 
-**Phase:** Pre-development - Project not started yet  
-**Philosophy:** Perfect the foundation before features. Modern stack, clean code, type safety first.
+**Phase:** Core features implemented, repository setup wizard in progress
+**Philosophy:** Modern stack, type-safe, following official KopiaUI patterns.
+
+**Completed:**
+
+- ✅ Tauri 2 + React 19 + TypeScript setup
+- ✅ Kopia server lifecycle management
+- ✅ Repository connection/creation (basic)
+- ✅ Snapshots, Policies, Tasks pages
+- ✅ Error handling system
+- ✅ Custom hooks for data management
+- ✅ File picker integration (native dialogs)
+
+**In Progress:**
+
+- 🚧 Repository setup wizard refactor (matching official KopiaUI)
+- 🚧 Storage provider-specific forms (S3, B2, Azure, etc.)
 
 ## Project Overview
 
@@ -461,26 +476,50 @@ pnpm package:all
 kopia-ui/
 ├── src/                          # React frontend
 │   ├── components/
-│   │   ├── ui/                   # shadcn/ui components
+│   │   ├── ui/                   # shadcn/ui base components (Button, Input, etc.)
+│   │   ├── layout/               # App layout components (Sidebar, Titlebar)
 │   │   └── kopia/                # Kopia-specific components
+│   │       ├── RepositoryCreateForm.tsx
+│   │       ├── RepositoryConnectForm.tsx
+│   │       └── (upcoming) setup/ # New wizard-based setup system
 │   ├── lib/
-│   │   ├── kopia/                # Kopia API client
-│   │   ├── utils/                # Utilities
-│   │   └── validations/          # Zod schemas
+│   │   ├── kopia/                # Kopia API client & types
+│   │   │   ├── client.ts         # All Tauri command wrappers
+│   │   │   ├── types.ts          # TypeScript types matching Kopia API
+│   │   │   ├── errors.ts         # Comprehensive error handling
+│   │   │   └── polling.ts        # Polling utilities
+│   │   └── utils/                # Shared utilities
+│   │       ├── cn.ts             # Tailwind class merging
+│   │       └── index.ts          # Re-exports (including error handling)
 │   ├── pages/                    # Route pages
-│   ├── hooks/                    # Custom React hooks
-│   ├── stores/                   # Zustand stores
-│   ├── i18n/                     # Translations (EN/ES)
-│   └── App.tsx                   # Root component
+│   │   ├── Overview.tsx          # Dashboard with status
+│   │   ├── Repository.tsx        # Repository management
+│   │   ├── Snapshots.tsx         # Snapshot list & management
+│   │   ├── Policies.tsx          # Backup policies
+│   │   ├── Tasks.tsx             # Task monitoring
+│   │   ├── Preferences.tsx       # Settings
+│   │   └── Setup.tsx             # Initial repository setup
+│   ├── hooks/                    # Custom React hooks (data fetching, polling)
+│   │   ├── useKopiaServer.ts     # Server lifecycle management
+│   │   ├── useRepository.ts      # Repository status
+│   │   ├── useSnapshots.ts       # Snapshot data with polling
+│   │   ├── usePolicies.ts        # Policy data
+│   │   ├── useTasks.ts           # Task data with polling
+│   │   └── usePolling.ts         # Generic polling hook
+│   ├── i18n/                     # (Planned) Translations (EN/ES)
+│   └── App.tsx                   # Root component with router
 │
 ├── src-tauri/                    # Rust backend
 │   ├── src/
 │   │   ├── commands/             # Tauri command handlers
-│   │   │   ├── kopia.rs          # Kopia operations
-│   │   │   └── system.rs         # System operations
-│   │   ├── kopia_server.rs       # Kopia server management
-│   │   └── main.rs               # Tauri app entry
-│   ├── Cargo.toml                # Rust dependencies
+│   │   │   ├── mod.rs            # Module exports
+│   │   │   ├── kopia.rs          # Kopia API operations (90+ commands)
+│   │   │   └── system.rs         # System operations (file pickers, user info)
+│   │   ├── kopia_server.rs       # Kopia server lifecycle & HTTP client
+│   │   ├── types.rs              # Rust type definitions matching Kopia API
+│   │   ├── lib.rs                # Tauri app setup & plugin registration
+│   │   └── main.rs               # Entry point
+│   ├── Cargo.toml                # Rust dependencies (includes tauri-plugin-dialog)
 │   └── tauri.conf.json           # Tauri configuration
 │
 ├── tests/
@@ -500,6 +539,129 @@ kopia-ui/
 ├── tailwind.config.js            # Tailwind config
 └── README.md                     # User-facing docs
 ```
+
+---
+
+## Code Organization & Best Practices
+
+### Import Conventions
+
+```typescript
+// ✅ GOOD: Use path aliases
+import { Button } from '@/components/ui/button';
+import { getErrorMessage } from '@/lib/utils';
+import { listSnapshots } from '@/lib/kopia/client';
+
+// ❌ AVOID: Relative paths
+import { Button } from '../../../components/ui/button';
+```
+
+### Error Handling
+
+**Always use the centralized error handling:**
+
+```typescript
+import { getErrorMessage, parseKopiaError, KopiaError } from '@/lib/utils';
+
+try {
+  await someKopiaOperation();
+} catch (err) {
+  // Simple: just get the message
+  const message = getErrorMessage(err);
+  toast.error(message);
+
+  // Advanced: check error type
+  const kopiaError = parseKopiaError(err);
+  if (kopiaError.isConnectionError()) {
+    navigate('/setup');
+  }
+}
+```
+
+### Custom Hooks Pattern
+
+All data-fetching hooks follow this pattern:
+
+```typescript
+export function useSnapshots() {
+  const [data, setData] = useState<Snapshot[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Polling with usePolling hook
+  const { lastUpdate } = usePolling(async () => {
+    try {
+      const result = await listSnapshots(...);
+      setData(result.snapshots);
+      setError(null);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setIsLoading(false);
+    }
+  }, { interval: 30000, enabled: true });
+
+  return { data, isLoading, error, refresh };
+}
+```
+
+### Component Structure
+
+```typescript
+// 1. Imports (grouped: React, UI, lib, types)
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { listSnapshots } from '@/lib/kopia/client';
+import type { Snapshot } from '@/lib/kopia/types';
+
+// 2. Types/Interfaces
+interface SnapshotListProps {
+  filter?: string;
+  onSelect?: (snapshot: Snapshot) => void;
+}
+
+// 3. Component
+export function SnapshotList({ filter, onSelect }: SnapshotListProps) {
+  // a. Hooks
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+
+  // b. Effects
+  useEffect(() => { /* ... */ }, []);
+
+  // c. Handlers
+  const handleClick = (snapshot: Snapshot) => {
+    onSelect?.(snapshot);
+  };
+
+  // d. Render
+  return (
+    <div>
+      {/* JSX */}
+    </div>
+  );
+}
+```
+
+### Type Safety
+
+```typescript
+// ✅ GOOD: Explicit types
+const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+
+// ✅ GOOD: Type imports
+import type { StorageConfig } from '@/lib/kopia/types';
+
+// ❌ AVOID: Any types
+const [data, setData] = useState<any>([]);
+```
+
+### File Naming
+
+- **Components**: PascalCase (`SnapshotList.tsx`)
+- **Hooks**: camelCase with `use` prefix (`useSnapshots.ts`)
+- **Utils**: camelCase (`getErrorMessage.ts`)
+- **Types**: camelCase (`types.ts`)
+- **Pages**: PascalCase (`Snapshots.tsx`)
 
 ---
 

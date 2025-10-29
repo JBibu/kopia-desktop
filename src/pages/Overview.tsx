@@ -2,7 +2,7 @@
  * Overview/Dashboard page
  */
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useKopiaServer, useRepository } from '@/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,13 +23,15 @@ export function Overview() {
   const navigate = useNavigate();
   const { serverStatus, isLoading: serverLoading, startServer } = useKopiaServer();
   const { status: repoStatus, isLoading: repoLoading } = useRepository();
+  const hasTriedToStart = useRef(false);
 
   const isServerRunning = serverStatus?.running ?? false;
   const isRepoConnected = repoStatus?.connected ?? false;
 
-  // Auto-start server if not running
+  // Auto-start server if not running (only try once)
   useEffect(() => {
-    if (serverStatus && !serverStatus.running && !serverLoading) {
+    if (!hasTriedToStart.current && serverStatus && !serverStatus.running && !serverLoading) {
+      hasTriedToStart.current = true;
       void startServer();
     }
   }, [serverStatus, serverLoading, startServer]);

@@ -1,10 +1,31 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useThemeStore } from './stores/theme';
 import { AppLayout } from './components/layout/AppLayout';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { Overview, Repository, Snapshots, Policies, Preferences } from './pages';
+import { Overview, Repository, Snapshots, Policies, Tasks, Preferences, Setup } from './pages';
+import { useRepository } from './hooks';
 import './styles/globals.css';
+
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+}
+
+function ProtectedRoute({ children }: ProtectedRouteProps) {
+  const { isConnected, isLoading } = useRepository();
+
+  // While checking connection status, show nothing (AppLayout will handle loading state)
+  if (isLoading) {
+    return null;
+  }
+
+  // If not connected, redirect to setup
+  if (!isConnected) {
+    return <Navigate to="/setup" replace />;
+  }
+
+  return <>{children}</>;
+}
 
 function App(): React.JSX.Element {
   const theme = useThemeStore((state) => state.theme);
@@ -27,11 +48,44 @@ function App(): React.JSX.Element {
     <ErrorBoundary>
       <BrowserRouter>
         <Routes>
+          {/* Setup route (standalone, no layout) */}
+          <Route path="/setup" element={<Setup />} />
+
+          {/* Main app routes (with layout) */}
           <Route path="/" element={<AppLayout />}>
-            <Route index element={<Overview />} />
+            <Route
+              index
+              element={
+                <ProtectedRoute>
+                  <Overview />
+                </ProtectedRoute>
+              }
+            />
             <Route path="repository" element={<Repository />} />
-            <Route path="snapshots" element={<Snapshots />} />
-            <Route path="policies" element={<Policies />} />
+            <Route
+              path="snapshots"
+              element={
+                <ProtectedRoute>
+                  <Snapshots />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="policies"
+              element={
+                <ProtectedRoute>
+                  <Policies />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="tasks"
+              element={
+                <ProtectedRoute>
+                  <Tasks />
+                </ProtectedRoute>
+              }
+            />
             <Route path="preferences" element={<Preferences />} />
           </Route>
         </Routes>

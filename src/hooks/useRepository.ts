@@ -40,10 +40,10 @@ export function useRepository(): UseRepositoryReturn {
       }
       setStatus({
         connected: false,
-        configFile: null,
-        storage: null,
-        hash: null,
-        encryption: null,
+        configFile: undefined,
+        storage: undefined,
+        hash: undefined,
+        encryption: undefined,
       });
     }
   }, []);

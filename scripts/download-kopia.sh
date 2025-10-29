@@ -5,152 +5,92 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIN_DIR="$SCRIPT_DIR/../bin"
+VERSION="0.21.1"
+BASE_URL="https://github.com/kopia/kopia/releases/download/v${VERSION}"
 
-echo "🔍 Using pinned Kopia version..."
-
-# Hardcoded version (pinned for stability)
-VERSION="v0.21.1"
-
-echo "📦 Kopia version: $VERSION"
+echo "📦 Downloading Kopia v${VERSION} binaries..."
 echo ""
 
-# Create bin directory if it doesn't exist
+# Create bin directory
 mkdir -p "$BIN_DIR"
 
-# Function to download and extract
-download_binary() {
+# Download function - simple and direct
+download() {
     local platform=$1
     local filename=$2
-    local binary_name=$3
-    local url="https://github.com/kopia/kopia/releases/download/$VERSION/$filename"
+    local output=$3
+    local url="${BASE_URL}/${filename}"
 
-    echo "⬇️  Downloading Kopia for $platform..."
-    echo "   URL: $url"
+    echo "⬇️  $platform..."
 
-    cd /tmp
-
-    # Use curl (cross-platform) or fall back to wget
-    if command -v curl &> /dev/null; then
-        HTTP_CODE=$(curl -L -w "%{http_code}" -o "$filename" "$url" 2>&1 | tail -n1)
-        if [ "$HTTP_CODE" != "200" ]; then
-            echo "⚠️  Warning: Binary not available (HTTP $HTTP_CODE)"
-            rm -f "$filename"
-            return 0
-        fi
-    elif command -v wget &> /dev/null; then
-        if ! wget -q "$url"; then
-            echo "⚠️  Warning: Binary not available"
-            rm -f "$filename"
-            return 0
-        fi
-    else
-        echo "❌ Error: Neither curl nor wget found"
-        return 1
-    fi
-
-    if [ -f "$filename" ]; then
-        echo "✓ Downloaded: $filename"
-
+    # Download with curl (silent mode, show errors, follow redirects)
+    if curl -fsSL "$url" -o "/tmp/${filename}"; then
         # Extract based on file type
         if [[ $filename == *.tar.gz ]]; then
-            tar -xzf "$filename"
-            # Find the kopia binary in extracted folder
-            extracted_dir="${filename%.tar.gz}"
-            if [ -f "$extracted_dir/kopia" ]; then
-                cp "$extracted_dir/kopia" "$BIN_DIR/$binary_name"
-                chmod +x "$BIN_DIR/$binary_name"
-            elif [ -f "kopia-$extracted_dir/kopia" ]; then
-                cp "kopia-$extracted_dir/kopia" "$BIN_DIR/$binary_name"
-                chmod +x "$BIN_DIR/$binary_name"
+            tar -xzf "/tmp/${filename}" -C /tmp
+            # The archive contains a directory like "kopia-0.21.1-linux-x64/"
+            local dir="${filename%.tar.gz}"
+            if [ -f "/tmp/${dir}/kopia" ]; then
+                cp "/tmp/${dir}/kopia" "$BIN_DIR/$output"
+                chmod +x "$BIN_DIR/$output"
+                rm -rf "/tmp/${dir}"
             fi
-            rm -rf "$extracted_dir" "kopia-$extracted_dir"
         elif [[ $filename == *.zip ]]; then
-            unzip -q "$filename"
-            extracted_dir="${filename%.zip}"
-            if [ -f "$extracted_dir/kopia.exe" ]; then
-                cp "$extracted_dir/kopia.exe" "$BIN_DIR/$binary_name"
-            elif [ -f "kopia.exe" ]; then
-                cp "kopia.exe" "$BIN_DIR/$binary_name"
+            unzip -q "/tmp/${filename}" -d /tmp
+            # The archive contains a directory like "kopia-0.21.1-windows-x64/"
+            local dir="${filename%.zip}"
+            if [ -f "/tmp/${dir}/kopia.exe" ]; then
+                cp "/tmp/${dir}/kopia.exe" "$BIN_DIR/$output"
+                rm -rf "/tmp/${dir}"
             fi
-            rm -rf "$extracted_dir" kopia.exe
         fi
+        rm -f "/tmp/${filename}"
 
-        rm -f "$filename"
-
-        if [ -f "$BIN_DIR/$binary_name" ]; then
-            echo "✓ Installed: $BIN_DIR/$binary_name"
-            ls -lh "$BIN_DIR/$binary_name"
+        if [ -f "$BIN_DIR/$output" ]; then
+            echo "   ✓ Installed: $output"
         else
-            echo "⚠️  Warning: Binary not found after extraction"
+            echo "   ⚠️  Failed to extract binary"
+            return 1
         fi
     else
-        echo "❌ Failed to download $filename"
+        echo "   ⚠️  Download failed"
         return 1
     fi
-
     echo ""
 }
 
-# Determine which platforms to download
-# If PLATFORM_ONLY is set, only download for current platform (CI optimization)
-# Otherwise download all platforms (local development)
+# Download based on PLATFORM_ONLY env var (CI optimization)
 if [ -n "$PLATFORM_ONLY" ]; then
-    echo "📥 Downloading Kopia binary for current platform only..."
+    echo "📥 Downloading for current platform only"
     echo ""
 
-    # Detect current platform
     OS=$(uname -s)
     ARCH=$(uname -m)
 
     case "$OS" in
         Linux)
-            if [ "$ARCH" = "x86_64" ]; then
-                download_binary "Linux x64" "kopia-${VERSION#v}-linux-x64.tar.gz" "kopia-linux-x64"
-            elif [ "$ARCH" = "aarch64" ]; then
-                download_binary "Linux ARM64" "kopia-${VERSION#v}-linux-arm64.tar.gz" "kopia-linux-arm64"
-            fi
+            [ "$ARCH" = "x86_64" ] && download "Linux x64" "kopia-${VERSION}-linux-x64.tar.gz" "kopia-linux-x64"
+            [ "$ARCH" = "aarch64" ] && download "Linux ARM64" "kopia-${VERSION}-linux-arm64.tar.gz" "kopia-linux-arm64"
             ;;
         Darwin)
-            if [ "$ARCH" = "x86_64" ]; then
-                download_binary "macOS x64" "kopia-${VERSION#v}-macOS-x64.tar.gz" "kopia-darwin-x64"
-            elif [ "$ARCH" = "arm64" ]; then
-                download_binary "macOS ARM64" "kopia-${VERSION#v}-macOS-arm64.tar.gz" "kopia-darwin-arm64"
-            fi
+            [ "$ARCH" = "x86_64" ] && download "macOS x64" "kopia-${VERSION}-macOS-x64.tar.gz" "kopia-darwin-x64"
+            [ "$ARCH" = "arm64" ] && download "macOS ARM64" "kopia-${VERSION}-macOS-arm64.tar.gz" "kopia-darwin-arm64"
             ;;
         MINGW*|MSYS*|CYGWIN*)
-            if [ "$ARCH" = "x86_64" ]; then
-                download_binary "Windows x64" "kopia-${VERSION#v}-windows-x64.zip" "kopia-windows-x64.exe"
-            fi
-            # Note: Windows ARM64 not available in v0.21.1
+            download "Windows x64" "kopia-${VERSION}-windows-x64.zip" "kopia-windows-x64.exe"
             ;;
     esac
 else
-    # Download binaries for all platforms
-    echo "📥 Downloading Kopia binaries for all platforms..."
+    echo "📥 Downloading for all platforms"
     echo ""
 
-    # Linux x64
-    download_binary "Linux x64" "kopia-${VERSION#v}-linux-x64.tar.gz" "kopia-linux-x64"
-
-    # Linux ARM64
-    download_binary "Linux ARM64" "kopia-${VERSION#v}-linux-arm64.tar.gz" "kopia-linux-arm64"
-
-    # macOS x64 (Intel)
-    download_binary "macOS x64" "kopia-${VERSION#v}-macOS-x64.tar.gz" "kopia-darwin-x64"
-
-    # macOS ARM64 (Apple Silicon)
-    download_binary "macOS ARM64" "kopia-${VERSION#v}-macOS-arm64.tar.gz" "kopia-darwin-arm64"
-
-    # Windows x64
-    download_binary "Windows x64" "kopia-${VERSION#v}-windows-x64.zip" "kopia-windows-x64.exe"
-
-    # Note: Windows ARM64 not available in v0.21.1
+    download "Linux x64" "kopia-${VERSION}-linux-x64.tar.gz" "kopia-linux-x64"
+    download "Linux ARM64" "kopia-${VERSION}-linux-arm64.tar.gz" "kopia-linux-arm64"
+    download "macOS x64" "kopia-${VERSION}-macOS-x64.tar.gz" "kopia-darwin-x64"
+    download "macOS ARM64" "kopia-${VERSION}-macOS-arm64.tar.gz" "kopia-darwin-arm64"
+    download "Windows x64" "kopia-${VERSION}-windows-x64.zip" "kopia-windows-x64.exe"
 fi
 
-echo ""
-echo "✅ All Kopia binaries downloaded!"
-echo ""
+echo "✅ Done!"
 echo "📁 Binaries location: $BIN_DIR"
-ls -lh "$BIN_DIR"/kopia-*
 echo ""
-echo "🚀 You can now run: pnpm tauri:dev"

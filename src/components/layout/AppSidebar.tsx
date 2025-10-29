@@ -3,7 +3,7 @@
  */
 
 import { Link, useLocation } from 'react-router-dom';
-import { Database, FolderArchive, Settings, ListTodo, Home } from 'lucide-react';
+import { Database, FolderArchive, Settings, ListTodo, Home, ListChecks } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
@@ -18,6 +18,7 @@ const navItems: NavItem[] = [
   { name: 'Repository', path: '/repository', icon: Database, description: 'Storage connection' },
   { name: 'Snapshots', path: '/snapshots', icon: FolderArchive, description: 'Backup history' },
   { name: 'Policies', path: '/policies', icon: ListTodo, description: 'Backup rules' },
+  { name: 'Tasks', path: '/tasks', icon: ListChecks, description: 'Background tasks' },
   { name: 'Preferences', path: '/preferences', icon: Settings, description: 'App settings' },
 ];
 
