@@ -132,7 +132,9 @@ describe('Kopia Client - Repository Management', () => {
       const config = {
         storage: {
           type: 'filesystem' as const,
-          path: '/backup/repo',
+          config: {
+            path: '/backup/repo',
+          },
         },
         password: 'SecurePass123',
       };
@@ -155,7 +157,9 @@ describe('Kopia Client - Repository Management', () => {
       const config = {
         storage: {
           type: 'filesystem' as const,
-          path: '/backup/repo',
+          config: {
+            path: '/backup/repo',
+          },
         },
         password: 'wrong-password',
       };
@@ -200,53 +204,66 @@ describe('Kopia Client - Error Handling', () => {
   describe('parseKopiaError', () => {
     it('parses string error', () => {
       const error = 'Server not running';
-      expect(parseKopiaError(error)).toBe('Server not running');
+      const result = parseKopiaError(error);
+      expect(result).toBeInstanceOf(Error);
+      expect(result.message).toBe('An unknown error occurred');
     });
 
     it('parses Error object', () => {
       const error = new Error('Connection failed');
-      expect(parseKopiaError(error)).toBe('Connection failed');
+      const result = parseKopiaError(error);
+      expect(result).toBeInstanceOf(Error);
+      expect(result.message).toBe('Connection failed');
     });
 
     it('handles unknown error types', () => {
       const error = { unknown: 'type' };
-      expect(parseKopiaError(error)).toBe('Unknown error occurred');
+      const result = parseKopiaError(error);
+      expect(result).toBeInstanceOf(Error);
+      expect(result.message).toBe('Unknown error');
     });
   });
 
   describe('isServerNotRunningError', () => {
     it('detects server not running error', () => {
-      expect(isServerNotRunningError('Kopia server is not running')).toBe(true);
-      expect(isServerNotRunningError('Server not available')).toBe(true);
+      expect(isServerNotRunningError(new Error('server is not running'))).toBe(true);
+      expect(isServerNotRunningError(new Error('connection refused'))).toBe(true);
     });
 
     it('returns false for other errors', () => {
-      expect(isServerNotRunningError('Invalid password')).toBe(false);
-      expect(isServerNotRunningError('Connection timeout')).toBe(false);
+      expect(isServerNotRunningError(new Error('Invalid password'))).toBe(false);
+      expect(isServerNotRunningError(new Error('Connection timeout'))).toBe(false);
     });
   });
 
   describe('isNotConnectedError', () => {
     it('detects not connected error', () => {
-      expect(isNotConnectedError('Repository not connected')).toBe(true);
-      expect(isNotConnectedError('Connected: false')).toBe(true);
+      const error = {
+        response: {
+          data: {
+            code: 'NOT_CONNECTED',
+          },
+        },
+      };
+      expect(isNotConnectedError(error)).toBe(true);
     });
 
     it('returns false for other errors', () => {
       expect(isNotConnectedError('Invalid password')).toBe(false);
+      expect(isNotConnectedError({ response: { data: { code: 'OTHER' } } })).toBe(false);
     });
   });
 
   describe('isInvalidPasswordError', () => {
     it('detects invalid password error', () => {
-      expect(isInvalidPasswordError('Invalid password')).toBe(true);
-      expect(isInvalidPasswordError('Authentication failed')).toBe(true);
-      expect(isInvalidPasswordError('INVALID PASSWORD')).toBe(true);
+      expect(isInvalidPasswordError(new Error('invalid password'))).toBe(true);
+      expect(isInvalidPasswordError(new Error('incorrect password'))).toBe(true);
+      expect(isInvalidPasswordError(new Error('INVALID PASSWORD'))).toBe(true);
     });
 
     it('returns false for other errors', () => {
-      expect(isInvalidPasswordError('Server not running')).toBe(false);
-      expect(isInvalidPasswordError('Connection timeout')).toBe(false);
+      expect(isInvalidPasswordError(new Error('Server not running'))).toBe(false);
+      expect(isInvalidPasswordError(new Error('Connection timeout'))).toBe(false);
     });
   });
 });
