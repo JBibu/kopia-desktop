@@ -48,23 +48,28 @@ export function Policies() {
   const getTargetString = (p: PolicyResponse): string => {
     const t = p.target;
     if (!t.userName && !t.host && !t.path) return '*/*/*';
+    if (!t.userName && t.host && !t.path) return `@${t.host}/*/*`;
     if (t.userName && t.host && !t.path) return `${t.userName}@${t.host}/*`;
     if (t.userName && t.host && t.path) return `${t.userName}@${t.host}:${t.path}`;
     return 'unknown';
   };
 
-  // Group policies by level
+  // Group policies by level according to Kopia's 4-level hierarchy:
+  // 1. Global (*/*/*): no user, no host, no path
+  // 2. Host (@host/*/*): host only, no user, no path
+  // 3. User (user@host/*): user AND host, no path
+  // 4. Path (user@host/path): user AND host AND path
   const globalPolicies = policies.filter((p) => {
     const t = p.target;
     return !t.userName && !t.host && !t.path;
   });
   const hostPolicies = policies.filter((p) => {
     const t = p.target;
-    return t.userName && t.host && !t.path;
+    return !t.userName && t.host && !t.path;
   });
   const userPolicies = policies.filter((p) => {
     const t = p.target;
-    return t.userName && !t.host && !t.path;
+    return t.userName && t.host && !t.path;
   });
   const pathPolicies = policies.filter((p) => {
     const t = p.target;
@@ -74,9 +79,10 @@ export function Policies() {
   const getPolicyLevel = (p: PolicyResponse): string => {
     const t = p.target;
     if (!t.userName && !t.host && !t.path) return 'global';
-    if (t.userName && t.host && !t.path) return 'host';
+    if (!t.userName && t.host && !t.path) return 'host';
+    if (t.userName && t.host && !t.path) return 'user';
     if (t.userName && t.host && t.path) return 'path';
-    return 'user';
+    return 'unknown';
   };
 
   const getPolicyLevelBadge = (level: string) => {
