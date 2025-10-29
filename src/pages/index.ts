@@ -8,3 +8,4 @@ export { Snapshots } from './Snapshots';
 export { Policies } from './Policies';
 export { Tasks } from './Tasks';
 export { Preferences } from './Preferences';
+export { Setup } from './Setup';

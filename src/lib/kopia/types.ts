@@ -47,7 +47,6 @@ export interface RepositoryStatus {
 export interface RepositoryCreateRequest {
   storage: StorageConfig;
   password: string;
-  description?: string;
   options?: {
     blockFormat?: {
       hash?: string;
@@ -64,6 +63,12 @@ export interface RepositoryCreateRequest {
     retentionPeriod?: string;
     ecc?: string;
     eccOverheadPercent?: number;
+  };
+  clientOptions?: {
+    description?: string;
+    username?: string;
+    hostname?: string;
+    readonly?: boolean;
   };
 }
 
@@ -669,6 +674,12 @@ export interface RepositoryConnectRequest {
   storage: StorageConfig;
   password: string;
   token?: string;
+  clientOptions?: {
+    description?: string;
+    username?: string;
+    hostname?: string;
+    readonly?: boolean;
+  };
 }
 
 // ============================================================================
