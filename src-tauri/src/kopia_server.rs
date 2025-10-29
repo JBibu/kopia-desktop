@@ -9,6 +9,7 @@ pub struct KopiaServerInfo {
     pub port: u16,
     pub password: String,
     pub pid: u32,
+    pub csrf_token: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -84,6 +85,7 @@ impl KopiaServer {
             port,
             password,
             pid,
+            csrf_token: None, // CSRF disabled for embedded server
         };
 
         self.process = Some(child);
@@ -142,6 +144,13 @@ impl KopiaServer {
                 uptime: None,
             }
         }
+    }
+
+    /// Get server info including CSRF token
+    ///
+    /// Used by get_server_client() to retrieve CSRF token for API requests.
+    pub fn info(&self) -> Option<&KopiaServerInfo> {
+        self.info.as_ref()
     }
 
     /// Get the path to the Kopia binary
