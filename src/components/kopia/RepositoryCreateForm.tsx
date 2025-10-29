@@ -107,7 +107,7 @@ export function RepositoryCreateForm({ onSuccess, showCard = true }: RepositoryC
       // Check if repository exists at this location
       const exists = await repositoryExists({
         type: storageType,
-        path,
+        config: { path },
       });
 
       if (exists) {
@@ -122,9 +122,12 @@ export function RepositoryCreateForm({ onSuccess, showCard = true }: RepositoryC
       setStep('password');
     } catch (err) {
       const message = getErrorMessage(err);
-      if (message.includes('NOT_INITIALIZED')) {
-        // This is expected - storage is accessible but not initialized
-        setStep('password');
+
+      // If the path doesn't exist, offer to create it (for filesystem storage)
+      if (storageType === 'filesystem' && message.includes('no such file or directory')) {
+        setError(
+          `Directory doesn't exist: ${path}. Please create it first or choose an existing directory.`
+        );
       } else {
         setError(message);
       }
@@ -158,7 +161,7 @@ export function RepositoryCreateForm({ onSuccess, showCard = true }: RepositoryC
       await createRepository({
         storage: {
           type: storageType,
-          path,
+          config: { path },
         },
         password,
         options: {

@@ -632,42 +632,81 @@ export type StorageType =
   | 'webdav'
   | 'rclone';
 
-export interface StorageConfig {
-  type: StorageType;
+// Storage-type specific configuration objects
+export interface FilesystemStorageConfig {
+  path: string;
+}
 
-  // Filesystem
-  path?: string;
-
-  // S3
-  bucket?: string;
+export interface S3StorageConfig {
+  bucket: string;
   endpoint?: string;
   accessKeyID?: string;
   secretAccessKey?: string;
   sessionToken?: string;
   region?: string;
+  prefix?: string;
+}
 
-  // GCS
+export interface GCSStorageConfig {
+  bucket: string;
   credentialsFile?: string;
+  credentialsJSON?: string;
+  prefix?: string;
+}
 
-  // Azure
-  container?: string;
-  storageAccount?: string;
+export interface AzureStorageConfig {
+  container: string;
+  storageAccount: string;
   storageKey?: string;
+  storageDomain?: string;
+  prefix?: string;
+}
 
-  // B2
-  keyID?: string;
-  key?: string;
+export interface B2StorageConfig {
+  bucket: string;
+  keyID: string;
+  key: string;
+  prefix?: string;
+}
 
-  // SFTP
-  host?: string;
+export interface SFTPStorageConfig {
+  path: string;
+  host: string;
   port?: number;
-  username?: string;
+  username: string;
   password?: string;
   keyfile?: string;
+  keyData?: string;
   knownHostsFile?: string;
+  knownHostsData?: string;
+}
 
-  // WebDAV
-  url?: string;
+export interface WebDAVStorageConfig {
+  url: string;
+  username?: string;
+  password?: string;
+  trustedServerCertificateFingerprint?: string;
+}
+
+export interface RcloneStorageConfig {
+  remotePath: string;
+  rcloneExe?: string;
+  rcloneArgs?: string[];
+  rcloneEnv?: Record<string, string>;
+}
+
+// Main storage configuration structure that matches Kopia API
+export interface StorageConfig {
+  type: StorageType;
+  config:
+    | FilesystemStorageConfig
+    | S3StorageConfig
+    | GCSStorageConfig
+    | AzureStorageConfig
+    | B2StorageConfig
+    | SFTPStorageConfig
+    | WebDAVStorageConfig
+    | RcloneStorageConfig;
 }
 
 export interface RepositoryConnectRequest {

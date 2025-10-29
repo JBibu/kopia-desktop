@@ -29,7 +29,7 @@ pub async fn kopia_server_status(
 }
 
 /// Get the default Kopia configuration directory
-fn get_default_config_dir() -> Result<String, String> {
+pub fn get_default_config_dir() -> Result<String, String> {
     let home_dir = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .map_err(|_| "Cannot determine home directory".to_string())?;
@@ -87,13 +87,9 @@ pub async fn repository_status(
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StorageConfig {
-    pub r#type: String,
-    pub path: Option<String>,
-    // Add more fields as needed for different storage types
-    pub bucket: Option<String>,
-    pub endpoint: Option<String>,
-    pub access_key_id: Option<String>,
-    pub secret_access_key: Option<String>,
+    #[serde(rename = "type")]
+    pub storage_type: String,
+    pub config: serde_json::Value, // Storage-type specific config (e.g., {"path": "..."} for filesystem)
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -203,7 +199,28 @@ pub async fn repository_exists(
         .map_err(|e| format!("Failed to check repository: {}", e))?;
 
     if !response.status().is_success() {
-        return Err(format!("Failed to check repository: {}", response.status()));
+        let error_text = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "Unknown error".to_string());
+
+        // Parse the error response to get more details
+        #[derive(Deserialize)]
+        struct ErrorResponse {
+            code: Option<String>,
+            error: Option<String>,
+        }
+
+        if let Ok(err) = serde_json::from_str::<ErrorResponse>(&error_text) {
+            if err.code.as_deref() == Some("NOT_INITIALIZED") {
+                // Repository location is accessible but not initialized - return false
+                return Ok(false);
+            }
+            // Return the detailed error message
+            return Err(err.error.unwrap_or(error_text));
+        }
+
+        return Err(format!("Failed to check repository: {}", error_text));
     }
 
     #[derive(Deserialize)]
@@ -764,7 +781,9 @@ pub async fn policy_resolve(
 
     let mut payload = serde_json::Map::new();
     if let Some(upd) = updates {
-        payload.insert("updates".to_string(), serde_json::to_value(upd).unwrap());
+        let value = serde_json::to_value(upd)
+            .map_err(|e| format!("Failed to serialize policy updates: {}", e))?;
+        payload.insert("updates".to_string(), value);
     }
 
     let response = client
@@ -1374,49 +1393,25 @@ pub async fn notification_profile_test(
 // Helper Functions
 // ============================================================================
 
-/// Get server URL and create HTTP client with CSRF token
+/// Get server URL and reusable HTTP client
 ///
-/// This is a convenience function that combines getting the server URL
-/// and creating an HTTP client with proper CSRF token headers in one call.
+/// This function retrieves the server URL and gets the pre-configured HTTP client
+/// from the server state. The client is reused across requests for connection pooling.
 ///
 /// Returns: (server_url, http_client)
 fn get_server_client(server: &State<'_, KopiaServerState>) -> Result<(String, reqwest::Client), String> {
-    let (server_url, csrf_token) = {
-        let server_guard = server.lock().map_err(|e| format!("Lock error: {}", e))?;
+    let server_guard = server.lock().map_err(|e| format!("Lock error: {}", e))?;
 
-        let status = server_guard.status();
-        if !status.running {
-            return Err("Kopia server is not running".to_string());
-        }
-
-        let url = status.server_url
-            .ok_or_else(|| "Server URL not available".to_string())?;
-
-        let token = server_guard.info()
-            .and_then(|info| info.csrf_token.clone());
-
-        (url, token)
-    };
-
-    // Create HTTP client with CSRF token header
-    let mut headers = reqwest::header::HeaderMap::new();
-
-    if let Some(token) = csrf_token.as_deref() {
-        if let Ok(header_value) = reqwest::header::HeaderValue::from_str(token) {
-            headers.insert("X-Kopia-Csrf-Token", header_value);
-        }
-    } else {
-        // Use "-" as default (matches official HTMLui pattern)
-        headers.insert(
-            "X-Kopia-Csrf-Token",
-            reqwest::header::HeaderValue::from_static("-"),
-        );
+    let status = server_guard.status();
+    if !status.running {
+        return Err("Kopia server is not running".to_string());
     }
 
-    let client = reqwest::Client::builder()
-        .default_headers(headers)
-        .build()
-        .unwrap_or_else(|_| reqwest::Client::new());
+    let server_url = status.server_url
+        .ok_or_else(|| "Server URL not available".to_string())?;
+
+    let client = server_guard.get_http_client()
+        .ok_or_else(|| "HTTP client not available".to_string())?;
 
     Ok((server_url, client))
 }

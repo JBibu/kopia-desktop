@@ -34,8 +34,16 @@ pub struct AlgorithmsResponse {
 pub struct RepositoryCreateRequest {
     pub storage: super::commands::kopia::StorageConfig,
     pub password: String,
-    pub description: Option<String>,
     pub options: Option<RepositoryCreateOptions>,
+    pub client_options: Option<ClientOptions>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientOptions {
+    pub description: Option<String>,
+    pub username: Option<String>,
+    pub hostname: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

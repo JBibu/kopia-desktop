@@ -16,7 +16,37 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init())
-        .manage(server_state)
+        .plugin(tauri_plugin_dialog::init())
+        .manage(server_state.clone())
+        .setup(move |_app| {
+            // Auto-start Kopia server on app launch
+            let state = server_state.clone();
+            tauri::async_runtime::spawn(async move {
+                let config_dir = commands::kopia::get_default_config_dir().unwrap_or_else(|_| {
+                    eprintln!("Failed to get config directory, using fallback");
+                    String::from(".")
+                });
+
+                match state.lock() {
+                    Ok(mut server) => {
+                        match server.start(&config_dir) {
+                            Ok(info) => {
+                                println!("Kopia server started successfully on {}", info.server_url);
+                            }
+                            Err(e) => {
+                                eprintln!("Failed to start Kopia server: {}", e);
+                                eprintln!("You can try starting it manually from the UI");
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to lock server state: {}", e);
+                        eprintln!("Server auto-start aborted. You can try starting it manually from the UI");
+                    }
+                }
+            });
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             // Kopia server lifecycle
             commands::kopia_server_start,
@@ -74,6 +104,8 @@ pub fn run() {
             // System utilities
             commands::get_system_info,
             commands::get_current_user,
+            commands::select_folder,
+            commands::select_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

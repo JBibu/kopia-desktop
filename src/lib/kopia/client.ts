@@ -112,6 +112,20 @@ export async function getCurrentUser(): Promise<{ username: string; hostname: st
 }
 
 /**
+ * Open folder picker dialog
+ */
+export async function selectFolder(defaultPath?: string): Promise<string | null> {
+  return invoke('select_folder', { defaultPath });
+}
+
+/**
+ * Open file picker dialog
+ */
+export async function selectFile(defaultPath?: string): Promise<string | null> {
+  return invoke('select_file', { defaultPath });
+}
+
+/**
  * Create a new repository
  */
 export async function createRepository(

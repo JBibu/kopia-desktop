@@ -3,11 +3,14 @@ use std::process::{Child, Command};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
+/// HTTP server username for Kopia API authentication
+const SERVER_USERNAME: &str = "kopia-ui";
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KopiaServerInfo {
     pub server_url: String,
     pub port: u16,
-    pub password: String,
+    pub http_password: String,  // HTTP Basic Auth password (not repository password)
     pub pid: u32,
     pub csrf_token: Option<String>,
 }
@@ -24,6 +27,7 @@ pub struct KopiaServer {
     process: Option<Child>,
     info: Option<KopiaServerInfo>,
     start_time: Option<SystemTime>,
+    http_client: Option<reqwest::Client>,
 }
 
 impl KopiaServer {
@@ -32,6 +36,7 @@ impl KopiaServer {
             process: None,
             info: None,
             start_time: None,
+            http_client: None,
         }
     }
 
@@ -45,45 +50,81 @@ impl KopiaServer {
         let binary_path = self.get_kopia_binary_path()
             .map_err(|e| format!("Failed to locate Kopia binary: {}", e))?;
 
-        // Generate random password for local-only access
-        let password = self.generate_random_password();
+        // Find an available port, starting with default
+        let port: u16 = self.find_available_port(51515)?;
+
+        // Generate server credentials for Basic Auth
+        let server_password = format!("kopia-{}",
+            SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap_or(Duration::from_secs(0))
+                .as_millis()
+        );
 
         // Start server with embedded mode flags
+        // NOTE: We start the server without connecting to any repository.
+        // The repository connection will be handled by the UI later via API calls.
+        // We use a non-existent config file path to prevent auto-connection to any repository.
+        let temp_config = format!("{}/kopia-ui-temp.config", config_dir);
+
         let mut command = Command::new(&binary_path);
         command
-            .args(&[
+            .args([
                 "server", "start",
-                "--ui",                             // Enable REST API
-                "--address=localhost:0",            // Random available port
-                "--tls-generate-cert",              // Self-signed cert
-                "--tls-generate-cert-name=localhost",
-                "--random-password",                // Secure password
-                "--shutdown-on-stdin",              // Exit when stdin closes
-                "--disable-csrf-token-checks",      // For embedded use
-                "--config-file", config_dir,
+                "--ui",                                    // Enable REST API
+                &format!("--address=localhost:{}", port),  // Fixed port for now
+                "--insecure",                              // Don't use TLS for localhost
+                "--disable-csrf-token-checks",             // For embedded use
+                "--override-hostname=kopia-ui",            // Set hostname for server
+                "--override-username=kopia-ui",            // Set username for server
+                "--server-username", SERVER_USERNAME,      // HTTP Basic Auth username
+                "--server-password", &server_password,     // HTTP Basic Auth password
+                "--config-file", &temp_config,            // Use a temp config file that doesn't exist yet
             ])
-            .stdin(std::process::Stdio::piped())
+            .env("KOPIA_CHECK_FOR_UPDATES", "false")  // Disable update checks
+            .stdin(std::process::Stdio::null())  // Don't pipe stdin to avoid shutdown-on-stdin issues
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped());
 
-        let child = command
+        let mut child = command
             .spawn()
             .map_err(|e| format!("Failed to spawn Kopia server: {}", e))?;
 
         let pid = child.id();
 
-        // Wait for server to start and parse output to get port
-        // In a real implementation, we'd parse stdout/stderr for the actual port
-        // For now, we'll use a placeholder approach
-        std::thread::sleep(Duration::from_secs(2));
+        // Wait a bit for server to start
+        // Note: Using thread::sleep here as this function is sync.
+        // To use tokio::time::sleep, this function would need to be async.
+        std::thread::sleep(Duration::from_millis(500));
 
-        let port = self.detect_server_port().unwrap_or(51515);
+        // Check if the process is still running
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                // Process has already exited - try to get error output
+                let mut stderr = String::new();
+                if let Some(mut err) = child.stderr.take() {
+                    use std::io::Read;
+                    let _ = err.read_to_string(&mut stderr);
+                }
+                return Err(format!("Kopia server exited immediately with status: {}. Error: {}", status, stderr));
+            }
+            Ok(None) => {
+                // Process is still running - good!
+            }
+            Err(e) => {
+                return Err(format!("Failed to check server status: {}", e));
+            }
+        }
+
         let server_url = format!("http://localhost:{}", port);
 
+        // Create reusable HTTP client with authentication
+        let http_client = self.create_http_client(SERVER_USERNAME, &server_password)?;
+
         let info = KopiaServerInfo {
-            server_url: server_url.clone(),
+            server_url,
             port,
-            password,
+            http_password: server_password,
             pid,
             csrf_token: None, // CSRF disabled for embedded server
         };
@@ -91,6 +132,7 @@ impl KopiaServer {
         self.process = Some(child);
         self.info = Some(info.clone());
         self.start_time = Some(SystemTime::now());
+        self.http_client = Some(http_client);
 
         Ok(info)
     }
@@ -108,6 +150,7 @@ impl KopiaServer {
 
             self.info = None;
             self.start_time = None;
+            self.http_client = None;
 
             Ok(())
         } else {
@@ -146,13 +189,6 @@ impl KopiaServer {
         }
     }
 
-    /// Get server info including CSRF token
-    ///
-    /// Used by get_server_client() to retrieve CSRF token for API requests.
-    pub fn info(&self) -> Option<&KopiaServerInfo> {
-        self.info.as_ref()
-    }
-
     /// Get the path to the Kopia binary
     fn get_kopia_binary_path(&self) -> Result<String, String> {
         // Check for custom path via environment variable
@@ -178,37 +214,99 @@ impl KopiaServer {
             "kopia-linux-x64"
         };
 
-        // In development: use ./bin/kopia-*
-        // In production: use bundled resource
-        let dev_path = format!("./bin/{}", binary_name);
-        let prod_path = format!("./resources/bin/{}", binary_name);
+        // Get the executable path and work backwards to find the project root
+        let exe_path = std::env::current_exe()
+            .map_err(|e| format!("Failed to get executable path: {}", e))?;
 
-        if std::path::Path::new(&dev_path).exists() {
-            Ok(dev_path)
-        } else if std::path::Path::new(&prod_path).exists() {
-            Ok(prod_path)
+        // In development: binary is in target/debug/, so go up 3 levels to project root
+        // In production: binary is in the app bundle
+        let exe_dir = exe_path.parent()
+            .ok_or_else(|| "Failed to get executable directory".to_string())?;
+
+        // Try development path (../../../bin/kopia-*)
+        let dev_path = exe_dir
+            .join("../../../bin")
+            .join(binary_name);
+
+        // Try production path (./resources/bin/kopia-*)
+        let prod_path = exe_dir
+            .join("resources/bin")
+            .join(binary_name);
+
+        // Try alternative development path (../../bin/kopia-*) for different build configs
+        let alt_dev_path = exe_dir
+            .join("../../bin")
+            .join(binary_name);
+
+        if dev_path.exists() {
+            Ok(dev_path.to_string_lossy().to_string())
+        } else if alt_dev_path.exists() {
+            Ok(alt_dev_path.to_string_lossy().to_string())
+        } else if prod_path.exists() {
+            Ok(prod_path.to_string_lossy().to_string())
         } else {
-            Err(format!("Kopia binary not found: {}", binary_name))
+            // Try current directory as last resort
+            let current_dir_path = std::path::Path::new("./bin").join(binary_name);
+            if current_dir_path.exists() {
+                Ok(current_dir_path.to_string_lossy().to_string())
+            } else {
+                Err(format!(
+                    "Kopia binary not found: {}\nSearched in:\n  - {:?}\n  - {:?}\n  - {:?}\n  - {:?}",
+                    binary_name, dev_path, alt_dev_path, prod_path, current_dir_path
+                ))
+            }
         }
     }
 
-    /// Generate a random password for local server
-    fn generate_random_password(&self) -> String {
-        use std::time::SystemTime;
-        let timestamp = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_millis();
-        format!("kopia-local-{}", timestamp)
+    /// Find an available port starting from the given port
+    fn find_available_port(&self, start_port: u16) -> Result<u16, String> {
+        use std::net::TcpListener;
+
+        let end_port = start_port.saturating_add(10);
+
+        for port in start_port..=end_port {
+            if TcpListener::bind(("127.0.0.1", port)).is_ok() {
+                return Ok(port);
+            }
+        }
+
+        Err(format!("No available ports found in range {}-{}", start_port, end_port))
     }
 
-    /// Detect which port the server started on
-    /// In a real implementation, parse stdout/stderr
-    fn detect_server_port(&self) -> Option<u16> {
-        // TODO: Parse actual port from server output
-        // For now, return None to use default detection
-        None
+    /// Create HTTP client with Basic Auth credentials
+    fn create_http_client(&self, username: &str, password: &str) -> Result<reqwest::Client, String> {
+        use base64::Engine;
+
+        let mut headers = reqwest::header::HeaderMap::new();
+
+        // Add CSRF token (always use "-" since we disabled CSRF checks)
+        headers.insert(
+            "X-Kopia-Csrf-Token",
+            reqwest::header::HeaderValue::from_static("-"),
+        );
+
+        // Add Basic Auth header
+        let auth = format!("{}:{}", username, password);
+        let auth_header = format!("Basic {}", base64::prelude::BASE64_STANDARD.encode(auth.as_bytes()));
+        headers.insert(
+            reqwest::header::AUTHORIZATION,
+            reqwest::header::HeaderValue::from_str(&auth_header)
+                .map_err(|e| format!("Failed to create auth header: {}", e))?
+        );
+
+        // Build client with all headers (reusable with connection pooling)
+        reqwest::Client::builder()
+            .default_headers(headers)
+            .build()
+            .map_err(|e| format!("Failed to create HTTP client: {}", e))
     }
+
+    /// Get the HTTP client for making API requests
+    /// Returns a clone of the client (cheap operation due to internal Arc)
+    pub fn get_http_client(&self) -> Option<reqwest::Client> {
+        self.http_client.clone()
+    }
+
 }
 
 // Global server instance managed by Tauri state

@@ -3,4 +3,6 @@
  */
 
 export { cn } from './cn';
-export { getErrorMessage, isErrorType } from './errors';
+
+// Re-export error handling from kopia module
+export { getErrorMessage, parseKopiaError, KopiaError, KopiaErrorCode } from '../kopia/errors';

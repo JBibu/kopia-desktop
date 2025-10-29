@@ -100,7 +100,7 @@ export function RepositoryConnectForm({
       // Check if repository exists at this location
       const exists = await repositoryExists({
         type: storageType,
-        path,
+        config: { path },
       });
 
       if (exists) {
@@ -144,7 +144,7 @@ export function RepositoryConnectForm({
     const success = await connect({
       storage: {
         type: storageType,
-        path,
+        config: { path },
       },
       password,
       clientOptions: {
