@@ -48,10 +48,7 @@ function App(): React.JSX.Element {
     <ErrorBoundary>
       <BrowserRouter>
         <Routes>
-          {/* Setup route (standalone, no layout) */}
-          <Route path="/setup" element={<Setup />} />
-
-          {/* Main app routes (with layout) */}
+          {/* All app routes (with layout) */}
           <Route path="/" element={<AppLayout />}>
             <Route
               index
@@ -61,6 +58,7 @@ function App(): React.JSX.Element {
                 </ProtectedRoute>
               }
             />
+            <Route path="setup" element={<Setup />} />
             <Route path="repository" element={<Repository />} />
             <Route
               path="snapshots"

@@ -4,7 +4,6 @@
 
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { Titlebar } from '@/components/layout/Titlebar';
 import { SetupRepository } from '@/components/kopia/setup/SetupRepository';
 import { useRepository } from '@/hooks';
 
@@ -30,12 +29,5 @@ export function Setup() {
     return null;
   }
 
-  return (
-    <>
-      <Titlebar />
-      <div className="pt-14">
-        <SetupRepository />
-      </div>
-    </>
-  );
+  return <SetupRepository />;
 }
