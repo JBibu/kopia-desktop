@@ -32,7 +32,7 @@ void i18n
     detection: {
       order: ['localStorage', 'navigator'],
       caches: ['localStorage'],
-      lookupLocalStorage: 'kopia-ui-language',
+      lookupLocalStorage: 'kopia-desktop-language',
     },
   });
 

@@ -4,7 +4,7 @@ Guidance for Claude Code (claude.ai/code) when working with this repository.
 
 ## Project Overview
 
-**Kopia-UI** - Modern desktop app for Kopia backup management.
+**Kopia-Desktop** - Modern desktop app for Kopia backup management.
 
 A React + Tauri application providing a user-friendly interface for managing Kopia backups: repositories, snapshots, policies, tasks, and restore operations.
 
@@ -97,7 +97,7 @@ pnpm validate     # Run all checks (typecheck, lint, format, test)
 
 ## Kopia Backend Architecture
 
-**Approach:** Embedded Server Mode (matches official KopiaUI)
+**Approach:** Embedded Server Mode (matches official KopiaUI - Kopia's official UI)
 
 ### How It Works
 
@@ -134,7 +134,7 @@ let kopia_process = Command::new(kopia_binary_path)
 **Production (bundled):**
 
 - Windows: `resources/bin/kopia.exe`
-- macOS: `KopiaUI.app/Contents/Resources/bin/kopia`
+- macOS: `KopiaDesktop.app/Contents/Resources/bin/kopia`
 - Linux: `resources/bin/kopia`
 
 ### Communication Flow
@@ -318,8 +318,8 @@ fn risky_operation() -> Result<String, String> {
 
 ```bash
 # Clone repository
-git clone <repo-url>
-cd kopia-ui
+git clone https://github.com/JBibu/kopia-desktop.git
+cd kopia-desktop
 
 # Install dependencies
 pnpm install
@@ -378,7 +378,7 @@ pnpm package:all
 ## Project Structure
 
 ```
-kopia-ui/
+kopia-desktop/
 ├── src/                                  # React frontend
 │   ├── components/
 │   │   ├── ui/                           # shadcn/ui components (22 total)

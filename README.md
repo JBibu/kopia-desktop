@@ -1,6 +1,6 @@
-# Kopia UI
+# Kopia Desktop
 
-Modern Desktop UI for Kopia Backup - A React + Tauri desktop application for managing Kopia backups with an intuitive interface.
+Modern Desktop Application for Kopia Backup - A React + Tauri desktop application for managing Kopia backups with an intuitive interface.
 
 ---
 
@@ -49,7 +49,7 @@ pnpm kopia:download     # Update Kopia binaries
 ## Project Structure
 
 ```
-kopia-ui/
+kopia-desktop/
 ├── src/                      # React frontend
 │   ├── components/
 │   │   ├── ui/              # shadcn/ui components

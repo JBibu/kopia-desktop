@@ -1,12 +1,15 @@
 [package]
-name = "kopia-ui"
+name = "kopia-desktop"
 version = "0.1.0"
-description = "Modern Desktop UI for Kopia Backup"
-authors = ["Kopia UI Contributors"]
+description = "Modern Desktop Application for Kopia Backup"
+authors = ["Kopia Desktop Contributors"]
 edition = "2021"
+repository = "https://github.com/JBibu/kopia-desktop"
+homepage = "https://github.com/JBibu/kopia-desktop"
+license = "MIT"
 
 [lib]
-name = "kopia_ui_lib"
+name = "kopia_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

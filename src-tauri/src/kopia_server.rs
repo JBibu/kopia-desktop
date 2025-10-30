@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
 // Constants
-const SERVER_USERNAME: &str = "kopia-ui";
+const SERVER_USERNAME: &str = "kopia-desktop";
 const DEFAULT_PORT: u16 = 51515;
 const PORT_SEARCH_RANGE: u16 = 10;
 const STARTUP_CHECK_DELAY_MS: u64 = 100;
@@ -66,7 +66,7 @@ impl KopiaServer {
         let binary_path = self.get_kopia_binary_path()?;
         let port = self.find_available_port(DEFAULT_PORT)?;
         let server_password = self.generate_password();
-        let config_file = format!("{}/kopia-ui.config", config_dir);
+        let config_file = format!("{}/kopia-desktop.config", config_dir);
 
         let mut child = Command::new(&binary_path)
             .args([

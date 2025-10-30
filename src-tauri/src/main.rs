@@ -4,5 +4,5 @@
 )]
 
 fn main() {
-    kopia_ui_lib::run();
+    kopia_desktop_lib::run();
 }

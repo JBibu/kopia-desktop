@@ -1,4 +1,4 @@
-# Kopia UI Implementation Documentation
+# Kopia Desktop Implementation Documentation
 
 **Status:** ✅ Complete - Production Ready
 **Last Updated:** 2025-10-29
@@ -21,7 +21,7 @@
 
 ## Overview
 
-This document comprehensively covers the implementation of the Kopia REST API integration for kopia-ui, including all 37 Tauri commands, CSRF token support, polling utilities, enhanced error handling, and production-ready enhancements.
+This document comprehensively covers the implementation of the Kopia REST API integration for kopia-desktop, including all 37 Tauri commands, CSRF token support, polling utilities, enhanced error handling, and production-ready enhancements.
 
 ### Quick Stats
 

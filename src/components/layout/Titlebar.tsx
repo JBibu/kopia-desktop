@@ -29,7 +29,7 @@ export function Titlebar() {
       {/* Left side - App title with icon */}
       <div className="flex items-center gap-2 text-sm font-medium">
         <img src={kopiaIcon} alt="Kopia" className="h-4 w-4" />
-        <span className="text-foreground font-semibold">Kopia UI</span>
+        <span className="text-foreground font-semibold">Kopia Desktop</span>
       </div>
 
       {/* Right side - Window controls */}

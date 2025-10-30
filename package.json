@@ -1,8 +1,16 @@
 {
-  "name": "kopia-ui",
+  "name": "kopia-desktop",
   "version": "0.1.0",
-  "description": "Modern Desktop UI for Kopia Backup",
+  "description": "Modern Desktop Application for Kopia Backup",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JBibu/kopia-desktop.git"
+  },
+  "homepage": "https://github.com/JBibu/kopia-desktop#readme",
+  "bugs": {
+    "url": "https://github.com/JBibu/kopia-desktop/issues"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

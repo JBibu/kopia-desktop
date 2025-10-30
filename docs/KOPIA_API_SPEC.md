@@ -1,10 +1,10 @@
-# Kopia UI - API Specifications & Implementation Guide
+# Kopia Desktop - API Specifications & Implementation Guide
 
 > **Version:** 1.0
 > **Target Kopia Version:** 0.21.x
 > **Last Updated:** 2025-01-28
 
-This document defines all REST API endpoints, WebSocket events, Tauri commands, data models, and validation rules required for a complete Kopia UI implementation.
+This document defines all REST API endpoints, WebSocket events, Tauri commands, data models, and validation rules required for a complete Kopia Desktop implementation.
 
 ---
 

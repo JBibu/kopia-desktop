@@ -23,7 +23,7 @@ export const useLanguageStore = create<LanguageStore>()(
       },
     }),
     {
-      name: 'kopia-ui-language',
+      name: 'kopia-desktop-language',
     }
   )
 );
