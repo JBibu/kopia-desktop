@@ -29,7 +29,7 @@ export interface RepositoryStatus {
   hash?: string;
   encryption?: string;
   splitter?: string;
-  formatVersion?: string;
+  formatVersion?: number; // Changed from string to number to match API
   username?: string;
   hostname?: string;
   readonly?: boolean;
@@ -39,6 +39,9 @@ export interface RepositoryStatus {
   ecc?: string;
   eccOverheadPercent?: number;
   supportsContentCompression?: boolean;
+  maxPackSize?: number;
+  enableActions?: boolean;
+  formatBlobCacheDuration?: number;
 }
 
 /**

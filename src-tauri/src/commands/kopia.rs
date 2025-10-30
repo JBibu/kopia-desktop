@@ -1,6 +1,17 @@
 use crate::kopia_server::{KopiaServerInfo, KopiaServerState, KopiaServerStatus};
 use serde::{Deserialize, Serialize};
+use serde::de::DeserializeOwned;
 use tauri::State;
+
+// Helper macro for mutex recovery
+macro_rules! lock_server {
+    ($server:expr) => {
+        $server.lock().unwrap_or_else(|poisoned| {
+            log::warn!("Mutex poisoned, recovering...");
+            poisoned.into_inner()
+        })
+    };
+}
 
 /// Start the Kopia server
 #[tauri::command]
@@ -8,15 +19,22 @@ pub async fn kopia_server_start(
     server: State<'_, KopiaServerState>,
 ) -> Result<KopiaServerInfo, String> {
     let config_dir = get_default_config_dir()?;
-    let mut server = server.lock().map_err(|e| format!("Lock error: {}", e))?;
-    server.start(&config_dir)
+
+    let (info, ready_waiter) = {
+        let mut server_guard = lock_server!(server);
+        let info = server_guard.start(&config_dir)?;
+        let waiter = server_guard.get_ready_waiter()?;
+        (info, waiter)
+    };
+
+    ready_waiter.await?;
+    Ok(info)
 }
 
 /// Stop the Kopia server
 #[tauri::command]
 pub async fn kopia_server_stop(server: State<'_, KopiaServerState>) -> Result<(), String> {
-    let mut server = server.lock().map_err(|e| format!("Lock error: {}", e))?;
-    server.stop()
+    lock_server!(server).stop()
 }
 
 /// Get Kopia server status
@@ -24,8 +42,7 @@ pub async fn kopia_server_stop(server: State<'_, KopiaServerState>) -> Result<()
 pub async fn kopia_server_status(
     server: State<'_, KopiaServerState>,
 ) -> Result<KopiaServerStatus, String> {
-    let server = server.lock().map_err(|e| format!("Lock error: {}", e))?;
-    Ok(server.status())
+    Ok(lock_server!(server).status())
 }
 
 /// Get the default Kopia configuration directory
@@ -55,23 +72,32 @@ pub fn get_default_config_dir() -> Result<String, String> {
 #[serde(rename_all = "camelCase")]
 pub struct RepositoryStatus {
     pub connected: bool,
+    #[serde(rename = "configFile")]
     pub config_file: Option<String>,
-    pub format_version: Option<String>,
+    #[serde(rename = "formatVersion")]
+    pub format_version: Option<i32>,
     pub hash: Option<String>,
     pub encryption: Option<String>,
     pub ecc: Option<String>,
+    #[serde(rename = "eccOverheadPercent")]
     pub ecc_overhead_percent: Option<i32>,
     pub splitter: Option<String>,
+    #[serde(rename = "maxPackSize")]
     pub max_pack_size: Option<i32>,
     pub storage: Option<String>,
     #[serde(rename = "apiServerURL")]
     pub api_server_url: Option<String>,
+    #[serde(rename = "supportsContentCompression")]
     pub supports_content_compression: Option<bool>,
     // ClientOptions fields (embedded in Go via struct embedding)
     pub description: Option<String>,
     pub username: Option<String>,
     pub hostname: Option<String>,
     pub readonly: Option<bool>,
+    #[serde(rename = "enableActions")]
+    pub enable_actions: Option<bool>,
+    #[serde(rename = "formatBlobCacheDuration")]
+    pub format_blob_cache_duration: Option<i64>,
     // Repository initialization task ID
     #[serde(rename = "initTaskID")]
     pub init_task_id: Option<String>,
@@ -90,16 +116,7 @@ pub async fn repository_status(
         .await
         .map_err(|e| format!("Failed to get repository status: {}", e))?;
 
-    if !response.status().is_success() {
-        return Err(format!("API error: {}", response.status()));
-    }
-
-    let status: RepositoryStatus = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
-
-    Ok(status)
+    handle_response(response, "Get repository status").await
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -158,11 +175,7 @@ pub async fn repository_disconnect(
         .await
         .map_err(|e| format!("Failed to disconnect: {}", e))?;
 
-    if !response.status().is_success() {
-        return Err(format!("Failed to disconnect: {}", response.status()));
-    }
-
-    Ok(())
+    handle_empty_response(response, "Disconnect from repository").await
 }
 
 /// Create a new repository
@@ -173,6 +186,12 @@ pub async fn repository_create(
 ) -> Result<String, String> {
     let (server_url, client) = get_server_client(&server)?;
 
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct CreateResponse {
+        init_task_id: String,
+    }
+
     let response = client
         .post(format!("{}/api/v1/repo/create", server_url))
         .json(&config)
@@ -180,25 +199,7 @@ pub async fn repository_create(
         .await
         .map_err(|e| format!("Failed to create repository: {}", e))?;
 
-    if !response.status().is_success() {
-        let error_text = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(format!("Failed to create repository: {}", error_text));
-    }
-
-    #[derive(Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    struct CreateResponse {
-        init_task_id: String,
-    }
-
-    let result: CreateResponse = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
-
+    let result: CreateResponse = handle_response(response, "Create repository").await?;
     Ok(result.init_task_id)
 }
 
@@ -263,16 +264,7 @@ pub async fn repository_get_algorithms(
         .await
         .map_err(|e| format!("Failed to get algorithms: {}", e))?;
 
-    if !response.status().is_success() {
-        return Err(format!("Failed to get algorithms: {}", response.status()));
-    }
-
-    let result = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
-
-    Ok(result)
+    handle_response(response, "Get algorithms").await
 }
 
 /// Update repository description
@@ -290,11 +282,7 @@ pub async fn repository_update_description(
         .await
         .map_err(|e| format!("Failed to update description: {}", e))?;
 
-    if !response.status().is_success() {
-        return Err(format!("Failed to update description: {}", response.status()));
-    }
-
-    Ok(())
+    handle_empty_response(response, "Update description").await
 }
 
 // ============================================================================
@@ -314,16 +302,7 @@ pub async fn sources_list(
         .await
         .map_err(|e| format!("Failed to list sources: {}", e))?;
 
-    if !response.status().is_success() {
-        return Err(format!("Failed to list sources: {}", response.status()));
-    }
-
-    let result = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
-
-    Ok(result)
+    handle_response(response, "List sources").await
 }
 
 /// Create a snapshot
@@ -1418,25 +1397,57 @@ pub async fn notification_profile_test(
 // Helper Functions
 // ============================================================================
 
-/// Get server URL and reusable HTTP client
-///
-/// This function retrieves the server URL and gets the pre-configured HTTP client
-/// from the server state. The client is reused across requests for connection pooling.
-///
-/// Returns: (server_url, http_client)
+/// Get server URL and HTTP client
 fn get_server_client(server: &State<'_, KopiaServerState>) -> Result<(String, reqwest::Client), String> {
-    let server_guard = server.lock().map_err(|e| format!("Lock error: {}", e))?;
-
+    let server_guard = lock_server!(server);
     let status = server_guard.status();
+
     if !status.running {
-        return Err("Kopia server is not running".to_string());
+        return Err("Kopia server is not running".into());
     }
 
-    let server_url = status.server_url
-        .ok_or_else(|| "Server URL not available".to_string())?;
-
-    let client = server_guard.get_http_client()
-        .ok_or_else(|| "HTTP client not available".to_string())?;
+    let server_url = status.server_url.ok_or("Server URL not available")?;
+    let client = server_guard.get_http_client().ok_or("HTTP client not available")?;
 
     Ok((server_url, client))
+}
+
+/// Build query string from optional parameters
+#[allow(dead_code)]
+fn build_query(params: &[(&str, Option<&str>)]) -> String {
+    let parts: Vec<_> = params
+        .iter()
+        .filter_map(|(key, val)| val.map(|v| format!("{}={}", key, urlencoding::encode(v))))
+        .collect();
+
+    if parts.is_empty() {
+        String::new()
+    } else {
+        format!("?{}", parts.join("&"))
+    }
+}
+
+/// Handle API response - check status and parse JSON
+async fn handle_response<T: DeserializeOwned>(
+    response: reqwest::Response,
+    operation: &str,
+) -> Result<T, String> {
+    if !response.status().is_success() {
+        let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".into());
+        return Err(format!("{}: {}", operation, error_text));
+    }
+
+    response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse response: {}", e))
+}
+
+/// Handle API response that returns empty/unit result
+async fn handle_empty_response(response: reqwest::Response, operation: &str) -> Result<(), String> {
+    if !response.status().is_success() {
+        let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".into());
+        return Err(format!("{}: {}", operation, error_text));
+    }
+    Ok(())
 }
