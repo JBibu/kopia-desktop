@@ -15,7 +15,7 @@ export const useThemeStore = create<ThemeStore>()(
       setTheme: (theme) => set({ theme }),
     }),
     {
-      name: 'kopia-ui-theme',
+      name: 'kopia-desktop-theme',
       storage: createJSONStorage(() => localStorage),
     }
   )

@@ -1,140 +1,76 @@
-# Kopia UI
+# Kopia Desktop
 
-Modern Desktop UI for Kopia Backup - A React + Tauri desktop application for managing Kopia backups with an intuitive interface.
+> ⚠️ This is a **community-built alternative** to [KopiaUI](https://github.com/kopia/htmlui), not affiliated with the official Kopia project. Built for fun/learning purposes.
+
+A modern, lightweight desktop application for [Kopia](https://kopia.io) backup management. Built with **Tauri + React** as a faster, smaller alternative to the Electron-based official KopiaUI.
+
+<br/>
+<div align="center">
+  <img width="820" alt="Kopia Desktop Screenshot" src="https://github.com/user-attachments/assets/4f20cb8f-c1ce-4671-ab8c-0981bcd2de52" />
+</div>
+
+---
+
+## ✨ Status
+
+**Working:**
+
+- Repository setup with 8 storage providers
+- Snapshots, policies, and task management
+- Preferences and settings
+- Internationalization (EN/ES)
+- Theme system
+
+**In Progress:**
+
+- System tray integration
+- WebSocket live updates
+- Auto-updates
+- Comprehensive test coverage
 
 ---
 
 ## 🚀 Quick Start
 
 ```bash
-# 1. Install dependencies
-pnpm install
-
-# 2. Load Rust (if just installed)
-source $HOME/.cargo/env
-
-# 3. Download Kopia binaries
-pnpm kopia:download
-
-# 4. Start development
-pnpm tauri:dev
+pnpm install          # Install dependencies + download Kopia binary
+pnpm tauri:dev        # Start development (first build: 5-10 min)
 ```
 
-**First build takes 5-10 minutes** (compiling Rust). Be patient!
+**Requirements:**
+
+- Node.js 20.19+
+- pnpm 10+
+- [Rust toolchain](https://rustup.rs/)
 
 ---
 
-## Common Commands
+## 📦 Tech Stack
+
+| Layer        | Technologies                                            |
+| ------------ | ------------------------------------------------------- |
+| **Frontend** | React 19 • TypeScript • Vite 7 • Tailwind 4 • shadcn/ui |
+| **Backend**  | Tauri 2.9 (Rust) • Embedded Kopia server                |
+| **State**    | Zustand 5 • react-i18next • React Router 7              |
+
+---
+
+## 🛠️ Common Commands
 
 ```bash
-# Development
-pnpm tauri:dev          # Start with hot reload
-pnpm dev                # Frontend only (browser)
-
-# Quality
-pnpm validate:fix       # Auto-fix all issues + run tests
-pnpm validate           # Run checks only (for CI)
-
-# Building
+pnpm tauri:dev          # Development mode with hot reload
 pnpm tauri:build        # Production build
-pnpm tauri:build:debug  # Debug build (faster)
-
-# Maintenance
+pnpm validate:fix       # Run linting, formatting, typechecking, and tests
 pnpm clean              # Clear build caches
-pnpm kopia:download     # Update Kopia binaries
 ```
 
 ---
 
-## Project Structure
+## 🏗️ Architecture
 
-```
-kopia-ui/
-├── src/                      # React frontend
-│   ├── components/
-│   │   ├── ui/              # shadcn/ui components
-│   │   └── kopia/           # Kopia-specific components
-│   ├── lib/
-│   │   ├── kopia/           # Kopia API client
-│   │   ├── utils/           # Utilities
-│   │   └── validations/     # Zod schemas
-│   ├── stores/              # Zustand state
-│   ├── i18n/                # Translations (EN/ES)
-│   └── pages/               # Route components
-│
-├── src-tauri/               # Rust backend
-│   └── src/
-│       ├── lib.rs           # Main app logic
-│       └── main.rs          # Entry point
-│
-└── tests/                   # Tests
-```
+Uses the same approach as the official KopiaUI:
 
----
-
-## Tech Stack
-
-**Frontend**: React 19, TypeScript, Vite 7, Tailwind CSS 4
-**Backend**: Tauri 2.9 (Rust)
-**State**: Zustand 5
-**Forms**: react-hook-form + Zod 3
-**i18n**: react-i18next (EN/ES)
-**Testing**: Vitest 4, Playwright
-
----
-
-## Features (Planned)
-
-- 🔐 Repository management (connect, create, manage)
-- 📸 Snapshot operations (list, create, restore, compare)
-- 📋 Policy management (retention, scheduling, compression)
-- 📊 Task monitoring with real-time progress
-- 🌐 Multi-language support (EN/ES)
-- 🎨 Dark/light theme
-- 🔔 Native desktop notifications
-
----
-
-## Documentation
-
-📚 **[Complete documentation available in `/docs`](docs/)**
-
-Quick links:
-
-- **[docs/DOCS_INDEX.md](docs/DOCS_INDEX.md)** - Documentation index and navigation guide
-- **[docs/CLAUDE.md](docs/CLAUDE.md)** - Architecture and development guidelines
-- **[docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md)** - What's been implemented (37 API commands)
-- **[docs/RESEARCH.md](docs/RESEARCH.md)** - Official Kopia HTMLui analysis and patterns
-- **[docs/KOPIA_API_SPEC.md](docs/KOPIA_API_SPEC.md)** - Complete API specification
-
----
-
-## Prerequisites
-
-- **Node.js 20.19+** or **22.12+**
-- **pnpm 10+**
-- **Rust toolchain** ([install here](https://rustup.rs/))
-- **System dependencies** (Linux only - see [docs/CLAUDE.md](docs/CLAUDE.md) for details)
-
----
-
-## Contributing
-
-1. Run `pnpm validate:fix` before committing
-2. Follow architecture guidelines in [docs/CLAUDE.md](docs/CLAUDE.md)
-3. Write tests for new features
-4. Use conventional commit messages
-
----
-
-## License
-
-MIT
-
----
-
-## Resources
-
-- [Tauri Documentation](https://tauri.app/)
-- [React Documentation](https://react.dev/)
-- [Kopia Documentation](https://kopia.io/)
+1. **Bundle** – Includes platform-specific Kopia binary
+2. **Launch** – Spawns `kopia server start --ui` on startup
+3. **Communication** – React UI interacts via REST API
+4. **Lifecycle** – Server shuts down gracefully with the app

@@ -20,7 +20,7 @@
 
 ## Executive Summary
 
-The official Kopia HTMLui is a React 19 web application that demonstrates simple, pragmatic API integration patterns. After comprehensive analysis of ~65 files and 15,000 lines of code, we identified both successful patterns to adopt and areas where kopia-ui can significantly improve.
+The official Kopia HTMLui is a React 19 web application that demonstrates simple, pragmatic API integration patterns. After comprehensive analysis of ~65 files and 15,000 lines of code, we identified both successful patterns to adopt and areas where kopia-desktop can significantly improve.
 
 ### Quick Stats
 
@@ -33,7 +33,7 @@ The official Kopia HTMLui is a React 19 web application that demonstrates simple
 
 ### Key Insight
 
-The official implementation prioritizes simplicity over architecture. While this works for a web app, kopia-ui's Tauri-based desktop approach requires more structure for maintainability and type safety.
+The official implementation prioritizes simplicity over architecture. While this works for a web app, kopia-desktop's Tauri-based desktop approach requires more structure for maintainability and type safety.
 
 ---
 
@@ -135,9 +135,9 @@ src/
     └── policyutil.jsx         # Policy helpers
 ```
 
-### Comparison: Official HTMLui vs kopia-ui
+### Comparison: Official HTMLui vs kopia-desktop
 
-| Aspect           | Official HTMLui     | kopia-ui (Recommended)                        |
+| Aspect           | Official HTMLui     | kopia-desktop (Recommended)                   |
 | ---------------- | ------------------- | --------------------------------------------- |
 | **Architecture** | Component-centric   | Layered (UI → Client → Tauri → Kopia)         |
 | **HTTP Client**  | Direct axios calls  | Centralized wrapper (`@/lib/kopia/client.ts`) |
@@ -172,7 +172,7 @@ if (tok && tok.content) {
 
 **Pattern**: Read token from HTML meta tag on app start, set as default header for all requests. Defaults to "-" if not present.
 
-**For kopia-ui**: Read token from Rust backend (stored in `KopiaServerInfo`), add to HTTP client with unified helper.
+**For kopia-desktop**: Read token from Rust backend (stored in `KopiaServerInfo`), add to HTTP client with unified helper.
 
 ### 2. Polling with Auto-Stop
 
@@ -225,7 +225,7 @@ componentWillUnmount() {
 3. Auto-stop polling when task completes
 4. Always cleanup in unmount
 
-**For kopia-ui**: Use this exact pattern in `useTaskPolling` hook - already implemented!
+**For kopia-desktop**: Use this exact pattern in `useTaskPolling` hook - already implemented!
 
 ### 3. Request Deduplication
 
@@ -275,7 +275,7 @@ componentWillUnmount() {
 3. Reset flag to `false` in both then/catch (finally would be better)
 4. Prevents hammering API during polling
 
-**For kopia-ui**: Already implemented in `createPoller()` utility!
+**For kopia-desktop**: Already implemented in `createPoller()` utility!
 
 ### 4. Error Handling with Redirect
 
@@ -313,7 +313,7 @@ export function errorAlert(err, prefix) {
 3. Extract error message from response.data.error
 4. Fallback to generic message
 
-**For kopia-ui**: Already implemented in `parseKopiaError()` and `handleKopiaError()` utilities!
+**For kopia-desktop**: Already implemented in `parseKopiaError()` and `handleKopiaError()` utilities!
 
 ### 5. UI Preferences Sync
 
@@ -356,7 +356,7 @@ useEffect(() => {
 3. Auto-save when state changes (debounce recommended)
 4. Server stores preferences persistently
 
-**For kopia-ui**: Good pattern for future UI preferences implementation.
+**For kopia-desktop**: Good pattern for future UI preferences implementation.
 
 ---
 
@@ -720,7 +720,7 @@ The official Kopia HTMLui demonstrates **effective simplicity** but lacks the st
 4. **TypeScript is valuable** - Even official team uses it for contexts
 5. **Architecture matters** - Scattered code becomes hard to maintain
 
-### kopia-ui Advantages
+### kopia-desktop Advantages
 
 Your implementation already improves upon the official in many ways:
 

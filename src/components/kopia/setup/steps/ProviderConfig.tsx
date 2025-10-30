@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import type { StorageType } from '@/lib/kopia/types';
@@ -19,15 +20,15 @@ interface ProviderConfigProps extends ProviderFormProps {
   onNext: () => void;
 }
 
-const providerNames: Record<StorageType, string> = {
-  filesystem: 'Local Filesystem',
-  s3: 'Amazon S3',
-  b2: 'Backblaze B2',
-  azureBlob: 'Azure Blob Storage',
-  gcs: 'Google Cloud Storage',
-  sftp: 'SFTP',
-  webdav: 'WebDAV',
-  rclone: 'Rclone',
+const providerNameKeys: Record<StorageType, string> = {
+  filesystem: 'setup.providers.filesystem',
+  s3: 'setup.providers.s3',
+  b2: 'setup.providers.b2',
+  azureBlob: 'setup.providers.azureBlob',
+  gcs: 'setup.providers.gcs',
+  sftp: 'setup.providers.sftp',
+  webdav: 'setup.providers.webdav',
+  rclone: 'setup.providers.rclone',
 };
 
 export function ProviderConfig({
@@ -37,6 +38,8 @@ export function ProviderConfig({
   onBack,
   onNext,
 }: ProviderConfigProps) {
+  const { t } = useTranslation();
+
   const renderProvider = () => {
     const props: ProviderFormProps = { config, onChange };
 
@@ -69,8 +72,10 @@ export function ProviderConfig({
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h2 className="text-2xl font-bold">Configure {providerNames[provider]}</h2>
-          <p className="text-muted-foreground">Enter your storage configuration</p>
+          <h2 className="text-2xl font-bold">
+            {t('setup.configureProvider', { provider: t(providerNameKeys[provider]) })}
+          </h2>
+          <p className="text-muted-foreground">{t('setup.enterStorageConfig')}</p>
         </div>
       </div>
 
@@ -78,10 +83,10 @@ export function ProviderConfig({
 
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onBack}>
-          Back
+          {t('setup.back')}
         </Button>
         <Button type="button" onClick={onNext}>
-          Next
+          {t('setup.next')}
         </Button>
       </div>
     </div>

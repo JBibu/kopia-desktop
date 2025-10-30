@@ -3,7 +3,7 @@
  */
 
 import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router';
 import { AppSidebar } from './AppSidebar';
 import { Titlebar } from './Titlebar';
 import { Toaster } from '@/components/ui/sonner';
@@ -14,22 +14,26 @@ import { useIsMobile } from '@/hooks';
 
 export function AppLayout() {
   const isMobile = useIsMobile();
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Hide sidebar on setup page
+  const isSetupPage = location.pathname === '/setup';
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
       {/* Custom Titlebar */}
       <Titlebar />
 
-      {/* Desktop Sidebar */}
-      {!isMobile && (
+      {/* Desktop Sidebar - Hidden on setup page */}
+      {!isMobile && !isSetupPage && (
         <aside className="hidden md:flex md:w-48 md:flex-col md:pt-8 border-r bg-card">
           <AppSidebar />
         </aside>
       )}
 
-      {/* Mobile Sidebar */}
-      {isMobile && (
+      {/* Mobile Sidebar - Hidden on setup page */}
+      {isMobile && !isSetupPage && (
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
           <SheetContent side="left" className="w-48 p-0">
             <AppSidebar onNavigate={() => setSidebarOpen(false)} />
@@ -39,8 +43,8 @@ export function AppLayout() {
 
       {/* Main Content Area */}
       <div className="flex flex-1 flex-col overflow-hidden pt-8">
-        {/* Mobile Header with Menu Toggle */}
-        {isMobile && (
+        {/* Mobile Header with Menu Toggle - Hidden on setup page */}
+        {isMobile && !isSetupPage && (
           <header className="sticky top-8 z-10 flex h-12 items-center gap-4 border-b bg-background px-4 md:hidden">
             <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
               <Menu className="h-5 w-5" />

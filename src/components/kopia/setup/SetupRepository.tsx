@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useRepository } from '@/hooks';
@@ -178,7 +178,7 @@ export function SetupRepository() {
       });
 
       await refreshStatus();
-      navigate('/', { replace: true });
+      void navigate('/', { replace: true });
     } catch (error) {
       // Parse error message for better user feedback
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -222,8 +222,8 @@ export function SetupRepository() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-2xl">
+    <div className="flex items-center justify-center min-h-full py-8">
+      <Card className="w-full max-w-3xl">
         <CardContent className="p-6">
           {state.step === 'provider' && <ProviderSelection onSelect={handleProviderSelect} />}
 

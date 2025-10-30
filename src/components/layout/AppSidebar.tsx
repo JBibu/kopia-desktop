@@ -2,24 +2,24 @@
  * Application sidebar - simplified version
  */
 
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { Database, FolderArchive, Settings, ListTodo, Home, ListChecks } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
-  name: string;
+  nameKey: string;
   path: string;
   icon: React.ElementType;
-  description: string;
 }
 
 const navItems: NavItem[] = [
-  { name: 'Overview', path: '/', icon: Home, description: 'System dashboard' },
-  { name: 'Repository', path: '/repository', icon: Database, description: 'Storage connection' },
-  { name: 'Snapshots', path: '/snapshots', icon: FolderArchive, description: 'Backup history' },
-  { name: 'Policies', path: '/policies', icon: ListTodo, description: 'Backup rules' },
-  { name: 'Tasks', path: '/tasks', icon: ListChecks, description: 'Background tasks' },
-  { name: 'Preferences', path: '/preferences', icon: Settings, description: 'App settings' },
+  { nameKey: 'nav.overview', path: '/', icon: Home },
+  { nameKey: 'nav.repository', path: '/repository', icon: Database },
+  { nameKey: 'nav.snapshots', path: '/snapshots', icon: FolderArchive },
+  { nameKey: 'nav.policies', path: '/policies', icon: ListTodo },
+  { nameKey: 'nav.tasks', path: '/tasks', icon: ListChecks },
+  { nameKey: 'nav.preferences', path: '/preferences', icon: Settings },
 ];
 
 interface AppSidebarProps {
@@ -27,6 +27,7 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ onNavigate }: AppSidebarProps) {
+  const { t } = useTranslation();
   const location = useLocation();
 
   return (
@@ -49,10 +50,10 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
                       ? 'bg-primary text-primary-foreground shadow-sm'
                       : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                   )}
-                  title={item.description}
+                  title={t(item.nameKey)}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
-                  <span className="truncate">{item.name}</span>
+                  <span className="truncate">{t(item.nameKey)}</span>
                 </Link>
               </li>
             );

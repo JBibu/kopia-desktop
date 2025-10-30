@@ -3,8 +3,7 @@
  */
 
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Titlebar } from '@/components/layout/Titlebar';
+import { useNavigate } from 'react-router';
 import { SetupRepository } from '@/components/kopia/setup/SetupRepository';
 import { useRepository } from '@/hooks';
 
@@ -16,7 +15,7 @@ export function Setup() {
   // This handles the case where user manually navigates to /setup while connected
   useEffect(() => {
     if (!isLoading && isConnected) {
-      navigate('/', { replace: true });
+      void navigate('/', { replace: true });
     }
   }, [isConnected, isLoading, navigate]);
 
@@ -30,12 +29,5 @@ export function Setup() {
     return null;
   }
 
-  return (
-    <>
-      <Titlebar />
-      <div className="pt-14">
-        <SetupRepository />
-      </div>
-    </>
-  );
+  return <SetupRepository />;
 }

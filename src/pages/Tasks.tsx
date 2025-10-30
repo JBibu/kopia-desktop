@@ -3,6 +3,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTasks } from '@/hooks/useTasks';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,6 +42,7 @@ import {
 import type { Task } from '@/lib/kopia/types';
 
 export function Tasks() {
+  const { t } = useTranslation();
   const { tasks, summary, isLoading, error, cancelTask, refreshAll } = useTasks({
     autoRefresh: true,
     refreshInterval: 5000,
@@ -117,8 +119,8 @@ export function Tasks() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">Tasks</h1>
-          <p className="text-sm text-muted-foreground">Monitor and manage background tasks</p>
+          <h1 className="text-3xl font-bold tracking-tight">{t('tasks.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('tasks.subtitle')}</p>
         </div>
         <Button
           variant="outline"
@@ -127,7 +129,7 @@ export function Tasks() {
           disabled={isLoading}
         >
           <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh
+          {t('common.refresh')}
         </Button>
       </div>
 
@@ -146,7 +148,7 @@ export function Tasks() {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Activity className="h-4 w-4 text-blue-500" />
-                Running
+                {t('tasks.running')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -157,7 +159,7 @@ export function Tasks() {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-green-500" />
-                Completed
+                {t('tasks.completed')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -168,7 +170,7 @@ export function Tasks() {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <TrendingDown className="h-4 w-4 text-red-500" />
-                Failed
+                {t('tasks.failed')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -179,7 +181,7 @@ export function Tasks() {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <ListChecks className="h-4 w-4 text-muted-foreground" />
-                Total
+                {t('tasks.total')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -194,10 +196,8 @@ export function Tasks() {
       {/* Tasks Table */}
       <Card>
         <CardHeader>
-          <CardTitle>All Tasks</CardTitle>
-          <CardDescription>
-            {tasks.length} task{tasks.length !== 1 ? 's' : ''} found
-          </CardDescription>
+          <CardTitle>{t('tasks.allTasks')}</CardTitle>
+          <CardDescription>{t('tasks.tasksFound', { count: tasks.length })}</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading && tasks.length === 0 ? (
@@ -207,22 +207,20 @@ export function Tasks() {
           ) : tasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <ListChecks className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No Tasks Running</h3>
-              <p className="text-sm text-muted-foreground">
-                No background tasks are currently running
-              </p>
+              <h3 className="text-lg font-semibold mb-2">{t('tasks.noTasksRunning')}</h3>
+              <p className="text-sm text-muted-foreground">{t('tasks.noTasksDescription')}</p>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Task ID</TableHead>
-                  <TableHead>Kind</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Started</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Progress</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t('tasks.taskId')}</TableHead>
+                  <TableHead>{t('tasks.kind')}</TableHead>
+                  <TableHead>{t('tasks.status')}</TableHead>
+                  <TableHead>{t('tasks.started')}</TableHead>
+                  <TableHead>{t('tasks.duration')}</TableHead>
+                  <TableHead>{t('tasks.progress')}</TableHead>
+                  <TableHead className="text-right">{t('common.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -230,7 +228,7 @@ export function Tasks() {
                   <TableRow key={task.id}>
                     <TableCell className="font-mono text-xs">{task.id.slice(0, 8)}...</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{task.kind || 'Unknown'}</Badge>
+                      <Badge variant="outline">{task.kind || t('tasks.unknown')}</Badge>
                     </TableCell>
                     <TableCell>{getTaskStatusBadge(task.status)}</TableCell>
                     <TableCell>
@@ -249,7 +247,7 @@ export function Tasks() {
                                   1000
                               )
                             )
-                          : 'In progress'}
+                          : t('tasks.inProgress')}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -290,21 +288,21 @@ export function Tasks() {
       <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Cancel Task</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to cancel this task? This action cannot be undone.
-            </DialogDescription>
+            <DialogTitle>{t('tasks.cancelTask')}</DialogTitle>
+            <DialogDescription>{t('tasks.confirmCancel')}</DialogDescription>
           </DialogHeader>
           {selectedTask && (
             <div className="space-y-2 py-4">
               <div className="text-sm">
-                <span className="font-medium">Task ID:</span> {selectedTask.id}
+                <span className="font-medium">{t('tasks.taskId')}:</span> {selectedTask.id}
               </div>
               <div className="text-sm">
-                <span className="font-medium">Kind:</span> {selectedTask.kind || 'Unknown'}
+                <span className="font-medium">{t('tasks.kind')}:</span>{' '}
+                {selectedTask.kind || t('tasks.unknown')}
               </div>
               <div className="text-sm">
-                <span className="font-medium">Started:</span> {formatDate(selectedTask.startTime)}
+                <span className="font-medium">{t('tasks.started')}:</span>{' '}
+                {formatDate(selectedTask.startTime)}
               </div>
             </div>
           )}
@@ -314,7 +312,7 @@ export function Tasks() {
               onClick={() => setShowCancelDialog(false)}
               disabled={isCancelling}
             >
-              Close
+              {t('tasks.close')}
             </Button>
             <Button
               variant="destructive"
@@ -324,12 +322,12 @@ export function Tasks() {
               {isCancelling ? (
                 <>
                   <Spinner className="h-4 w-4 mr-2" />
-                  Cancelling...
+                  {t('tasks.cancelling')}
                 </>
               ) : (
                 <>
                   <XCircle className="h-4 w-4 mr-2" />
-                  Cancel Task
+                  {t('tasks.cancelTask')}
                 </>
               )}
             </Button>

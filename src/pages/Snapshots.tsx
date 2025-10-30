@@ -3,6 +3,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSnapshots } from '@/hooks/useSnapshots';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,6 +42,7 @@ import {
 import type { Snapshot } from '@/lib/kopia/types';
 
 export function Snapshots() {
+  const { t } = useTranslation();
   const { snapshots, sources, isLoading, error, createSnapshot, deleteSnapshots, refreshAll } =
     useSnapshots();
 
@@ -115,8 +117,8 @@ export function Snapshots() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">Snapshots</h1>
-          <p className="text-sm text-muted-foreground">Browse and manage your backup snapshots</p>
+          <h1 className="text-3xl font-bold tracking-tight">{t('snapshots.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('snapshots.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -126,11 +128,11 @@ export function Snapshots() {
             disabled={isLoading}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
+            {t('common.refresh')}
           </Button>
           <Button size="sm" onClick={() => setShowCreateDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Create Snapshot
+            {t('snapshots.createSnapshot')}
           </Button>
         </div>
       </div>
@@ -160,7 +162,7 @@ export function Snapshots() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Status</span>
+                    <span className="text-muted-foreground">{t('common.status')}</span>
                     <Badge variant={source.status === 'IDLE' ? 'secondary' : 'default'}>
                       {source.status}
                     </Badge>
@@ -177,9 +179,9 @@ export function Snapshots() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>All Snapshots</CardTitle>
+              <CardTitle>{t('snapshots.allSnapshots')}</CardTitle>
               <CardDescription>
-                {filteredSnapshots.length} snapshot{filteredSnapshots.length !== 1 ? 's' : ''} found
+                {t('snapshots.snapshotsFound', { count: filteredSnapshots.length })}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -187,7 +189,7 @@ export function Snapshots() {
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="search"
-                  placeholder="Search snapshots..."
+                  placeholder={t('snapshots.searchPlaceholder')}
                   className="pl-8 w-[250px]"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -204,16 +206,14 @@ export function Snapshots() {
           ) : filteredSnapshots.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <FolderArchive className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No Snapshots Found</h3>
+              <h3 className="text-lg font-semibold mb-2">{t('snapshots.noSnapshotsFound')}</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                {searchQuery
-                  ? 'No snapshots match your search criteria'
-                  : 'Create your first backup snapshot to get started'}
+                {searchQuery ? t('snapshots.noSnapshotsMatch') : t('snapshots.createFirst')}
               </p>
               {!searchQuery && (
                 <Button onClick={() => setShowCreateDialog(true)}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Create Snapshot
+                  {t('snapshots.createSnapshot')}
                 </Button>
               )}
             </div>
@@ -221,12 +221,12 @@ export function Snapshots() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Time</TableHead>
-                  <TableHead className="text-right">Size</TableHead>
-                  <TableHead className="text-right">Files</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t('snapshots.id')}</TableHead>
+                  <TableHead>{t('snapshots.description')}</TableHead>
+                  <TableHead>{t('snapshots.time')}</TableHead>
+                  <TableHead className="text-right">{t('snapshots.size')}</TableHead>
+                  <TableHead className="text-right">{t('snapshots.files')}</TableHead>
+                  <TableHead className="text-right">{t('common.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -237,7 +237,7 @@ export function Snapshots() {
                     </TableCell>
                     <TableCell>
                       <span className="text-sm truncate max-w-[200px] block">
-                        {snapshot.description || 'No description'}
+                        {snapshot.description || t('snapshots.noDescription')}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -284,24 +284,20 @@ export function Snapshots() {
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Snapshot</DialogTitle>
-            <DialogDescription>
-              Create a new backup snapshot of a directory or file
-            </DialogDescription>
+            <DialogTitle>{t('snapshots.createSnapshot')}</DialogTitle>
+            <DialogDescription>{t('snapshots.createDialogDescription')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="path">Path to Backup</Label>
+              <Label htmlFor="path">{t('snapshots.pathToBackup')}</Label>
               <Input
                 id="path"
-                placeholder="/path/to/backup"
+                placeholder={t('snapshots.pathPlaceholder')}
                 value={createPath}
                 onChange={(e) => setCreatePath(e.target.value)}
                 disabled={isCreating}
               />
-              <p className="text-xs text-muted-foreground">
-                Enter the full path to the directory or file you want to backup
-              </p>
+              <p className="text-xs text-muted-foreground">{t('snapshots.pathDescription')}</p>
             </div>
           </div>
           <DialogFooter>
@@ -310,7 +306,7 @@ export function Snapshots() {
               onClick={() => setShowCreateDialog(false)}
               disabled={isCreating}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={() => void handleCreateSnapshot()}
@@ -319,12 +315,12 @@ export function Snapshots() {
               {isCreating ? (
                 <>
                   <Spinner className="h-4 w-4 mr-2" />
-                  Creating...
+                  {t('snapshots.creating')}
                 </>
               ) : (
                 <>
                   <Plus className="h-4 w-4 mr-2" />
-                  Create Snapshot
+                  {t('snapshots.createSnapshot')}
                 </>
               )}
             </Button>
@@ -336,22 +332,23 @@ export function Snapshots() {
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Snapshot</DialogTitle>
+            <DialogTitle>{t('snapshots.deleteSnapshot')}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this snapshot? This action cannot be undone.
+              {t('snapshots.confirmDelete')} {t('snapshots.deleteWarning')}
             </DialogDescription>
           </DialogHeader>
           {selectedSnapshot && (
             <div className="space-y-2 py-4">
               <div className="text-sm">
-                <span className="font-medium">ID:</span> {selectedSnapshot.id}
+                <span className="font-medium">{t('snapshots.id')}:</span> {selectedSnapshot.id}
               </div>
               <div className="text-sm">
-                <span className="font-medium">Description:</span>{' '}
-                {selectedSnapshot.description || 'No description'}
+                <span className="font-medium">{t('snapshots.description')}:</span>{' '}
+                {selectedSnapshot.description || t('snapshots.noDescription')}
               </div>
               <div className="text-sm">
-                <span className="font-medium">Time:</span> {formatDate(selectedSnapshot.startTime)}
+                <span className="font-medium">{t('snapshots.time')}:</span>{' '}
+                {formatDate(selectedSnapshot.startTime)}
               </div>
             </div>
           )}
@@ -361,7 +358,7 @@ export function Snapshots() {
               onClick={() => setShowDeleteDialog(false)}
               disabled={isDeleting}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -371,12 +368,12 @@ export function Snapshots() {
               {isDeleting ? (
                 <>
                   <Spinner className="h-4 w-4 mr-2" />
-                  Deleting...
+                  {t('snapshots.deleting')}
                 </>
               ) : (
                 <>
                   <Trash2 className="h-4 w-4 mr-2" />
-                  Delete Snapshot
+                  {t('snapshots.deleteSnapshot')}
                 </>
               )}
             </Button>

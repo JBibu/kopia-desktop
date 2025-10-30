@@ -142,7 +142,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: kopia-ui-${{ matrix.platform }}
+          name: kopia-desktop-${{ matrix.platform }}
           path: |
             src-tauri/target/debug/bundle/**/*
           retention-days: 7
