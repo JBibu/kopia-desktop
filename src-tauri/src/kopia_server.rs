@@ -252,7 +252,8 @@ impl KopiaServer {
         [
             exe_dir.join("../../../bin").join(binary_name),      // Dev: target/debug
             exe_dir.join("../../bin").join(binary_name),          // Dev: alternative
-            exe_dir.join("resources/bin").join(binary_name),      // Production
+            exe_dir.join("_up_/bin").join(binary_name),           // Production: Windows
+            exe_dir.join("resources/bin").join(binary_name),      // Production: macOS/Linux
             std::path::PathBuf::from("./bin").join(binary_name),  // Current dir fallback
         ]
         .iter()
