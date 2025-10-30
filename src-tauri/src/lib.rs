@@ -6,7 +6,31 @@ mod commands;
 mod kopia_server;
 mod types;
 
-use kopia_server::create_server_state;
+use kopia_server::{create_server_state, KopiaServerState};
+
+/// Auto-start the Kopia server on app launch
+async fn auto_start_server(state: KopiaServerState) -> Result<(), String> {
+    let config_dir = commands::kopia::get_default_config_dir().unwrap_or_else(|e| {
+        log::warn!("Failed to get config directory: {}, using current directory", e);
+        ".".to_string()
+    });
+
+    // Start server process and get ready waiter
+    let (info, ready_waiter) = {
+        let mut server = state.lock().unwrap_or_else(|poisoned| {
+            log::warn!("Mutex poisoned during auto-start, recovering...");
+            poisoned.into_inner()
+        });
+        let info = server.start(&config_dir)?;
+        let waiter = server.get_ready_waiter()?;
+        (info, waiter)
+    };
+
+    // Wait for server to be ready (outside lock)
+    ready_waiter.await?;
+    log::info!("Kopia server started successfully on {}", info.server_url);
+    Ok(())
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -22,27 +46,9 @@ pub fn run() {
             // Auto-start Kopia server on app launch
             let state = server_state.clone();
             tauri::async_runtime::spawn(async move {
-                let config_dir = commands::kopia::get_default_config_dir().unwrap_or_else(|_| {
-                    eprintln!("Failed to get config directory, using fallback");
-                    String::from(".")
-                });
-
-                match state.lock() {
-                    Ok(mut server) => {
-                        match server.start(&config_dir) {
-                            Ok(info) => {
-                                println!("Kopia server started successfully on {}", info.server_url);
-                            }
-                            Err(e) => {
-                                eprintln!("Failed to start Kopia server: {}", e);
-                                eprintln!("You can try starting it manually from the UI");
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("Failed to lock server state: {}", e);
-                        eprintln!("Server auto-start aborted. You can try starting it manually from the UI");
-                    }
+                if let Err(e) = auto_start_server(state).await {
+                    log::error!("Failed to auto-start Kopia server: {}", e);
+                    log::info!("You can start the server manually from the UI");
                 }
             });
             Ok(())

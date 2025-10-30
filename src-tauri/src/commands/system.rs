@@ -23,12 +23,12 @@ pub async fn get_system_info() -> Result<SystemInfo, String> {
 pub async fn get_current_user() -> Result<(String, String), String> {
     let username = std::env::var("USER")
         .or_else(|_| std::env::var("USERNAME"))
-        .unwrap_or_else(|_| "unknown".to_string());
+        .unwrap_or_else(|_| "unknown".into());
 
     let hostname = hostname::get()
         .map_err(|e| format!("Failed to get hostname: {}", e))?
         .to_string_lossy()
-        .to_string();
+        .into_owned();
 
     Ok((username, hostname))
 }
@@ -38,19 +38,8 @@ pub async fn get_current_user() -> Result<(String, String), String> {
 pub async fn select_folder(app: AppHandle, default_path: Option<String>) -> Result<Option<String>, String> {
     use tauri_plugin_dialog::DialogExt;
 
-    let mut dialog = app.dialog().file();
-
-    // Set initial directory if provided
-    if let Some(path) = default_path {
-        dialog = dialog.set_directory(path);
-    }
-
-    // Pick folder and convert to string
-    let result = dialog
-        .blocking_pick_folder()
-        .map(|path| path.to_string());
-
-    Ok(result)
+    let dialog = configure_dialog(app.dialog().file(), default_path);
+    Ok(dialog.blocking_pick_folder().map(|path| path.to_string()))
 }
 
 /// Open file picker dialog
@@ -58,17 +47,17 @@ pub async fn select_folder(app: AppHandle, default_path: Option<String>) -> Resu
 pub async fn select_file(app: AppHandle, default_path: Option<String>) -> Result<Option<String>, String> {
     use tauri_plugin_dialog::DialogExt;
 
-    let mut dialog = app.dialog().file();
+    let dialog = configure_dialog(app.dialog().file(), default_path);
+    Ok(dialog.blocking_pick_file().map(|path| path.to_string()))
+}
 
-    // Set initial directory if provided
+/// Configure dialog with optional default path
+fn configure_dialog<R: tauri::Runtime>(
+    mut dialog: tauri_plugin_dialog::FileDialogBuilder<R>,
+    default_path: Option<String>,
+) -> tauri_plugin_dialog::FileDialogBuilder<R> {
     if let Some(path) = default_path {
         dialog = dialog.set_directory(path);
     }
-
-    // Pick file and convert to string
-    let result = dialog
-        .blocking_pick_file()
-        .map(|path| path.to_string());
-
-    Ok(result)
+    dialog
 }

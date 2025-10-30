@@ -24,7 +24,7 @@ interface UseRepositoryReturn {
 
 export function useRepository(): UseRepositoryReturn {
   const [status, setStatus] = useState<RepositoryStatus | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start as true
   const [error, setError] = useState<string | null>(null);
 
   const refreshStatus = useCallback(async () => {
@@ -45,6 +45,8 @@ export function useRepository(): UseRepositoryReturn {
         hash: undefined,
         encryption: undefined,
       });
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 

@@ -38,7 +38,7 @@ pub struct RepositoryCreateRequest {
     pub client_options: Option<ClientOptions>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClientOptions {
     pub description: Option<String>,
@@ -47,7 +47,7 @@ pub struct ClientOptions {
     pub readonly: Option<bool>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RepositoryCreateOptions {
     pub block_format: Option<BlockFormatOptions>,
@@ -58,7 +58,7 @@ pub struct RepositoryCreateOptions {
     pub ecc_overhead_percent: Option<f64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockFormatOptions {
     pub hash: Option<String>,
@@ -67,7 +67,7 @@ pub struct BlockFormatOptions {
     pub version: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectFormatOptions {
     pub splitter: Option<String>,
@@ -224,9 +224,10 @@ pub struct RestoreRequest {
     pub options: Option<RestoreOptions>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FilesystemOutput {
+    #[serde(default)]
     pub target_path: String,
     pub overwrite_files: Option<bool>,
     pub overwrite_directories: Option<bool>,
@@ -237,7 +238,7 @@ pub struct FilesystemOutput {
     pub write_files_atomically: Option<bool>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RestoreOptions {
     pub incremental: Option<bool>,
@@ -528,7 +529,7 @@ pub struct EstimateRequest {
     pub max_examples_per_bucket: Option<i64>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UIPreferences {
     pub theme: Option<String>,
