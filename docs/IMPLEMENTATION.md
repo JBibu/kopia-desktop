@@ -430,7 +430,7 @@ function TaskMonitor({ taskId }: { taskId: string }) {
 
 ```typescript
 import { createErrorHandler, KopiaErrorCode } from '@/lib/kopia/client';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 
 function SnapshotList() {
   const navigate = useNavigate();

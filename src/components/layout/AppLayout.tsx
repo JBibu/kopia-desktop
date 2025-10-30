@@ -3,7 +3,7 @@
  */
 
 import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet } from 'react-router';
 import { AppSidebar } from './AppSidebar';
 import { Titlebar } from './Titlebar';
 import { Toaster } from '@/components/ui/sonner';

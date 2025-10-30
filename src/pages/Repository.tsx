@@ -2,7 +2,7 @@
  * Repository management page
  */
 
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useRepository } from '@/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,7 @@ export function Repository() {
     await disconnect();
     toast.success('Disconnected from repository');
     // Redirect to setup after disconnect
-    navigate('/setup');
+    void navigate('/setup');
   };
 
   return (
@@ -99,7 +99,12 @@ export function Repository() {
                 To connect to a repository or create a new one, please use the setup wizard.
               </AlertDescription>
             </Alert>
-            <Button onClick={() => navigate('/setup')} className="w-full">
+            <Button
+              onClick={() => {
+                void navigate('/setup');
+              }}
+              className="w-full"
+            >
               <Settings className="mr-2 h-4 w-4" />
               Go to Setup
             </Button>

@@ -3,7 +3,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useKopiaServer, useRepository } from '@/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -130,7 +130,9 @@ export function Overview() {
                 </div>
                 <Button
                   size="sm"
-                  onClick={() => navigate('/repository')}
+                  onClick={() => {
+                    void navigate('/repository');
+                  }}
                   className="w-full"
                   disabled={!isServerRunning}
                 >
@@ -153,7 +155,9 @@ export function Overview() {
             <Button
               variant="outline"
               className="justify-start"
-              onClick={() => navigate('/snapshots')}
+              onClick={() => {
+                void navigate('/snapshots');
+              }}
             >
               <FolderArchive className="mr-2 h-4 w-4" />
               View Snapshots
@@ -161,7 +165,9 @@ export function Overview() {
             <Button
               variant="outline"
               className="justify-start"
-              onClick={() => navigate('/policies')}
+              onClick={() => {
+                void navigate('/policies');
+              }}
             >
               <ListTodo className="mr-2 h-4 w-4" />
               Manage Policies

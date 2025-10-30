@@ -8,11 +8,52 @@ BIN_DIR="$SCRIPT_DIR/../bin"
 VERSION="0.21.1"
 BASE_URL="https://github.com/kopia/kopia/releases/download/v${VERSION}"
 
-echo "📦 Downloading Kopia v${VERSION} binaries..."
-echo ""
-
 # Create bin directory
 mkdir -p "$BIN_DIR"
+
+# Check if binaries already exist
+check_binaries_exist() {
+    local platform_check=false
+
+    if [ -n "$PLATFORM_ONLY" ]; then
+        OS=$(uname -s)
+        ARCH=$(uname -m)
+        case "$OS" in
+            Linux)
+                [ "$ARCH" = "x86_64" ] && [ -f "$BIN_DIR/kopia-linux-x64" ] && platform_check=true
+                [ "$ARCH" = "aarch64" ] && [ -f "$BIN_DIR/kopia-linux-arm64" ] && platform_check=true
+                ;;
+            Darwin)
+                [ "$ARCH" = "x86_64" ] && [ -f "$BIN_DIR/kopia-darwin-x64" ] && platform_check=true
+                [ "$ARCH" = "arm64" ] && [ -f "$BIN_DIR/kopia-darwin-arm64" ] && platform_check=true
+                ;;
+            MINGW*|MSYS*|CYGWIN*)
+                [ -f "$BIN_DIR/kopia-windows-x64.exe" ] && platform_check=true
+                ;;
+        esac
+        echo $platform_check
+    else
+        # Check all platforms
+        if [ -f "$BIN_DIR/kopia-linux-x64" ] && \
+           [ -f "$BIN_DIR/kopia-linux-arm64" ] && \
+           [ -f "$BIN_DIR/kopia-darwin-x64" ] && \
+           [ -f "$BIN_DIR/kopia-darwin-arm64" ] && \
+           [ -f "$BIN_DIR/kopia-windows-x64.exe" ]; then
+            echo true
+        else
+            echo false
+        fi
+    fi
+}
+
+# Check if binaries exist
+if [ "$(check_binaries_exist)" = "true" ]; then
+    echo "✓ Kopia v${VERSION} binaries already installed"
+    exit 0
+fi
+
+echo "📦 Downloading Kopia v${VERSION} binaries..."
+echo ""
 
 # Download function - simple and direct
 download() {
@@ -23,6 +64,13 @@ download() {
 
     echo "⬇️  $platform..."
 
+    # Skip if binary already exists
+    if [ -f "$BIN_DIR/$output" ]; then
+        echo "   ✓ Already exists: $output"
+        echo ""
+        return 0
+    fi
+
     # Download with curl (silent mode, show errors, follow redirects)
     if curl -fsSL "$url" -o "/tmp/${filename}"; then
         # Extract based on file type
@@ -31,8 +79,15 @@ download() {
             # The archive contains a directory like "kopia-0.21.1-linux-x64/"
             local dir="${filename%.tar.gz}"
             if [ -f "/tmp/${dir}/kopia" ]; then
-                cp "/tmp/${dir}/kopia" "$BIN_DIR/$output"
-                chmod +x "$BIN_DIR/$output"
+                # Try to copy, handle busy file
+                if cp "/tmp/${dir}/kopia" "$BIN_DIR/$output" 2>/dev/null; then
+                    chmod +x "$BIN_DIR/$output"
+                else
+                    # File might be in use, try with temp file
+                    cp "/tmp/${dir}/kopia" "$BIN_DIR/${output}.tmp" && \
+                    mv -f "$BIN_DIR/${output}.tmp" "$BIN_DIR/$output" 2>/dev/null || \
+                    echo "   ⚠️  File in use, skipping"
+                fi
                 rm -rf "/tmp/${dir}"
             fi
         elif [[ $filename == *.zip ]]; then
@@ -40,7 +95,15 @@ download() {
             # The archive contains a directory like "kopia-0.21.1-windows-x64/"
             local dir="${filename%.zip}"
             if [ -f "/tmp/${dir}/kopia.exe" ]; then
-                cp "/tmp/${dir}/kopia.exe" "$BIN_DIR/$output"
+                # Try to copy, handle busy file
+                if cp "/tmp/${dir}/kopia.exe" "$BIN_DIR/$output" 2>/dev/null; then
+                    :
+                else
+                    # File might be in use, try with temp file
+                    cp "/tmp/${dir}/kopia.exe" "$BIN_DIR/${output}.tmp" && \
+                    mv -f "$BIN_DIR/${output}.tmp" "$BIN_DIR/$output" 2>/dev/null || \
+                    echo "   ⚠️  File in use, skipping"
+                fi
                 rm -rf "/tmp/${dir}"
             fi
         fi

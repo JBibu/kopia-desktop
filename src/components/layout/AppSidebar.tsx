@@ -2,7 +2,7 @@
  * Application sidebar - simplified version
  */
 
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router';
 import { Database, FolderArchive, Settings, ListTodo, Home, ListChecks } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
