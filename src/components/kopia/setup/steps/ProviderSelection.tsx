@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { HardDrive, Cloud, Database, Server, FolderTree, Globe } from 'lucide-react';
 import type { StorageType } from '@/lib/kopia/types';
@@ -8,68 +9,70 @@ interface ProviderSelectionProps {
 
 interface ProviderOption {
   type: StorageType;
-  name: string;
-  description: string;
+  nameKey: string;
+  descKey: string;
   icon: typeof HardDrive;
 }
 
 const providers: ProviderOption[] = [
   {
     type: 'filesystem',
-    name: 'Local Filesystem',
-    description: 'Store backups on a local or network-mounted drive',
+    nameKey: 'setup.providers.filesystem',
+    descKey: 'setup.providers.filesystemDesc',
     icon: HardDrive,
   },
   {
     type: 's3',
-    name: 'Amazon S3',
-    description: 'AWS S3 or S3-compatible storage (MinIO, Wasabi, etc.)',
+    nameKey: 'setup.providers.s3',
+    descKey: 'setup.providers.s3Desc',
     icon: Cloud,
   },
   {
     type: 'b2',
-    name: 'Backblaze B2',
-    description: 'Affordable cloud storage from Backblaze',
+    nameKey: 'setup.providers.b2',
+    descKey: 'setup.providers.b2Desc',
     icon: Database,
   },
   {
     type: 'azureBlob',
-    name: 'Azure Blob Storage',
-    description: 'Microsoft Azure Blob Storage',
+    nameKey: 'setup.providers.azureBlob',
+    descKey: 'setup.providers.azureBlobDesc',
     icon: Cloud,
   },
   {
     type: 'gcs',
-    name: 'Google Cloud Storage',
-    description: 'Google Cloud Storage buckets',
+    nameKey: 'setup.providers.gcs',
+    descKey: 'setup.providers.gcsDesc',
     icon: Cloud,
   },
   {
     type: 'sftp',
-    name: 'SFTP',
-    description: 'SSH File Transfer Protocol server',
+    nameKey: 'setup.providers.sftp',
+    descKey: 'setup.providers.sftpDesc',
     icon: Server,
   },
   {
     type: 'webdav',
-    name: 'WebDAV',
-    description: 'WebDAV-compatible server',
+    nameKey: 'setup.providers.webdav',
+    descKey: 'setup.providers.webdavDesc',
     icon: Globe,
   },
   {
     type: 'rclone',
-    name: 'Rclone',
-    description: 'Use rclone for any supported backend',
+    nameKey: 'setup.providers.rclone',
+    descKey: 'setup.providers.rcloneDesc',
     icon: FolderTree,
   },
 ];
 
 export function ProviderSelection({ onSelect }: ProviderSelectionProps) {
+  const { t } = useTranslation();
+
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-2xl font-bold">Choose Storage Provider</h2>
-        <p className="text-muted-foreground">Select where you want to store your backups</p>
+        <h2 className="text-2xl font-bold">{t('setup.chooseProvider')}</h2>
+        <p className="text-muted-foreground">{t('setup.selectProviderMessage')}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -87,12 +90,12 @@ export function ProviderSelection({ onSelect }: ProviderSelectionProps) {
                     <Icon className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <CardTitle className="text-base">{provider.name}</CardTitle>
+                    <CardTitle className="text-base">{t(provider.nameKey)}</CardTitle>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <CardDescription className="text-sm">{provider.description}</CardDescription>
+                <CardDescription className="text-sm">{t(provider.descKey)}</CardDescription>
               </CardContent>
             </Card>
           );

@@ -1,10 +1,12 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { useThemeStore } from './stores/theme';
+import { useLanguageStore } from './stores/language';
 import { AppLayout } from './components/layout/AppLayout';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Overview, Repository, Snapshots, Policies, Tasks, Preferences, Setup } from './pages';
 import { useRepository } from './hooks';
+import './lib/i18n/config';
 import './styles/globals.css';
 
 interface ProtectedRouteProps {
@@ -29,6 +31,7 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
 
 function App(): React.JSX.Element {
   const theme = useThemeStore((state) => state.theme);
+  const language = useLanguageStore((state) => state.language);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -43,6 +46,10 @@ function App(): React.JSX.Element {
       root.classList.add(theme);
     }
   }, [theme]);
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
 
   return (
     <ErrorBoundary>

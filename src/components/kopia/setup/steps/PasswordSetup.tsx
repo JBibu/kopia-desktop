@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -43,6 +44,7 @@ export function PasswordSetup({
   onSubmit,
   isSubmitting = false,
 }: PasswordSetupProps) {
+  const { t } = useTranslation();
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const passwordsMatch = password === confirmPassword;
@@ -65,12 +67,12 @@ export function PasswordSetup({
         </Button>
         <div>
           <h2 className="text-2xl font-bold">
-            {mode === 'create' ? 'Create Repository' : 'Connect to Repository'}
+            {mode === 'create' ? t('setup.password.createTitle') : t('setup.password.connectTitle')}
           </h2>
           <p className="text-muted-foreground">
             {mode === 'create'
-              ? 'Set a password for your new repository'
-              : 'Enter repository password'}
+              ? t('setup.password.createSubtitle')
+              : t('setup.password.connectSubtitle')}
           </p>
         </div>
       </div>
@@ -80,65 +82,63 @@ export function PasswordSetup({
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              <strong>Important:</strong> There is NO way to recover your password. Store it
-              securely! Consider using a password manager.
+              <strong>{t('setup.password.importantLabel')}</strong>{' '}
+              {t('setup.password.passwordWarning')}
             </AlertDescription>
           </Alert>
         )}
 
         <div className="space-y-2">
           <Label htmlFor="password">
-            Password <span className="text-destructive">*</span>
+            {t('setup.password.passwordLabel')} <span className="text-destructive">*</span>
           </Label>
           <Input
             id="password"
             type="password"
             value={password}
             onChange={(e) => onPasswordChange(e.target.value)}
-            placeholder="Enter a strong password"
+            placeholder={t('setup.password.passwordPlaceholder')}
             required
             autoFocus
             disabled={isSubmitting}
           />
           {mode === 'create' && password && !isPasswordValid && (
-            <p className="text-xs text-destructive">Password must be at least 8 characters</p>
+            <p className="text-xs text-destructive">{t('setup.password.passwordMinLength')}</p>
           )}
         </div>
 
         {mode === 'create' && (
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">
-              Confirm Password <span className="text-destructive">*</span>
+              {t('setup.password.confirmPasswordLabel')} <span className="text-destructive">*</span>
             </Label>
             <Input
               id="confirmPassword"
               type="password"
               value={confirmPassword}
               onChange={(e) => onConfirmPasswordChange(e.target.value)}
-              placeholder="Re-enter your password"
+              placeholder={t('setup.password.confirmPasswordPlaceholder')}
               required
               disabled={isSubmitting}
             />
             {confirmPassword && !passwordsMatch && (
-              <p className="text-xs text-destructive">Passwords do not match</p>
+              <p className="text-xs text-destructive">{t('setup.password.passwordMismatch')}</p>
             )}
           </div>
         )}
 
         {mode === 'create' && (
           <div className="space-y-2">
-            <Label htmlFor="description">Description (Optional)</Label>
+            <Label htmlFor="description">{t('setup.password.descriptionLabel')}</Label>
             <Input
               id="description"
               type="text"
               value={description}
               onChange={(e) => onDescriptionChange(e.target.value)}
-              placeholder="My Backup Repository"
+              placeholder={t('setup.password.descriptionPlaceholder')}
               disabled={isSubmitting}
             />
-            <p className="text-xs text-muted-foreground">
-              A friendly name to help you identify this repository
-            </p>
+            <p className="text-xs text-muted-foreground">{t('setup.password.descriptionHelper')}</p>
           </div>
         )}
 
@@ -146,7 +146,7 @@ export function PasswordSetup({
           <Collapsible open={showAdvanced} onOpenChange={setShowAdvanced}>
             <CollapsibleTrigger asChild>
               <Button type="button" variant="ghost" className="w-full justify-between">
-                Advanced Options
+                {t('setup.password.advancedOptions')}
                 <ChevronDown
                   className={`h-4 w-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`}
                 />
@@ -154,7 +154,7 @@ export function PasswordSetup({
             </CollapsibleTrigger>
             <CollapsibleContent className="space-y-4 pt-4">
               <div className="space-y-2">
-                <Label htmlFor="hash">Hash Algorithm</Label>
+                <Label htmlFor="hash">{t('setup.password.hashAlgorithm')}</Label>
                 <Select
                   value={advancedOptions.hash || 'BLAKE3-256'}
                   onValueChange={(v) => handleAdvancedChange('hash', v)}
@@ -164,7 +164,9 @@ export function PasswordSetup({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="BLAKE3-256">BLAKE3-256 (recommended)</SelectItem>
+                    <SelectItem value="BLAKE3-256">
+                      BLAKE3-256 ({t('setup.password.recommended')})
+                    </SelectItem>
                     <SelectItem value="BLAKE2B-256">BLAKE2B-256</SelectItem>
                     <SelectItem value="BLAKE2S-256">BLAKE2S-256</SelectItem>
                   </SelectContent>
@@ -172,7 +174,7 @@ export function PasswordSetup({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="encryption">Encryption Algorithm</Label>
+                <Label htmlFor="encryption">{t('setup.password.encryptionAlgorithm')}</Label>
                 <Select
                   value={advancedOptions.encryption || 'AES256-GCM-HMAC-SHA256'}
                   onValueChange={(v) => handleAdvancedChange('encryption', v)}
@@ -183,7 +185,7 @@ export function PasswordSetup({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="AES256-GCM-HMAC-SHA256">
-                      AES256-GCM-HMAC-SHA256 (recommended)
+                      AES256-GCM-HMAC-SHA256 ({t('setup.password.recommended')})
                     </SelectItem>
                     <SelectItem value="CHACHA20-POLY1305-HMAC-SHA256">
                       CHACHA20-POLY1305-HMAC-SHA256
@@ -193,7 +195,7 @@ export function PasswordSetup({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="splitter">Splitter Algorithm</Label>
+                <Label htmlFor="splitter">{t('setup.password.splitterAlgorithm')}</Label>
                 <Select
                   value={advancedOptions.splitter || 'DYNAMIC-4M-BUZHASH'}
                   onValueChange={(v) => handleAdvancedChange('splitter', v)}
@@ -204,7 +206,7 @@ export function PasswordSetup({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="DYNAMIC-4M-BUZHASH">
-                      DYNAMIC-4M-BUZHASH (recommended)
+                      DYNAMIC-4M-BUZHASH ({t('setup.password.recommended')})
                     </SelectItem>
                     <SelectItem value="FIXED-4M">FIXED-4M</SelectItem>
                     <SelectItem value="FIXED-1M">FIXED-1M</SelectItem>
@@ -218,16 +220,20 @@ export function PasswordSetup({
 
       <div className="flex justify-between gap-2">
         <Button type="button" variant="outline" onClick={onBack} disabled={isSubmitting}>
-          Back
+          {t('setup.back')}
         </Button>
         <Button type="button" onClick={onSubmit} disabled={!canSubmit || isSubmitting}>
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {mode === 'create' ? 'Creating...' : 'Connecting...'}
+              {mode === 'create' ? t('setup.password.creating') : t('setup.password.connecting')}
             </>
           ) : (
-            <>{mode === 'create' ? 'Create Repository' : 'Connect'}</>
+            <>
+              {mode === 'create'
+                ? t('setup.password.createButton')
+                : t('setup.password.connectButton')}
+            </>
           )}
         </Button>
       </div>

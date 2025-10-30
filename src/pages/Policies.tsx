@@ -3,6 +3,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { usePolicies } from '@/hooks/usePolicies';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,6 +34,7 @@ import {
 import type { PolicyResponse } from '@/lib/kopia/types';
 
 export function Policies() {
+  const { t } = useTranslation();
   const { policies, isLoading, error, fetchPolicies } = usePolicies();
   const [selectedTab, setSelectedTab] = useState('all');
 
@@ -87,10 +89,10 @@ export function Policies() {
 
   const getPolicyLevelBadge = (level: string) => {
     const variants = {
-      global: { icon: Globe, variant: 'default' as const, text: 'Global' },
-      host: { icon: Monitor, variant: 'secondary' as const, text: 'Host' },
-      user: { icon: User, variant: 'secondary' as const, text: 'User' },
-      path: { icon: FolderTree, variant: 'outline' as const, text: 'Path' },
+      global: { icon: Globe, variant: 'default' as const, textKey: 'policies.global' },
+      host: { icon: Monitor, variant: 'secondary' as const, textKey: 'policies.host' },
+      user: { icon: User, variant: 'secondary' as const, textKey: 'policies.user' },
+      path: { icon: FolderTree, variant: 'outline' as const, textKey: 'policies.path' },
     };
 
     const config = variants[level as keyof typeof variants] || variants.path;
@@ -99,7 +101,7 @@ export function Policies() {
     return (
       <Badge variant={config.variant} className="gap-1">
         <Icon className="h-3 w-3" />
-        {config.text}
+        {t(config.textKey)}
       </Badge>
     );
   };
@@ -121,8 +123,10 @@ export function Policies() {
           <CardDescription className="text-xs">
             {policy.retention && (
               <span>
-                Retention: Keep {policy.retention.keepLatest || 0} latest,{' '}
-                {policy.retention.keepDaily || 0} daily
+                {t('policies.retentionDescription', {
+                  latest: policy.retention.keepLatest || 0,
+                  daily: policy.retention.keepDaily || 0,
+                })}
               </span>
             )}
           </CardDescription>
@@ -134,29 +138,29 @@ export function Policies() {
                 <AccordionTrigger className="text-sm">
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
-                    Retention Policy
+                    {t('policies.retentionPolicy')}
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Keep Latest</span>
+                      <span className="text-muted-foreground">{t('policies.keepLatest')}</span>
                       <span className="font-medium">{policy.retention.keepLatest || 0}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Keep Daily</span>
+                      <span className="text-muted-foreground">{t('policies.keepDaily')}</span>
                       <span className="font-medium">{policy.retention.keepDaily || 0}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Keep Weekly</span>
+                      <span className="text-muted-foreground">{t('policies.keepWeekly')}</span>
                       <span className="font-medium">{policy.retention.keepWeekly || 0}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Keep Monthly</span>
+                      <span className="text-muted-foreground">{t('policies.keepMonthly')}</span>
                       <span className="font-medium">{policy.retention.keepMonthly || 0}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Keep Annual</span>
+                      <span className="text-muted-foreground">{t('policies.keepAnnual')}</span>
                       <span className="font-medium">{policy.retention.keepAnnual || 0}</span>
                     </div>
                   </div>
@@ -169,18 +173,22 @@ export function Policies() {
                 <AccordionTrigger className="text-sm">
                   <div className="flex items-center gap-2">
                     <Timer className="h-4 w-4 text-muted-foreground" />
-                    Scheduling Policy
+                    {t('policies.schedulingPolicy')}
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Interval</span>
-                      <span className="font-medium">{policy.scheduling.interval || 'Not set'}</span>
+                      <span className="text-muted-foreground">{t('policies.interval')}</span>
+                      <span className="font-medium">
+                        {policy.scheduling.interval || t('policies.notSet')}
+                      </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Manual</span>
-                      <span className="font-medium">{policy.scheduling.manual ? 'Yes' : 'No'}</span>
+                      <span className="text-muted-foreground">{t('policies.manual')}</span>
+                      <span className="font-medium">
+                        {policy.scheduling.manual ? t('policies.yes') : t('policies.no')}
+                      </span>
                     </div>
                   </div>
                 </AccordionContent>
@@ -192,15 +200,15 @@ export function Policies() {
                 <AccordionTrigger className="text-sm">
                   <div className="flex items-center gap-2">
                     <Archive className="h-4 w-4 text-muted-foreground" />
-                    Compression Policy
+                    {t('policies.compressionPolicy')}
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Compressor Name</span>
+                      <span className="text-muted-foreground">{t('policies.compressorName')}</span>
                       <span className="font-medium">
-                        {policy.compression.compressorName || 'Default'}
+                        {policy.compression.compressorName || t('policies.default')}
                       </span>
                     </div>
                   </div>
@@ -213,14 +221,16 @@ export function Policies() {
                 <AccordionTrigger className="text-sm">
                   <div className="flex items-center gap-2">
                     <FileX className="h-4 w-4 text-muted-foreground" />
-                    Files Policy
+                    {t('policies.filesPolicy')}
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
                   <div className="space-y-2 text-sm">
                     {policy.files.ignore && policy.files.ignore.length > 0 && (
                       <div>
-                        <span className="text-muted-foreground block mb-1">Ignore Rules:</span>
+                        <span className="text-muted-foreground block mb-1">
+                          {t('policies.ignoreRules')}:
+                        </span>
                         <ul className="list-disc list-inside space-y-1">
                           {policy.files.ignore.map((rule: string, idx: number) => (
                             <li key={idx} className="font-mono text-xs">
@@ -245,8 +255,8 @@ export function Policies() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">Policies</h1>
-          <p className="text-sm text-muted-foreground">Configure backup policies and schedules</p>
+          <h1 className="text-3xl font-bold tracking-tight">{t('policies.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('policies.subtitle')}</p>
         </div>
         <Button
           variant="outline"
@@ -255,7 +265,7 @@ export function Policies() {
           disabled={isLoading}
         >
           <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh
+          {t('common.refresh')}
         </Button>
       </div>
 
@@ -270,10 +280,7 @@ export function Policies() {
       {/* Info Alert */}
       <Alert>
         <Info className="h-4 w-4" />
-        <AlertDescription>
-          Kopia uses a 4-level policy hierarchy: Global → Host → User → Path. More specific policies
-          override less specific ones.
-        </AlertDescription>
+        <AlertDescription>{t('policies.hierarchyInfo')}</AlertDescription>
       </Alert>
 
       {/* Summary Cards */}
@@ -282,7 +289,7 @@ export function Policies() {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Globe className="h-4 w-4 text-muted-foreground" />
-              Global
+              {t('policies.global')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -293,7 +300,7 @@ export function Policies() {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Monitor className="h-4 w-4 text-muted-foreground" />
-              Host
+              {t('policies.host')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -304,7 +311,7 @@ export function Policies() {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <User className="h-4 w-4 text-muted-foreground" />
-              User
+              {t('policies.user')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -315,7 +322,7 @@ export function Policies() {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <FolderTree className="h-4 w-4 text-muted-foreground" />
-              Path
+              {t('policies.path')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -327,11 +334,21 @@ export function Policies() {
       {/* Tabs */}
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
         <TabsList>
-          <TabsTrigger value="all">All ({policies.length})</TabsTrigger>
-          <TabsTrigger value="global">Global ({globalPolicies.length})</TabsTrigger>
-          <TabsTrigger value="host">Host ({hostPolicies.length})</TabsTrigger>
-          <TabsTrigger value="user">User ({userPolicies.length})</TabsTrigger>
-          <TabsTrigger value="path">Path ({pathPolicies.length})</TabsTrigger>
+          <TabsTrigger value="all">
+            {t('policies.all')} ({policies.length})
+          </TabsTrigger>
+          <TabsTrigger value="global">
+            {t('policies.global')} ({globalPolicies.length})
+          </TabsTrigger>
+          <TabsTrigger value="host">
+            {t('policies.host')} ({hostPolicies.length})
+          </TabsTrigger>
+          <TabsTrigger value="user">
+            {t('policies.user')} ({userPolicies.length})
+          </TabsTrigger>
+          <TabsTrigger value="path">
+            {t('policies.path')} ({pathPolicies.length})
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="all" className="space-y-4">
@@ -343,9 +360,9 @@ export function Policies() {
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                 <ListTodo className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No Policies Found</h3>
+                <h3 className="text-lg font-semibold mb-2">{t('policies.noPoliciesFound')}</h3>
                 <p className="text-sm text-muted-foreground">
-                  No backup policies are configured yet
+                  {t('policies.noPoliciesConfigured')}
                 </p>
               </CardContent>
             </Card>
@@ -359,8 +376,8 @@ export function Policies() {
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                 <Globe className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No Global Policies</h3>
-                <p className="text-sm text-muted-foreground">No global policies are configured</p>
+                <h3 className="text-lg font-semibold mb-2">{t('policies.noGlobalPolicies')}</h3>
+                <p className="text-sm text-muted-foreground">{t('policies.noGlobalConfigured')}</p>
               </CardContent>
             </Card>
           ) : (
@@ -373,8 +390,8 @@ export function Policies() {
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                 <Monitor className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No Host Policies</h3>
-                <p className="text-sm text-muted-foreground">No host policies are configured</p>
+                <h3 className="text-lg font-semibold mb-2">{t('policies.noHostPolicies')}</h3>
+                <p className="text-sm text-muted-foreground">{t('policies.noHostConfigured')}</p>
               </CardContent>
             </Card>
           ) : (
@@ -387,8 +404,8 @@ export function Policies() {
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                 <User className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No User Policies</h3>
-                <p className="text-sm text-muted-foreground">No user policies are configured</p>
+                <h3 className="text-lg font-semibold mb-2">{t('policies.noUserPolicies')}</h3>
+                <p className="text-sm text-muted-foreground">{t('policies.noUserConfigured')}</p>
               </CardContent>
             </Card>
           ) : (
@@ -401,8 +418,8 @@ export function Policies() {
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                 <FolderTree className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No Path Policies</h3>
-                <p className="text-sm text-muted-foreground">No path policies are configured</p>
+                <h3 className="text-lg font-semibold mb-2">{t('policies.noPathPolicies')}</h3>
+                <p className="text-sm text-muted-foreground">{t('policies.noPathConfigured')}</p>
               </CardContent>
             </Card>
           ) : (

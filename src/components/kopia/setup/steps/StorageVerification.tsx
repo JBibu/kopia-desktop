@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, CheckCircle2, AlertCircle, ArrowLeft } from 'lucide-react';
@@ -20,6 +21,7 @@ export function StorageVerification({
   onCreateNew,
   onConnect,
 }: StorageVerificationProps) {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<VerificationStatus>('checking');
   const [error, setError] = useState<string | null>(null);
 
@@ -52,8 +54,8 @@ export function StorageVerification({
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h2 className="text-2xl font-bold">Verify Storage</h2>
-          <p className="text-muted-foreground">Checking repository status</p>
+          <h2 className="text-2xl font-bold">{t('setup.verifyStorage')}</h2>
+          <p className="text-muted-foreground">{t('setup.checkingRepoStatus')}</p>
         </div>
       </div>
 
@@ -61,28 +63,21 @@ export function StorageVerification({
         {status === 'checking' && (
           <Alert>
             <Loader2 className="h-4 w-4 animate-spin" />
-            <AlertDescription>
-              Checking if a Kopia repository exists at this location...
-            </AlertDescription>
+            <AlertDescription>{t('setup.checking')}</AlertDescription>
           </Alert>
         )}
 
         {status === 'exists' && (
           <Alert>
             <CheckCircle2 className="h-4 w-4 text-green-500" />
-            <AlertDescription>
-              A Kopia repository was found at this location. You can connect to it with your
-              password.
-            </AlertDescription>
+            <AlertDescription>{t('setup.repoFound')}</AlertDescription>
           </Alert>
         )}
 
         {status === 'not-exists' && (
           <Alert>
             <AlertCircle className="h-4 w-4 text-blue-500" />
-            <AlertDescription>
-              No Kopia repository found at this location. You can create a new repository here.
-            </AlertDescription>
+            <AlertDescription>{t('setup.noRepoFound')}</AlertDescription>
           </Alert>
         )}
 
@@ -90,9 +85,9 @@ export function StorageVerification({
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              Failed to check repository: {error}
+              {t('setup.checkFailed')}: {error}
               <Button type="button" variant="link" size="sm" className="ml-2" onClick={handleRetry}>
-                Try again
+                {t('setup.tryAgain')}
               </Button>
             </AlertDescription>
           </Alert>
@@ -101,25 +96,25 @@ export function StorageVerification({
 
       <div className="flex justify-between gap-2">
         <Button type="button" variant="outline" onClick={onBack}>
-          Back
+          {t('setup.back')}
         </Button>
 
         <div className="flex gap-2">
           {status === 'exists' && (
             <Button type="button" onClick={onConnect}>
-              Connect to Repository
+              {t('setup.connect')}
             </Button>
           )}
 
           {status === 'not-exists' && (
             <Button type="button" onClick={onCreateNew}>
-              Create New Repository
+              {t('setup.createNew')}
             </Button>
           )}
 
           {status === 'error' && (
             <Button type="button" variant="outline" onClick={handleRetry}>
-              Retry
+              {t('setup.tryAgain')}
             </Button>
           )}
         </div>

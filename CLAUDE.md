@@ -17,6 +17,7 @@ A React + Tauri application providing a user-friendly interface for managing Kop
 - ✅ 7 functional pages (Overview, Repository, Snapshots, Policies, Tasks, Preferences, Setup)
 - ✅ Repository setup wizard with 8 storage providers (Filesystem, S3, B2, Azure, GCS, SFTP, WebDAV, Rclone)
 - ✅ Theme system (light/dark/system) with Zustand
+- ✅ i18n/translations (English + Spanish) with react-i18next
 - ✅ Error handling system with `KopiaError` class
 - ✅ 6 custom hooks for data fetching with polling
 - ✅ Native file/folder pickers via Tauri dialog plugin
@@ -24,7 +25,6 @@ A React + Tauri application providing a user-friendly interface for managing Kop
 
 **Not Yet Implemented:**
 
-- ❌ i18n/translations (package not installed)
 - ❌ Form validation with Zod (package not installed)
 - ❌ WebSocket integration (code exists but unused)
 - ❌ System tray integration
@@ -57,7 +57,8 @@ pnpm validate     # Run all checks (typecheck, lint, format, test)
 - Vite 7.1 (bundling + HMR)
 - Tailwind CSS 4.1 + shadcn/ui (Radix UI)
 - React Router v7.9
-- Zustand 5.0 (theme management)
+- Zustand 5.0 (theme + language management)
+- i18next 25.6 + react-i18next 16.2 (internationalization)
 - Sonner (toast notifications)
 - Lucide React (icons)
 

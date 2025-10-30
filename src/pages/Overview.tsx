@@ -4,6 +4,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { useKopiaServer, useRepository } from '@/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ import {
 } from 'lucide-react';
 
 export function Overview() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { serverStatus, isLoading: serverLoading, startServer } = useKopiaServer();
   const { status: repoStatus, isLoading: repoLoading } = useRepository();
@@ -39,8 +41,8 @@ export function Overview() {
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Monitor your backup system status</p>
+        <h1 className="text-3xl font-bold tracking-tight">{t('overview.title')}</h1>
+        <p className="text-sm text-muted-foreground">{t('overview.subtitle')}</p>
       </div>
 
       {/* Status Cards */}
@@ -51,10 +53,10 @@ export function Overview() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
                 <Server className="h-4 w-4" />
-                Kopia Server
+                {t('overview.kopiaServer')}
               </CardTitle>
               {isServerRunning && (
-                <Badge className="bg-success text-success-foreground">Active</Badge>
+                <Badge className="bg-success text-success-foreground">{t('common.active')}</Badge>
               )}
             </div>
           </CardHeader>
@@ -62,17 +64,19 @@ export function Overview() {
             {serverLoading ? (
               <div className="flex items-center gap-2">
                 <Spinner className="h-4 w-4" />
-                <span className="text-sm text-muted-foreground">Checking status...</span>
+                <span className="text-sm text-muted-foreground">
+                  {t('overview.checkingStatus')}
+                </span>
               </div>
             ) : isServerRunning ? (
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-success">
                   <CheckCircle className="h-5 w-5" />
-                  <span className="font-medium">Online</span>
+                  <span className="font-medium">{t('common.online')}</span>
                 </div>
                 {serverStatus?.uptime !== undefined && (
                   <p className="text-xs text-muted-foreground">
-                    Uptime: {Math.floor(serverStatus.uptime / 60)}m
+                    {t('overview.uptime', { minutes: Math.floor(serverStatus.uptime / 60) })}
                   </p>
                 )}
               </div>
@@ -80,11 +84,11 @@ export function Overview() {
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-destructive">
                   <XCircle className="h-5 w-5" />
-                  <span className="font-medium">Offline</span>
+                  <span className="font-medium">{t('common.offline')}</span>
                 </div>
                 <Button size="sm" onClick={() => void startServer()} className="w-full">
                   <PlayCircle className="mr-2 h-4 w-4" />
-                  Start Server
+                  {t('overview.startServer')}
                 </Button>
               </div>
             )}
@@ -97,10 +101,12 @@ export function Overview() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
                 <Database className="h-4 w-4" />
-                Repository
+                {t('overview.repository')}
               </CardTitle>
               {isRepoConnected && (
-                <Badge className="bg-success text-success-foreground">Connected</Badge>
+                <Badge className="bg-success text-success-foreground">
+                  {t('common.connected')}
+                </Badge>
               )}
             </div>
           </CardHeader>
@@ -108,13 +114,15 @@ export function Overview() {
             {repoLoading ? (
               <div className="flex items-center gap-2">
                 <Spinner className="h-4 w-4" />
-                <span className="text-sm text-muted-foreground">Checking connection...</span>
+                <span className="text-sm text-muted-foreground">
+                  {t('overview.checkingConnection')}
+                </span>
               </div>
             ) : isRepoConnected ? (
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-success">
                   <CheckCircle className="h-5 w-5" />
-                  <span className="font-medium">Connected</span>
+                  <span className="font-medium">{t('common.connected')}</span>
                 </div>
                 {repoStatus?.storage && (
                   <Badge variant="secondary" className="text-xs">
@@ -126,7 +134,7 @@ export function Overview() {
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-destructive">
                   <XCircle className="h-5 w-5" />
-                  <span className="font-medium">Not Connected</span>
+                  <span className="font-medium">{t('common.notConnected')}</span>
                 </div>
                 <Button
                   size="sm"
@@ -137,7 +145,7 @@ export function Overview() {
                   disabled={!isServerRunning}
                 >
                   <Database className="mr-2 h-4 w-4" />
-                  Connect
+                  {t('common.connect')}
                 </Button>
               </div>
             )}
@@ -149,7 +157,7 @@ export function Overview() {
       {isServerRunning && isRepoConnected && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Quick Actions</CardTitle>
+            <CardTitle className="text-base">{t('overview.quickActions')}</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-2 md:grid-cols-2">
             <Button
@@ -160,7 +168,7 @@ export function Overview() {
               }}
             >
               <FolderArchive className="mr-2 h-4 w-4" />
-              View Snapshots
+              {t('overview.viewSnapshots')}
             </Button>
             <Button
               variant="outline"
@@ -170,7 +178,7 @@ export function Overview() {
               }}
             >
               <ListTodo className="mr-2 h-4 w-4" />
-              Manage Policies
+              {t('overview.managePolicies')}
             </Button>
           </CardContent>
         </Card>
