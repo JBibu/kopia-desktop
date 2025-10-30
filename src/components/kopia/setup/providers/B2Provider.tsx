@@ -1,13 +1,11 @@
 import { RequiredField, OptionalField } from '../fields';
 import type { ProviderFormProps } from '../types';
 import type { B2StorageConfig } from '@/lib/kopia/types';
+import { useProviderConfig } from '@/hooks';
 
 export function B2Provider({ config, onChange }: ProviderFormProps) {
   const b2Config = config as Partial<B2StorageConfig>;
-
-  const handleChange = (field: keyof B2StorageConfig, value: string) => {
-    onChange({ ...b2Config, [field]: value });
-  };
+  const { handleChange } = useProviderConfig<B2StorageConfig>(b2Config, onChange);
 
   return (
     <div className="space-y-4">

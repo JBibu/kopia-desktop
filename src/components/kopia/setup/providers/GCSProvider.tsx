@@ -5,14 +5,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { ProviderFormProps } from '../types';
 import type { GCSStorageConfig } from '@/lib/kopia/types';
+import { useProviderConfig } from '@/hooks';
 
 export function GCSProvider({ config, onChange }: ProviderFormProps) {
   const gcsConfig = config as Partial<GCSStorageConfig>;
   const [useFile, setUseFile] = useState(!!gcsConfig.credentialsFile);
-
-  const handleChange = (field: keyof GCSStorageConfig, value: string) => {
-    onChange({ ...gcsConfig, [field]: value });
-  };
+  const { handleChange } = useProviderConfig<GCSStorageConfig>(gcsConfig, onChange);
 
   const toggleCredentialsMode = () => {
     setUseFile(!useFile);

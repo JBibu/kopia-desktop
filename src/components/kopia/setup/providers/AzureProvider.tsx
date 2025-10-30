@@ -1,13 +1,11 @@
 import { RequiredField, OptionalField } from '../fields';
 import type { ProviderFormProps } from '../types';
 import type { AzureStorageConfig } from '@/lib/kopia/types';
+import { useProviderConfig } from '@/hooks';
 
 export function AzureProvider({ config, onChange }: ProviderFormProps) {
   const azureConfig = config as Partial<AzureStorageConfig>;
-
-  const handleChange = (field: keyof AzureStorageConfig, value: string) => {
-    onChange({ ...azureConfig, [field]: value });
-  };
+  const { handleChange } = useProviderConfig<AzureStorageConfig>(azureConfig, onChange);
 
   return (
     <div className="space-y-4">

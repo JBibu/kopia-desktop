@@ -5,8 +5,7 @@
 import { useState, useCallback } from 'react';
 import * as kopia from '@/lib/kopia/client';
 import type { PolicyDefinition, PolicyResponse } from '@/lib/kopia/types';
-import { getErrorMessage } from '@/lib/kopia/errors';
-import { toast } from 'sonner';
+import { useAsyncOperation } from './useAsyncOperation';
 
 interface UsePoliciesReturn {
   policies: PolicyResponse[];
@@ -25,81 +24,52 @@ interface UsePoliciesReturn {
 
 export function usePolicies(): UsePoliciesReturn {
   const [policies, setPolicies] = useState<PolicyResponse[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { isLoading, error, execute } = useAsyncOperation();
 
   const fetchPolicies = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await kopia.listPolicies();
+    const response = await execute(() => kopia.listPolicies(), {
+      errorContext: 'Failed to fetch policies',
+    });
+    if (response) {
       setPolicies(response.policies || []);
-    } catch (err) {
-      const message = getErrorMessage(err);
-      setError(message);
-      toast.error(`Failed to fetch policies: ${message}`);
-    } finally {
-      setIsLoading(false);
     }
-  }, []);
+  }, [execute]);
 
   const getPolicy = useCallback(
     async (userName?: string, host?: string, path?: string): Promise<PolicyResponse | null> => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const result = await kopia.getPolicy(userName, host, path);
-        return result;
-      } catch (err) {
-        const message = getErrorMessage(err);
-        setError(message);
-        toast.error(`Failed to fetch policy: ${message}`);
-        return null;
-      } finally {
-        setIsLoading(false);
-      }
+      return await execute(() => kopia.getPolicy(userName, host, path), {
+        errorContext: 'Failed to fetch policy',
+      });
     },
-    []
+    [execute]
   );
 
   const setPolicy = useCallback(
     async (policy: PolicyDefinition, userName?: string, host?: string, path?: string) => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        await kopia.setPolicy(policy, userName, host, path);
-        toast.success('Policy saved successfully');
-        await fetchPolicies();
-      } catch (err) {
-        const message = getErrorMessage(err);
-        setError(message);
-        toast.error(`Failed to save policy: ${message}`);
-        throw err;
-      } finally {
-        setIsLoading(false);
+      const result = await execute(() => kopia.setPolicy(policy, userName, host, path), {
+        errorContext: 'Failed to save policy',
+        successMessage: 'Policy saved successfully',
+        onSuccess: () => void fetchPolicies(),
+      });
+      if (!result) {
+        throw new Error('Failed to save policy');
       }
     },
-    [fetchPolicies]
+    [execute, fetchPolicies]
   );
 
   const deletePolicy = useCallback(
     async (userName?: string, host?: string, path?: string) => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        await kopia.deletePolicy(userName, host, path);
-        toast.success('Policy deleted successfully');
-        await fetchPolicies();
-      } catch (err) {
-        const message = getErrorMessage(err);
-        setError(message);
-        toast.error(`Failed to delete policy: ${message}`);
-        throw err;
-      } finally {
-        setIsLoading(false);
+      const result = await execute(() => kopia.deletePolicy(userName, host, path), {
+        errorContext: 'Failed to delete policy',
+        successMessage: 'Policy deleted successfully',
+        onSuccess: () => void fetchPolicies(),
+      });
+      if (!result) {
+        throw new Error('Failed to delete policy');
       }
     },
-    [fetchPolicies]
+    [execute, fetchPolicies]
   );
 
   return {

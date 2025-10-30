@@ -5,8 +5,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import * as kopia from '@/lib/kopia/client';
 import type { Task, TasksSummary } from '@/lib/kopia/types';
-import { getErrorMessage } from '@/lib/kopia/errors';
-import { toast } from 'sonner';
+import { useAsyncOperation } from './useAsyncOperation';
 
 interface UseTasksOptions {
   autoRefresh?: boolean;
@@ -30,78 +29,50 @@ export function useTasks(options: UseTasksOptions = {}): UseTasksReturn {
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [summary, setSummary] = useState<TasksSummary | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { isLoading, error, execute } = useAsyncOperation();
 
   const fetchTasks = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await kopia.listTasks();
-      setTasks(response.tasks || []);
-    } catch (err) {
-      const message = getErrorMessage(err);
-      setError(message);
+    const response = await execute(() => kopia.listTasks(), {
+      errorContext: 'Failed to fetch tasks',
       // Don't show toast for polling errors to avoid spam
-      if (!autoRefresh) {
-        toast.error(`Failed to fetch tasks: ${message}`);
-      }
-    } finally {
-      setIsLoading(false);
+      showToast: !autoRefresh,
+    });
+    if (response) {
+      setTasks(response.tasks || []);
     }
-  }, [autoRefresh]);
+  }, [autoRefresh, execute]);
 
   const fetchSummary = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const result = await kopia.getTasksSummary();
+    const result = await execute(() => kopia.getTasksSummary(), {
+      errorContext: 'Failed to fetch task summary',
+      showToast: !autoRefresh,
+    });
+    if (result) {
       setSummary(result);
-    } catch (err) {
-      const message = getErrorMessage(err);
-      setError(message);
-      if (!autoRefresh) {
-        toast.error(`Failed to fetch task summary: ${message}`);
-      }
-    } finally {
-      setIsLoading(false);
     }
-  }, [autoRefresh]);
+  }, [autoRefresh, execute]);
 
-  const getTask = useCallback(async (taskId: string): Promise<Task | null> => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const result = await kopia.getTask(taskId);
-      return result;
-    } catch (err) {
-      const message = getErrorMessage(err);
-      setError(message);
-      toast.error(`Failed to fetch task details: ${message}`);
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const getTask = useCallback(
+    async (taskId: string): Promise<Task | null> => {
+      return await execute(() => kopia.getTask(taskId), {
+        errorContext: 'Failed to fetch task details',
+      });
+    },
+    [execute]
+  );
 
   const cancelTask = useCallback(
     async (taskId: string) => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        await kopia.cancelTask(taskId);
-        toast.success('Task cancelled successfully');
-        await fetchTasks();
-      } catch (err) {
-        const message = getErrorMessage(err);
-        setError(message);
-        toast.error(`Failed to cancel task: ${message}`);
-        throw err;
-      } finally {
-        setIsLoading(false);
+      const result = await execute(() => kopia.cancelTask(taskId), {
+        errorContext: 'Failed to cancel task',
+        successMessage: 'Task cancelled successfully',
+        onSuccess: () => void fetchTasks(),
+      });
+      if (!result) {
+        throw new Error('Failed to cancel task');
       }
     },
-    [fetchTasks]
+    [execute, fetchTasks]
   );
 
   const refreshAll = useCallback(async () => {

@@ -1,13 +1,11 @@
 import { RequiredField, OptionalField } from '../fields';
 import type { ProviderFormProps } from '../types';
 import type { WebDAVStorageConfig } from '@/lib/kopia/types';
+import { useProviderConfig } from '@/hooks';
 
 export function WebDAVProvider({ config, onChange }: ProviderFormProps) {
   const webdavConfig = config as Partial<WebDAVStorageConfig>;
-
-  const handleChange = (field: keyof WebDAVStorageConfig, value: string) => {
-    onChange({ ...webdavConfig, [field]: value });
-  };
+  const { handleChange } = useProviderConfig<WebDAVStorageConfig>(webdavConfig, onChange);
 
   return (
     <div className="space-y-4">

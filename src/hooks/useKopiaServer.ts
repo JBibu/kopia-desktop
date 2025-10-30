@@ -10,7 +10,7 @@ import {
   type KopiaServerInfo,
   type KopiaServerStatus,
 } from '@/lib/kopia/client';
-import { getErrorMessage } from '@/lib/utils';
+import { useAsyncOperation } from './useAsyncOperation';
 
 interface UseKopiaServerReturn {
   serverStatus: KopiaServerStatus | null;
@@ -23,50 +23,45 @@ interface UseKopiaServerReturn {
 
 export function useKopiaServer(): UseKopiaServerReturn {
   const [serverStatus, setServerStatus] = useState<KopiaServerStatus | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { isLoading, error, execute } = useAsyncOperation();
 
   const refreshStatus = useCallback(async () => {
-    try {
-      setError(null);
-      const status = await getKopiaServerStatus();
+    const status = await execute(() => getKopiaServerStatus(), {
+      showToast: false, // Don't show toast for status checks
+      onError: () => {
+        setServerStatus({ running: false });
+      },
+    });
+    if (status) {
       setServerStatus(status);
-    } catch (err) {
-      setError(getErrorMessage(err));
-      setServerStatus({ running: false });
     }
-  }, []);
+  }, [execute]);
 
   const startServer = useCallback(async (): Promise<KopiaServerInfo | null> => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const info = await startKopiaServer();
-      await refreshStatus();
-      return info;
-    } catch (err) {
-      setError(getErrorMessage(err));
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [refreshStatus]);
+    const info = await execute(
+      async () => {
+        const result = await startKopiaServer();
+        await refreshStatus();
+        return result;
+      },
+      { showToast: false } // Caller will handle success/error messaging
+    );
+    return info;
+  }, [execute, refreshStatus]);
 
   const stopServer = useCallback(async (): Promise<void> => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      await stopKopiaServer();
-      await refreshStatus();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [refreshStatus]);
+    await execute(
+      async () => {
+        await stopKopiaServer();
+        await refreshStatus();
+      },
+      { showToast: false } // Caller will handle success/error messaging
+    );
+  }, [execute, refreshStatus]);
 
   // Check server status on mount
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Initial data fetch on mount is a valid use case
     void refreshStatus();
   }, [refreshStatus]);
 

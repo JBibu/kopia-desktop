@@ -3,16 +3,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { ProviderFormProps } from '../types';
 import type { RcloneStorageConfig } from '@/lib/kopia/types';
+import { useProviderConfig } from '@/hooks';
 
 export function RcloneProvider({ config, onChange }: ProviderFormProps) {
   const rcloneConfig = config as Partial<RcloneStorageConfig>;
-
-  const handleChange = (
-    field: keyof RcloneStorageConfig,
-    value: string | string[] | Record<string, string>
-  ) => {
-    onChange({ ...rcloneConfig, [field]: value });
-  };
+  const { handleChange } = useProviderConfig<RcloneStorageConfig>(rcloneConfig, onChange);
 
   // Convert array to string for textarea
   const argsAsString = Array.isArray(rcloneConfig.rcloneArgs)

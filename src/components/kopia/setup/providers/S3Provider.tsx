@@ -1,13 +1,11 @@
 import { RequiredField, OptionalField } from '../fields';
 import type { ProviderFormProps } from '../types';
 import type { S3StorageConfig } from '@/lib/kopia/types';
+import { useProviderConfig } from '@/hooks';
 
 export function S3Provider({ config, onChange }: ProviderFormProps) {
   const s3Config = config as Partial<S3StorageConfig>;
-
-  const handleChange = (field: keyof S3StorageConfig, value: string) => {
-    onChange({ ...s3Config, [field]: value });
-  };
+  const { handleChange } = useProviderConfig<S3StorageConfig>(s3Config, onChange);
 
   return (
     <div className="space-y-4">
