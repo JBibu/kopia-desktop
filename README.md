@@ -1,8 +1,10 @@
 # Kopia Desktop
 
-> ⚠️ **Unofficial Project**: This is a community-built alternative to [KopiaUI](https://github.com/kopia/kopia), not affiliated with the official Kopia project.
+> ⚠️ This is a community-built alternative to [KopiaUI](https://github.com/kopia/kopia), not affiliated with the official Kopia project.
 
 A modern, lightweight desktop application for [Kopia](https://kopia.io) backup management. Built with **Tauri + React** as a faster, smaller alternative to the Electron-based official KopiaUI.
+
+<img width="972" height="601" alt="image" src="https://github.com/user-attachments/assets/4f20cb8f-c1ce-4671-ab8c-0981bcd2de52" />
 
 ---
 
