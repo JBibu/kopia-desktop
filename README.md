@@ -1,6 +1,6 @@
 # Kopia Desktop
 
->⚠️ This is a **community-built alternative** to [KopiaUI](https://github.com/kopia/htmlui), not affiliated with the official Kopia project. Built for fun/learning purposes.
+> ⚠️ This is a **community-built alternative** to [KopiaUI](https://github.com/kopia/htmlui), not affiliated with the official Kopia project. Built for fun/learning purposes.
 
 A modern, lightweight desktop application for [Kopia](https://kopia.io) backup management. Built with **Tauri + React** as a faster, smaller alternative to the Electron-based official KopiaUI.
 
@@ -14,6 +14,7 @@ A modern, lightweight desktop application for [Kopia](https://kopia.io) backup m
 ## ✨ Status
 
 **Working:**
+
 - Repository setup with 8 storage providers
 - Snapshots, policies, and task management
 - Preferences and settings
@@ -21,6 +22,7 @@ A modern, lightweight desktop application for [Kopia](https://kopia.io) backup m
 - Theme system
 
 **In Progress:**
+
 - System tray integration
 - WebSocket live updates
 - Auto-updates
@@ -29,12 +31,14 @@ A modern, lightweight desktop application for [Kopia](https://kopia.io) backup m
 ---
 
 ## 🚀 Quick Start
+
 ```bash
 pnpm install          # Install dependencies + download Kopia binary
 pnpm tauri:dev        # Start development (first build: 5-10 min)
 ```
 
 **Requirements:**
+
 - Node.js 20.19+
 - pnpm 10+
 - [Rust toolchain](https://rustup.rs/)
@@ -43,15 +47,16 @@ pnpm tauri:dev        # Start development (first build: 5-10 min)
 
 ## 📦 Tech Stack
 
-| Layer | Technologies |
-|-------|-------------|
+| Layer        | Technologies                                            |
+| ------------ | ------------------------------------------------------- |
 | **Frontend** | React 19 • TypeScript • Vite 7 • Tailwind 4 • shadcn/ui |
-| **Backend** | Tauri 2.9 (Rust) • Embedded Kopia server |
-| **State** | Zustand 5 • react-i18next • React Router 7 |
+| **Backend**  | Tauri 2.9 (Rust) • Embedded Kopia server                |
+| **State**    | Zustand 5 • react-i18next • React Router 7              |
 
 ---
 
 ## 🛠️ Common Commands
+
 ```bash
 pnpm tauri:dev          # Development mode with hot reload
 pnpm tauri:build        # Production build
