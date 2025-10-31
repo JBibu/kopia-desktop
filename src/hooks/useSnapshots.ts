@@ -1,11 +1,11 @@
 /**
  * Custom hook for snapshot operations
+ *
+ * Now delegates to global Zustand store to eliminate redundant state management.
  */
 
-import { useState, useCallback } from 'react';
-import * as kopia from '@/lib/kopia/client';
+import { useKopiaStore } from '@/stores/kopia';
 import type { Snapshot, SnapshotSource } from '@/lib/kopia/types';
-import { useAsyncOperation } from './useAsyncOperation';
 
 interface UseSnapshotsReturn {
   snapshots: Snapshot[];
@@ -19,60 +19,24 @@ interface UseSnapshotsReturn {
   refreshAll: () => Promise<void>;
 }
 
+/**
+ * Hook for snapshot management.
+ * Uses global Zustand store for state - no local state or polling.
+ */
 export function useSnapshots(): UseSnapshotsReturn {
-  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
-  const [sources, setSources] = useState<SnapshotSource[]>([]);
-  const { isLoading, error, execute } = useAsyncOperation();
+  // Subscribe to global store
+  const snapshots = useKopiaStore((state) => state.snapshots);
+  const sources = useKopiaStore((state) => state.sources);
+  const isLoading = useKopiaStore((state) => state.isSnapshotsLoading);
+  const error = useKopiaStore((state) => state.snapshotsError);
+  const fetchSnapshots = useKopiaStore((state) => state.refreshSnapshots);
+  const fetchSources = useKopiaStore((state) => state.refreshSources);
+  const createSnapshot = useKopiaStore((state) => state.createSnapshot);
+  const deleteSnapshots = useKopiaStore((state) => state.deleteSnapshots);
 
-  const fetchSnapshots = useCallback(async () => {
-    const response = await execute(() => kopia.listSnapshots('', '', ''), {
-      errorContext: 'Failed to fetch snapshots',
-    });
-    if (response) {
-      setSnapshots(response.snapshots || []);
-    }
-  }, [execute]);
-
-  const fetchSources = useCallback(async () => {
-    const response = await execute(() => kopia.listSources(), {
-      errorContext: 'Failed to fetch sources',
-    });
-    if (response) {
-      setSources(response.sources || []);
-    }
-  }, [execute]);
-
-  const createSnapshot = useCallback(
-    async (path: string) => {
-      const result = await execute(() => kopia.createSnapshot(path), {
-        errorContext: 'Failed to create snapshot',
-        successMessage: 'Snapshot created successfully',
-        onSuccess: () => void fetchSnapshots(),
-      });
-      if (!result) {
-        throw new Error('Failed to create snapshot');
-      }
-    },
-    [execute, fetchSnapshots]
-  );
-
-  const deleteSnapshots = useCallback(
-    async (manifestIDs: string[]) => {
-      const result = await execute(() => kopia.deleteSnapshots(manifestIDs), {
-        errorContext: 'Failed to delete snapshot(s)',
-        successMessage: 'Snapshot(s) deleted successfully',
-        onSuccess: () => void fetchSnapshots(),
-      });
-      if (!result) {
-        throw new Error('Failed to delete snapshot(s)');
-      }
-    },
-    [execute, fetchSnapshots]
-  );
-
-  const refreshAll = useCallback(async () => {
+  const refreshAll = async () => {
     await Promise.all([fetchSnapshots(), fetchSources()]);
-  }, [fetchSnapshots, fetchSources]);
+  };
 
   return {
     snapshots,

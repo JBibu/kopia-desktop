@@ -1,7 +1,8 @@
-import { RequiredField, OptionalField } from '../fields';
+import { RequiredField } from '../fields/RequiredField';
+import { OptionalField } from '../fields/OptionalField';
 import type { ProviderFormProps } from '../types';
 import type { WebDAVStorageConfig } from '@/lib/kopia/types';
-import { useProviderConfig } from '@/hooks';
+import { useProviderConfig } from '@/hooks/useProviderConfig';
 
 export function WebDAVProvider({ config, onChange }: ProviderFormProps) {
   const webdavConfig = config as Partial<WebDAVStorageConfig>;

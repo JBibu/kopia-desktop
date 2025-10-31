@@ -5,7 +5,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { SetupRepository } from '@/components/kopia/setup/SetupRepository';
-import { useRepository } from '@/hooks';
+import { useRepository } from '@/hooks/useRepository';
 
 export function Setup() {
   const navigate = useNavigate();

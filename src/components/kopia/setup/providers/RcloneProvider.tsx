@@ -1,9 +1,10 @@
-import { RequiredField, PathPickerField } from '../fields';
+import { RequiredField } from '../fields/RequiredField';
+import { PathPickerField } from '../fields/PathPickerField';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { ProviderFormProps } from '../types';
 import type { RcloneStorageConfig } from '@/lib/kopia/types';
-import { useProviderConfig } from '@/hooks';
+import { useProviderConfig } from '@/hooks/useProviderConfig';
 
 export function RcloneProvider({ config, onChange }: ProviderFormProps) {
   const rcloneConfig = config as Partial<RcloneStorageConfig>;

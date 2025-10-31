@@ -1,16 +1,11 @@
 /**
  * Custom hook for managing repository connection state
+ *
+ * Now delegates to global Zustand store to eliminate redundant polling.
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import {
-  getRepositoryStatus,
-  connectRepository,
-  disconnectRepository,
-  type RepositoryStatus,
-  type RepositoryConnectRequest,
-} from '@/lib/kopia/client';
-import { useAsyncOperation } from './useAsyncOperation';
+import { useKopiaStore } from '@/stores/kopia';
+import type { RepositoryStatus, RepositoryConnectRequest } from '@/lib/kopia/client';
 
 interface UseRepositoryReturn {
   status: RepositoryStatus | null;
@@ -22,72 +17,27 @@ interface UseRepositoryReturn {
   isConnected: boolean;
 }
 
+/**
+ * Hook for repository connection management.
+ * Uses global Zustand store for state - no local polling.
+ */
 export function useRepository(): UseRepositoryReturn {
-  const [status, setStatus] = useState<RepositoryStatus | null>(null);
-  const { isLoading, error, execute } = useAsyncOperation();
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
-
-  const refreshStatus = useCallback(async () => {
-    const repoStatus = await execute(() => getRepositoryStatus(), {
-      showToast: false, // Don't show toast for status checks
-      onError: (message) => {
-        // Don't set error for "not connected" - that's a valid state
-        if (!message.includes('not running') && !message.includes('not connected')) {
-          // Error already set by useAsyncOperation
-        }
-        setStatus({
-          connected: false,
-          configFile: undefined,
-          storage: undefined,
-          hash: undefined,
-          encryption: undefined,
-        });
-      },
-    });
-    if (repoStatus) {
-      setStatus(repoStatus);
-    }
-    setIsInitialLoad(false);
-  }, [execute]);
-
-  const connect = useCallback(
-    async (request: RepositoryConnectRequest): Promise<boolean> => {
-      const repoStatus = await execute(
-        () => connectRepository(request),
-        { showToast: false } // Caller will handle success/error messaging
-      );
-      if (repoStatus) {
-        setStatus(repoStatus);
-        return repoStatus.connected;
-      }
-      return false;
-    },
-    [execute]
-  );
-
-  const disconnect = useCallback(async (): Promise<void> => {
-    await execute(
-      async () => {
-        await disconnectRepository();
-        await refreshStatus();
-      },
-      { showToast: false } // Caller will handle success/error messaging
-    );
-  }, [execute, refreshStatus]);
-
-  // Check repository status on mount
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Initial data fetch on mount is a valid use case
-    void refreshStatus();
-  }, [refreshStatus]);
+  // Subscribe to global store
+  const status = useKopiaStore((state) => state.repositoryStatus);
+  const isLoading = useKopiaStore((state) => state.isRepositoryLoading);
+  const error = useKopiaStore((state) => state.repositoryError);
+  const connect = useKopiaStore((state) => state.connectRepo);
+  const disconnect = useKopiaStore((state) => state.disconnectRepo);
+  const refreshStatus = useKopiaStore((state) => state.refreshRepositoryStatus);
+  const isConnected = useKopiaStore((state) => state.isRepoConnected());
 
   return {
     status,
-    isLoading: isLoading || isInitialLoad,
+    isLoading,
     error,
     connect,
     disconnect,
     refreshStatus,
-    isConnected: status?.connected ?? false,
+    isConnected,
   };
 }

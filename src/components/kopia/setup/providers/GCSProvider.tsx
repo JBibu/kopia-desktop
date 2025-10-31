@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { RequiredField, OptionalField, PathPickerField } from '../fields';
+import { RequiredField } from '../fields/RequiredField';
+import { OptionalField } from '../fields/OptionalField';
+import { PathPickerField } from '../fields/PathPickerField';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { ProviderFormProps } from '../types';
 import type { GCSStorageConfig } from '@/lib/kopia/types';
-import { useProviderConfig } from '@/hooks';
+import { useProviderConfig } from '@/hooks/useProviderConfig';
 
 export function GCSProvider({ config, onChange }: ProviderFormProps) {
   const gcsConfig = config as Partial<GCSStorageConfig>;

@@ -2,7 +2,7 @@
  * Snapshots page - Browse and manage backup snapshots
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSnapshots } from '@/hooks/useSnapshots';
 import { Button } from '@/components/ui/button';
@@ -53,10 +53,6 @@ export function Snapshots() {
   const [createPath, setCreatePath] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  useEffect(() => {
-    void refreshAll();
-  }, [refreshAll]);
 
   const handleRefresh = async () => {
     await refreshAll();

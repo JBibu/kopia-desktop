@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { useRepository } from '@/hooks';
+import { useRepository } from '@/hooks/useRepository';
 import {
   createRepository,
   connectRepository,
@@ -11,7 +11,10 @@ import {
 } from '@/lib/kopia/client';
 import type { StorageType, StorageConfig } from '@/lib/kopia/types';
 import type { SetupWizardState } from './types';
-import { ProviderSelection, ProviderConfig, StorageVerification, PasswordSetup } from './steps';
+import { ProviderSelection } from './steps/ProviderSelection';
+import { ProviderConfig } from './steps/ProviderConfig';
+import { StorageVerification } from './steps/StorageVerification';
+import { PasswordSetup } from './steps/PasswordSetup';
 
 export function SetupRepository() {
   const navigate = useNavigate();

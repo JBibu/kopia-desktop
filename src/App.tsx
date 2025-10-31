@@ -2,10 +2,17 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { useThemeStore } from './stores/theme';
 import { useLanguageStore } from './stores/language';
+import { useKopiaStore } from './stores/kopia';
 import { AppLayout } from './components/layout/AppLayout';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { Overview, Repository, Snapshots, Policies, Tasks, Preferences, Setup } from './pages';
-import { useRepository } from './hooks';
+import { Overview } from './pages/Overview';
+import { Repository } from './pages/Repository';
+import { Snapshots } from './pages/Snapshots';
+import { Policies } from './pages/Policies';
+import { Tasks } from './pages/Tasks';
+import { Preferences } from './pages/Preferences';
+import { Setup } from './pages/Setup';
+import { useRepository } from './hooks/useRepository';
 import './lib/i18n/config';
 import './styles/globals.css';
 
@@ -32,6 +39,14 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
 function App(): React.JSX.Element {
   const theme = useThemeStore((state) => state.theme);
   const language = useLanguageStore((state) => state.language);
+  const startPolling = useKopiaStore((state) => state.startPolling);
+  const stopPolling = useKopiaStore((state) => state.stopPolling);
+
+  // Initialize global Kopia state polling
+  useEffect(() => {
+    startPolling();
+    return () => stopPolling();
+  }, [startPolling, stopPolling]);
 
   useEffect(() => {
     const root = window.document.documentElement;

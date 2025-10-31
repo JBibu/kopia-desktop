@@ -1,7 +1,8 @@
-import { RequiredField, OptionalField } from '../fields';
+import { RequiredField } from '../fields/RequiredField';
+import { OptionalField } from '../fields/OptionalField';
 import type { ProviderFormProps } from '../types';
 import type { B2StorageConfig } from '@/lib/kopia/types';
-import { useProviderConfig } from '@/hooks';
+import { useProviderConfig } from '@/hooks/useProviderConfig';
 
 export function B2Provider({ config, onChange }: ProviderFormProps) {
   const b2Config = config as Partial<B2StorageConfig>;

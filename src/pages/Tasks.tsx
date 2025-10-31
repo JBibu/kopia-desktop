@@ -2,7 +2,7 @@
  * Tasks page - Monitor and manage background tasks
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTasks } from '@/hooks/useTasks';
 import { Button } from '@/components/ui/button';
@@ -43,18 +43,11 @@ import type { Task } from '@/lib/kopia/types';
 
 export function Tasks() {
   const { t } = useTranslation();
-  const { tasks, summary, isLoading, error, cancelTask, refreshAll } = useTasks({
-    autoRefresh: true,
-    refreshInterval: 5000,
-  });
+  const { tasks, summary, isLoading, error, cancelTask, refreshAll } = useTasks();
 
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
-
-  useEffect(() => {
-    void refreshAll();
-  }, [refreshAll]);
 
   const handleRefresh = async () => {
     await refreshAll();

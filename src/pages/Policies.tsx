@@ -2,7 +2,7 @@
  * Policies page - Configure backup policies and schedules
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePolicies } from '@/hooks/usePolicies';
 import { Button } from '@/components/ui/button';
@@ -37,10 +37,6 @@ export function Policies() {
   const { t } = useTranslation();
   const { policies, isLoading, error, fetchPolicies } = usePolicies();
   const [selectedTab, setSelectedTab] = useState('all');
-
-  useEffect(() => {
-    void fetchPolicies();
-  }, [fetchPolicies]);
 
   const handleRefresh = async () => {
     await fetchPolicies();

@@ -1,7 +1,8 @@
-import { RequiredField, OptionalField } from '../fields';
+import { RequiredField } from '../fields/RequiredField';
+import { OptionalField } from '../fields/OptionalField';
 import type { ProviderFormProps } from '../types';
 import type { AzureStorageConfig } from '@/lib/kopia/types';
-import { useProviderConfig } from '@/hooks';
+import { useProviderConfig } from '@/hooks/useProviderConfig';
 
 export function AzureProvider({ config, onChange }: ProviderFormProps) {
   const azureConfig = config as Partial<AzureStorageConfig>;
