@@ -9,8 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Database, CheckCircle, XCircle, Info, Settings } from 'lucide-react';
+import { Database, CheckCircle, XCircle, Settings, Shield, HardDrive } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function Repository() {
@@ -27,18 +26,36 @@ export function Repository() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">{t('repository.title')}</h1>
-        <p className="text-sm text-muted-foreground">{t('repository.subtitle')}</p>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight">{t('repository.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('repository.subtitle')}</p>
+        </div>
+        {isConnected && (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => void handleDisconnect()}
+            disabled={isLoading}
+          >
+            {t('common.disconnect')}
+          </Button>
+        )}
       </div>
 
-      {/* Status */}
+      {/* Connection Status */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Database className="h-4 w-4" />
-            {t('repository.connectionStatus')}
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Database className="h-4 w-4" />
+              {t('repository.connectionStatus')}
+            </CardTitle>
+            {isConnected && (
+              <Badge className="bg-success text-success-foreground">{t('common.connected')}</Badge>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading && !isConnected ? (
@@ -47,69 +64,90 @@ export function Repository() {
               <span className="text-sm text-muted-foreground">{t('common.checking')}</span>
             </div>
           ) : isConnected && status ? (
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div className="flex items-center gap-2 text-success">
                 <CheckCircle className="h-5 w-5" />
                 <span className="font-medium">{t('common.connected')}</span>
               </div>
-
-              {status.storage && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">{t('repository.storage')}</span>
-                  <Badge variant="secondary">{status.storage}</Badge>
-                </div>
+              {status.username && status.hostname && (
+                <p className="text-sm text-muted-foreground">
+                  {status.username}@{status.hostname}
+                  {status.readonly && <span> · Read-only</span>}
+                </p>
               )}
-              {status.encryption && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">{t('repository.encryption')}</span>
-                  <code className="text-xs">{status.encryption}</code>
-                </div>
-              )}
-
-              <Button
-                variant="destructive"
-                onClick={() => void handleDisconnect()}
-                disabled={isLoading}
-                size="sm"
-                className="w-full"
-              >
-                {t('common.disconnect')}
-              </Button>
             </div>
           ) : (
-            <div className="flex items-center gap-2 text-destructive">
-              <XCircle className="h-5 w-5" />
-              <span className="font-medium">{t('common.notConnected')}</span>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-destructive">
+                <XCircle className="h-5 w-5" />
+                <span className="font-medium">{t('common.notConnected')}</span>
+              </div>
+              <Button size="sm" onClick={() => void navigate('/setup')} className="w-full">
+                <Settings className="mr-2 h-4 w-4" />
+                {t('repository.goToSetup')}
+              </Button>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Not Connected - Guide to Setup */}
-      {!isConnected && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              {t('repository.noRepositoryConnected')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertDescription>{t('repository.connectMessage')}</AlertDescription>
-            </Alert>
-            <Button
-              onClick={() => {
-                void navigate('/setup');
-              }}
-              className="w-full"
-            >
-              <Settings className="mr-2 h-4 w-4" />
-              {t('repository.goToSetup')}
-            </Button>
-          </CardContent>
-        </Card>
+      {/* Repository Details */}
+      {isConnected && status && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Storage */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <HardDrive className="h-4 w-4" />
+                Storage
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {status.storage && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Type</span>
+                  <Badge variant="secondary">{status.storage}</Badge>
+                </div>
+              )}
+              {status.configFile && (
+                <div className="flex flex-col gap-1 text-sm">
+                  <span className="text-muted-foreground">Location</span>
+                  <code className="text-xs bg-muted px-2 py-1.5 rounded break-all">
+                    {status.configFile}
+                  </code>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Security */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                Security
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {status.encryption && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Encryption</span>
+                  <code className="text-xs bg-muted px-2 py-1 rounded font-mono">
+                    {status.encryption}
+                  </code>
+                </div>
+              )}
+              {status.hash && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Hash</span>
+                  <code className="text-xs bg-muted px-2 py-1 rounded font-mono">
+                    {status.hash}
+                  </code>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );
