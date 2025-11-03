@@ -1508,21 +1508,6 @@ fn get_server_client(
     Ok((server_url, client))
 }
 
-/// Build query string from optional parameters
-#[allow(dead_code)]
-fn build_query(params: &[(&str, Option<&str>)]) -> String {
-    let parts: Vec<_> = params
-        .iter()
-        .filter_map(|(key, val)| val.map(|v| format!("{}={}", key, urlencoding::encode(v))))
-        .collect();
-
-    if parts.is_empty() {
-        String::new()
-    } else {
-        format!("?{}", parts.join("&"))
-    }
-}
-
 /// Handle API response - check status and parse JSON
 async fn handle_response<T: DeserializeOwned>(
     response: reqwest::Response,
