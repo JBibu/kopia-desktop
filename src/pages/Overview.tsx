@@ -284,7 +284,7 @@ export function Overview() {
         <>
           {/* Snapshot Activity Chart */}
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <TrendingUp className="h-4 w-4" />
                 {t('overview.snapshotActivity')}
@@ -325,7 +325,7 @@ export function Overview() {
           {/* Task Status Chart */}
           {taskStatusData && taskStatusData.length > 0 && (
             <Card>
-              <CardHeader>
+              <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Activity className="h-4 w-4" />
                   {t('overview.taskStatus')}
@@ -363,7 +363,7 @@ export function Overview() {
           {/* Recent Activity */}
           {tasks.length > 0 && (
             <Card>
-              <CardHeader>
+              <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Clock className="h-4 w-4" />

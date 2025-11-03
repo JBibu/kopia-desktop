@@ -109,7 +109,7 @@ export function Policies() {
 
     return (
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CardTitle className="text-base">{targetStr}</CardTitle>
@@ -356,7 +356,7 @@ export function Policies() {
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                 <ListTodo className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">{t('policies.noPoliciesFound')}</h3>
+                <h3 className="text-lg font-medium mb-2">{t('policies.noPoliciesFound')}</h3>
                 <p className="text-sm text-muted-foreground">
                   {t('policies.noPoliciesConfigured')}
                 </p>
@@ -372,7 +372,7 @@ export function Policies() {
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                 <Globe className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">{t('policies.noGlobalPolicies')}</h3>
+                <h3 className="text-lg font-medium mb-2">{t('policies.noGlobalPolicies')}</h3>
                 <p className="text-sm text-muted-foreground">{t('policies.noGlobalConfigured')}</p>
               </CardContent>
             </Card>
@@ -386,7 +386,7 @@ export function Policies() {
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                 <Monitor className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">{t('policies.noHostPolicies')}</h3>
+                <h3 className="text-lg font-medium mb-2">{t('policies.noHostPolicies')}</h3>
                 <p className="text-sm text-muted-foreground">{t('policies.noHostConfigured')}</p>
               </CardContent>
             </Card>
@@ -400,7 +400,7 @@ export function Policies() {
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                 <User className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">{t('policies.noUserPolicies')}</h3>
+                <h3 className="text-lg font-medium mb-2">{t('policies.noUserPolicies')}</h3>
                 <p className="text-sm text-muted-foreground">{t('policies.noUserConfigured')}</p>
               </CardContent>
             </Card>
@@ -414,7 +414,7 @@ export function Policies() {
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                 <FolderTree className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">{t('policies.noPathPolicies')}</h3>
+                <h3 className="text-lg font-medium mb-2">{t('policies.noPathPolicies')}</h3>
                 <p className="text-sm text-muted-foreground">{t('policies.noPathConfigured')}</p>
               </CardContent>
             </Card>

@@ -38,7 +38,7 @@ export function Preferences() {
 
       {/* Appearance */}
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Palette className="h-4 w-4" />
             {t('preferences.appearance')}
@@ -111,7 +111,7 @@ export function Preferences() {
 
       {/* Language */}
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Globe className="h-4 w-4" />
             {t('preferences.language')}
@@ -137,7 +137,7 @@ export function Preferences() {
 
       {/* Notifications */}
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Bell className="h-4 w-4" />
             {t('preferences.notifications')}
@@ -161,7 +161,7 @@ export function Preferences() {
 
       {/* Advanced */}
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Zap className="h-4 w-4" />
             {t('preferences.advanced')}

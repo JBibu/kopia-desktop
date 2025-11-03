@@ -231,10 +231,10 @@ export function Snapshots() {
 
       {/* Main Content */}
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>{t('snapshots.sources')}</CardTitle>
+              <CardTitle className="text-base">{t('snapshots.sources')}</CardTitle>
               <CardDescription>
                 {t('snapshots.sourcesFound', { count: filteredSources.length })}
               </CardDescription>
@@ -261,7 +261,7 @@ export function Snapshots() {
           ) : filteredSources.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <FolderArchive className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">{t('snapshots.noSourcesFound')}</h3>
+              <h3 className="text-lg font-medium mb-2">{t('snapshots.noSourcesFound')}</h3>
               <p className="text-sm text-muted-foreground mb-4">
                 {searchQuery ? t('snapshots.noSourcesMatch') : t('snapshots.createFirst')}
               </p>

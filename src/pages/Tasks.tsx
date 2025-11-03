@@ -188,8 +188,8 @@ export function Tasks() {
 
       {/* Tasks Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>{t('tasks.allTasks')}</CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">{t('tasks.allTasks')}</CardTitle>
           <CardDescription>{t('tasks.tasksFound', { count: tasks.length })}</CardDescription>
         </CardHeader>
         <CardContent>
@@ -200,7 +200,7 @@ export function Tasks() {
           ) : tasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <ListChecks className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">{t('tasks.noTasksRunning')}</h3>
+              <h3 className="text-lg font-medium mb-2">{t('tasks.noTasksRunning')}</h3>
               <p className="text-sm text-muted-foreground">{t('tasks.noTasksDescription')}</p>
             </div>
           ) : (
