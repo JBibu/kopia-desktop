@@ -315,17 +315,57 @@ pub async fn snapshot_create(
 ) -> Result<crate::types::SourceInfo, String> {
     let (server_url, client) = get_server_client(&server)?;
 
-    let mut payload = serde_json::json!({
-        "path": path,
-        "createSnapshot": true
-    });
+    // First, resolve the path to get source info (userName@host)
+    log::info!("Resolving path: {}", path);
+    let source_info = {
+        let resolve_response = client
+            .post(format!("{}/api/v1/paths/resolve", server_url))
+            .json(&serde_json::json!({ "path": path }))
+            .send()
+            .await
+            .map_err(|e| format!("Failed to resolve path: {}", e))?;
 
-    if let Some(ref user) = user_name {
-        payload["userName"] = serde_json::json!(user);
-    }
-    if let Some(ref h) = host {
-        payload["host"] = serde_json::json!(h);
-    }
+        let status = resolve_response.status();
+        log::info!("Resolve response status: {}", status);
+
+        if !status.is_success() {
+            let error_text = resolve_response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            log::error!("Failed to resolve path: {}", error_text);
+            return Err(format!("Failed to resolve path: {}", error_text));
+        }
+
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct ResolveResponse {
+            source: crate::types::SourceInfo,
+        }
+
+        let resolve_result: ResolveResponse = resolve_response
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse resolve response: {}", e))?;
+
+        resolve_result.source
+    };
+
+    // Use provided userName/host or fall back to resolved values
+    let final_user_name = user_name.unwrap_or(source_info.user_name.clone());
+    let final_host = host.unwrap_or(source_info.host.clone());
+
+    // Create source and start snapshot
+    let mut payload = serde_json::Map::new();
+    payload.insert("path".to_string(), serde_json::json!(source_info.path.clone()));
+    payload.insert("createSnapshot".to_string(), serde_json::json!(true));
+    payload.insert("userName".to_string(), serde_json::json!(final_user_name.clone()));
+    payload.insert("host".to_string(), serde_json::json!(final_host.clone()));
+    // Add empty policy to use defaults (required by Kopia API)
+    payload.insert("policy".to_string(), serde_json::json!({}));
+
+    log::info!("Creating snapshot for {}@{}:{}", final_user_name, final_host, source_info.path);
+    log::debug!("Snapshot payload: {:?}", payload);
 
     let response = client
         .post(format!("{}/api/v1/sources", server_url))
@@ -334,15 +374,19 @@ pub async fn snapshot_create(
         .await
         .map_err(|e| format!("Failed to create snapshot: {}", e))?;
 
-    if !response.status().is_success() {
+    let status = response.status();
+    log::info!("Create snapshot response status: {}", status);
+
+    if !status.is_success() {
         let error_text = response
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
+        log::error!("Failed to create snapshot: {}", error_text);
         return Err(format!("Failed to create snapshot: {}", error_text));
     }
 
-    // The API returns {"snapshotted": bool} indicating if snapshot was started
+    // API returns {"snapshotted": bool}
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct CreateResponse {
@@ -358,12 +402,7 @@ pub async fn snapshot_create(
         return Err("Snapshot was not started".to_string());
     }
 
-    // Return the source info that was used for the snapshot
-    Ok(crate::types::SourceInfo {
-        user_name: user_name.unwrap_or_else(|| std::env::var("USER").unwrap_or_default()),
-        host: host.unwrap_or_else(|| hostname::get().ok().and_then(|h| h.into_string().ok()).unwrap_or_default()),
-        path,
-    })
+    Ok(source_info)
 }
 
 /// Cancel a snapshot

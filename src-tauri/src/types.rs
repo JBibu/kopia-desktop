@@ -117,15 +117,15 @@ pub struct LastSnapshotInfo {
     pub start_time: String,
     pub end_time: Option<String>,
     pub stats: SnapshotStats,
-    pub root_entry: Option<String>,
+    pub root_entry: Option<RootEntry>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotStats {
-    pub total_size: i64,
-    pub total_file_count: i64,
-    pub total_dir_count: i64,
+    pub total_size: Option<i64>,
+    pub total_file_count: Option<i64>,
+    pub total_dir_count: Option<i64>,
     pub errors: Option<i64>,
 }
 
@@ -141,7 +141,7 @@ pub struct SnapshotsResponse {
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
     pub id: String,
-    pub root_id: String,
+    pub root_id: Option<String>,
     pub start_time: String,
     pub end_time: Option<String>,
     pub description: Option<String>,
@@ -149,15 +149,15 @@ pub struct Snapshot {
     pub retention: Option<Vec<String>>,
     pub incomplete: Option<bool>,
     pub summary: Option<SnapshotSummary>,
-    pub root_entry: Option<String>,
+    pub root_entry: Option<RootEntry>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotSummary {
-    pub size: i64,
-    pub files: i64,
-    pub dirs: i64,
+    pub size: Option<i64>,
+    pub files: Option<i64>,
+    pub dirs: Option<i64>,
     pub symlinks: Option<i64>,
     pub errors: Option<i64>,
     pub error_count: Option<i64>,
@@ -211,6 +211,13 @@ pub struct DirectorySummary {
     pub dirs: i64,
     pub errors: Option<i64>,
     pub max_time: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RootEntry {
+    pub obj: Option<String>,
+    pub summ: Option<DirectorySummary>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

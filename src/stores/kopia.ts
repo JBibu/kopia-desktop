@@ -293,8 +293,31 @@ export const useKopiaStore = create<KopiaStore>()(
     refreshSnapshots: async () => {
       set({ isSnapshotsLoading: true, snapshotsError: null });
       try {
-        const response = await listSnapshots('', '', '');
-        set({ snapshots: response.snapshots || [], isSnapshotsLoading: false });
+        // First, get all sources
+        const sourcesResponse = await listSources();
+        const sources = sourcesResponse.sources || [];
+
+        // Then fetch snapshots for each source
+        const allSnapshots: Snapshot[] = [];
+        for (const source of sources) {
+          try {
+            const response = await listSnapshots(
+              source.source.userName,
+              source.source.host,
+              source.source.path,
+              true // all=true to include hidden snapshots
+            );
+            allSnapshots.push(...(response.snapshots || []));
+          } catch (error) {
+            // Continue with other sources even if one fails
+            console.warn(
+              `Failed to fetch snapshots for ${source.source.userName}@${source.source.host}:${source.source.path}`,
+              error
+            );
+          }
+        }
+
+        set({ snapshots: allSnapshots, isSnapshotsLoading: false });
       } catch (error) {
         const message = getErrorMessage(error);
         set({ snapshotsError: message, isSnapshotsLoading: false });

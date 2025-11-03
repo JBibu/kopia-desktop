@@ -8,6 +8,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { Overview } from './pages/Overview';
 import { Repository } from './pages/Repository';
 import { Snapshots } from './pages/Snapshots';
+import { SnapshotHistory } from './pages/SnapshotHistory';
 import { Policies } from './pages/Policies';
 import { Tasks } from './pages/Tasks';
 import { Preferences } from './pages/Preferences';
@@ -87,6 +88,14 @@ function App(): React.JSX.Element {
               element={
                 <ProtectedRoute>
                   <Snapshots />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="snapshots/history"
+              element={
+                <ProtectedRoute>
+                  <SnapshotHistory />
                 </ProtectedRoute>
               }
             />

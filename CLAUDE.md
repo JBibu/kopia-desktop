@@ -166,12 +166,14 @@ Repositories / Snapshots / Storage
 **Centralized Zustand Store** - All Kopia data is managed in a single global store:
 
 **Key Benefits:**
+
 - ✅ Eliminates redundant API calls (components share same state)
 - ✅ Single polling loop instead of per-component polling
 - ✅ Consistent state across entire application
 - ✅ Simplified hooks (thin wrappers around store selectors)
 
 **Implementation:**
+
 ```typescript
 // src/stores/kopia.ts (548 lines)
 export const useKopiaStore = create<KopiaStore>((set, get) => ({
@@ -190,6 +192,7 @@ export const useKopiaStore = create<KopiaStore>((set, get) => ({
 ```
 
 **Hooks Delegate to Store:**
+
 - `useKopiaServer()` → selects server state from store
 - `useRepository()` → selects repository state from store
 - `useSnapshots()` → selects snapshots state from store
@@ -197,12 +200,14 @@ export const useKopiaStore = create<KopiaStore>((set, get) => ({
 - `useTasks()` → selects tasks state from store
 
 **Before Refactor (Old Pattern):**
+
 - Each hook maintained its own state
 - Each hook had its own polling interval
 - Multiple simultaneous API calls for same data
 - State inconsistencies between components
 
 **After Refactor (Current):**
+
 - Single source of truth
 - Coordinated polling
 - Minimal API calls
@@ -521,14 +526,16 @@ export const useKopiaStore = create<KopiaStore>((set, get) => ({
   tasks: [],
 
   // Actions to fetch and update state
-  refreshAll: async () => { /* ... */ },
+  refreshAll: async () => {
+    /* ... */
+  },
 }));
 
 // Hooks are thin wrappers around the store
 export function useSnapshots() {
-  const snapshots = useKopiaStore(state => state.snapshots);
-  const isLoading = useKopiaStore(state => state.snapshotsLoading);
-  const error = useKopiaStore(state => state.snapshotsError);
+  const snapshots = useKopiaStore((state) => state.snapshots);
+  const isLoading = useKopiaStore((state) => state.snapshotsLoading);
+  const error = useKopiaStore((state) => state.snapshotsError);
 
   return { snapshots, isLoading, error };
 }

@@ -174,7 +174,7 @@ export async function createSnapshot(
   userName?: string,
   host?: string
 ): Promise<import('./types').SourceInfo> {
-  return invoke('snapshot_create', { path, userName, host });
+  return await invoke<import('./types').SourceInfo>('snapshot_create', { path, userName, host });
 }
 
 /**

@@ -93,11 +93,30 @@ export interface AlgorithmsResponse {
 // ============================================================================
 
 /**
+ * Directory summary statistics
+ */
+export interface DirectorySummary {
+  size: number;
+  files: number;
+  dirs: number;
+  errors?: number;
+  maxTime?: string;
+}
+
+/**
+ * Root entry object
+ */
+export interface RootEntry {
+  obj?: string;
+  summ?: DirectorySummary;
+}
+
+/**
  * Snapshot metadata
  */
 export interface Snapshot {
   id: string;
-  rootID: string;
+  rootID?: string;
   startTime: string;
   endTime?: string;
   description?: string;
@@ -105,16 +124,16 @@ export interface Snapshot {
   retention?: string[];
   incomplete?: boolean;
   summary?: SnapshotSummary;
-  rootEntry?: string;
+  rootEntry?: RootEntry;
 }
 
 /**
  * Snapshot statistics summary
  */
 export interface SnapshotSummary {
-  size: number;
-  files: number;
-  dirs: number;
+  size?: number;
+  files?: number;
+  dirs?: number;
   symlinks?: number;
   errors?: number;
   errorCount?: number;
