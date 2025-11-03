@@ -20,7 +20,6 @@ import {
   XCircle,
   PlayCircle,
   FolderArchive,
-  ListTodo,
   HardDrive,
   Clock,
   TrendingUp,
@@ -414,33 +413,6 @@ export function Overview() {
             </Card>
           )}
         </>
-      )}
-
-      {/* Quick Actions */}
-      {isServerRunning && isRepoConnected && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{t('overview.quickActions')}</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-2 md:grid-cols-2">
-            <Button
-              variant="outline"
-              className="justify-start"
-              onClick={() => void navigate('/snapshots')}
-            >
-              <FolderArchive className="mr-2 h-4 w-4" />
-              {t('overview.viewSnapshots')}
-            </Button>
-            <Button
-              variant="outline"
-              className="justify-start"
-              onClick={() => void navigate('/policies')}
-            >
-              <ListTodo className="mr-2 h-4 w-4" />
-              {t('overview.managePolicies')}
-            </Button>
-          </CardContent>
-        </Card>
       )}
     </div>
   );
