@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useThemeStore } from '@/stores/theme';
 import { useLanguageStore } from '@/stores/language';
 import { useFontSizeStore, type FontSize } from '@/stores/fontSize';
+import { usePreferencesStore } from '@/stores/preferences';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -25,6 +26,7 @@ export function Preferences() {
   const { theme, setTheme } = useThemeStore();
   const { language, setLanguage } = useLanguageStore();
   const { fontSize, setFontSize } = useFontSizeStore();
+  const { minimizeToTray, setMinimizeToTray } = usePreferencesStore();
   const [notifications, setNotifications] = useState(true);
   const [autoBackup, setAutoBackup] = useState(false);
   const [soundEffects, setSoundEffects] = useState(true);
@@ -173,6 +175,22 @@ export function Preferences() {
               {t('preferences.autoStartServer')}
             </Label>
             <Switch id="auto-backup" checked={autoBackup} onCheckedChange={setAutoBackup} />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="minimize-to-tray" className="text-sm">
+                {t('preferences.minimizeToTray')}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {t('preferences.minimizeToTrayDescription')}
+              </p>
+            </div>
+            <Switch
+              id="minimize-to-tray"
+              checked={minimizeToTray}
+              onCheckedChange={setMinimizeToTray}
+            />
           </div>
 
           <Separator />

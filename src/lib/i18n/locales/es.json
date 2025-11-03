@@ -236,7 +236,9 @@
     "desktopNotifications": "Notificaciones de Escritorio",
     "soundEffects": "Efectos de Sonido",
     "advanced": "Avanzado",
-    "autoStartServer": "Iniciar Servidor Automáticamente"
+    "autoStartServer": "Iniciar Servidor Automáticamente",
+    "minimizeToTray": "Minimizar a la Bandeja del Sistema",
+    "minimizeToTrayDescription": "Mantener la aplicación ejecutándose en la bandeja cuando se cierra la ventana"
   },
   "setup": {
     "title": "Configuración",

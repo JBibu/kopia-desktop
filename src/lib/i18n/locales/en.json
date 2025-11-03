@@ -236,7 +236,9 @@
     "desktopNotifications": "Desktop Notifications",
     "soundEffects": "Sound Effects",
     "advanced": "Advanced",
-    "autoStartServer": "Auto-start Server"
+    "autoStartServer": "Auto-start Server",
+    "minimizeToTray": "Minimize to System Tray",
+    "minimizeToTrayDescription": "Keep app running in system tray when window is closed"
   },
   "setup": {
     "title": "Setup",

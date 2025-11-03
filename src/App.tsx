@@ -6,6 +6,7 @@ import { useFontSizeStore } from './stores/fontSize';
 import { useKopiaStore } from './stores/kopia';
 import { AppLayout } from './components/layout/AppLayout';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { WindowCloseHandler } from './components/WindowCloseHandler';
 import { Overview } from './pages/Overview';
 import { Repository } from './pages/Repository';
 import { Snapshots } from './pages/Snapshots';
@@ -73,6 +74,7 @@ function App(): React.JSX.Element {
 
   return (
     <ErrorBoundary>
+      <WindowCloseHandler />
       <BrowserRouter>
         <Routes>
           {/* All app routes (with layout) */}
