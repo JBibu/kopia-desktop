@@ -58,6 +58,12 @@ impl KopiaServer {
     /// Start the Kopia server process (non-blocking)
     /// Returns server info immediately after spawning
     /// Use wait_for_ready() to ensure server is responding
+    ///
+    /// # Security Model
+    /// - TLS with self-signed certificate (--tls-generate-cert)
+    /// - Localhost-only binding (127.0.0.1)
+    /// - HTTP Basic Auth with random session password
+    /// - CSRF protection disabled (acceptable for localhost-only server)
     pub fn start(&mut self, config_dir: &str) -> Result<KopiaServerInfo, String> {
         if self.is_running() {
             return Err("Kopia server is already running".into());
@@ -74,8 +80,9 @@ impl KopiaServer {
                 "start",
                 "--ui",
                 &format!("--address=localhost:{}", port),
-                "--insecure",
-                "--disable-csrf-token-checks",
+                "--tls-generate-cert",               // Generate self-signed TLS certificate
+                "--tls-generate-cert-name=localhost", // Certificate for localhost
+                "--disable-csrf-token-checks",        // CSRF not needed for localhost-only
                 "--server-username",
                 SERVER_USERNAME,
                 "--server-password",
@@ -102,7 +109,7 @@ impl KopiaServer {
         }
 
         let info = KopiaServerInfo {
-            server_url: format!("http://localhost:{}", port),
+            server_url: format!("https://localhost:{}", port),
             port,
             http_password: server_password.clone(),
             pid: child.id(),
@@ -308,6 +315,10 @@ impl KopiaServer {
     }
 
     /// Create HTTP client with Basic Auth credentials
+    ///
+    /// # Security Note
+    /// Accepts self-signed certificates since we control the Kopia server
+    /// and it's bound to localhost only. This is safe for local communication.
     fn create_http_client(
         &self,
         username: &str,
@@ -336,6 +347,7 @@ impl KopiaServer {
             .default_headers(headers)
             .timeout(Duration::from_secs(HTTP_OPERATION_TIMEOUT_SECS))
             .connect_timeout(Duration::from_secs(HTTP_CONNECT_TIMEOUT_SECS))
+            .danger_accept_invalid_certs(true) // Accept self-signed certificates (localhost only)
             .build()
             .map_err(|e| format!("Failed to create HTTP client: {}", e))
     }
