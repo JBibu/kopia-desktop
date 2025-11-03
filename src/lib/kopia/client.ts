@@ -476,69 +476,28 @@ export async function testNotificationProfile(
 // ============================================================================
 
 /**
- * Connect to Kopia server WebSocket for real-time updates
+ * Connect to Kopia WebSocket for real-time task updates
  */
-export function connectWebSocket(
-  onEvent: (event: import('./types').WebSocketEvent) => void,
-  onError?: (error: Error) => void
-): () => void {
-  let ws: WebSocket | null = null;
-  let reconnectTimeout: number | null = null;
+export async function connectWebSocket(
+  serverUrl: string,
+  username: string,
+  password: string
+): Promise<void> {
+  return invoke('websocket_connect', { serverUrl, username, password });
+}
 
-  const connect = async () => {
-    try {
-      const serverStatus = await getKopiaServerStatus();
-      if (!serverStatus.running || !serverStatus.serverUrl) {
-        throw new Error('Kopia server not running');
-      }
+/**
+ * Disconnect from Kopia WebSocket
+ */
+export async function disconnectWebSocket(): Promise<void> {
+  return invoke('websocket_disconnect');
+}
 
-      const wsUrl = serverStatus.serverUrl.replace('http', 'ws') + '/api/v1/ws';
-      ws = new WebSocket(wsUrl);
-
-      ws.onmessage = (event) => {
-        try {
-          const parsed = JSON.parse(event.data as string) as import('./types').WebSocketEvent;
-
-          onEvent(parsed);
-        } catch (err) {
-          console.error('Failed to parse WebSocket message:', err);
-        }
-      };
-
-      ws.onerror = (event) => {
-        console.error('WebSocket error:', event);
-        if (onError) {
-          onError(new Error('WebSocket connection error'));
-        }
-      };
-
-      ws.onclose = () => {
-        // Attempt to reconnect after 5 seconds
-        reconnectTimeout = window.setTimeout(() => void connect(), 5000);
-      };
-    } catch (err) {
-      console.error('Failed to connect WebSocket:', err);
-      if (onError && err instanceof Error) {
-        onError(err);
-      }
-      // Retry after 5 seconds
-      reconnectTimeout = window.setTimeout(() => void connect(), 5000);
-    }
-  };
-
-  void connect();
-
-  // Return cleanup function
-  return () => {
-    if (ws) {
-      ws.close();
-      ws = null;
-    }
-    if (reconnectTimeout !== null) {
-      clearTimeout(reconnectTimeout);
-      reconnectTimeout = null;
-    }
-  };
+/**
+ * Check WebSocket connection status
+ */
+export async function getWebSocketStatus(): Promise<boolean> {
+  return invoke('websocket_status');
 }
 
 // ============================================================================

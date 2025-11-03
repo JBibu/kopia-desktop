@@ -43,7 +43,8 @@ import type { Task } from '@/lib/kopia/types';
 
 export function Tasks() {
   const { t } = useTranslation();
-  const { tasks, summary, isLoading, error, cancelTask, refreshAll } = useTasks();
+  const { tasks, summary, isLoading, error, isWebSocketConnected, cancelTask, refreshAll } =
+    useTasks();
 
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -113,13 +114,26 @@ export function Tasks() {
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight">{t('tasks.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('tasks.subtitle')}</p>
+          <p className="text-sm text-muted-foreground">
+            {t('tasks.subtitle')}
+            {isWebSocketConnected && (
+              <span className="ml-2 inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                <Activity className="h-3 w-3 animate-pulse" />
+                Real-time updates
+              </span>
+            )}
+          </p>
         </div>
         <Button
           variant="outline"
           size="sm"
           onClick={() => void handleRefresh()}
           disabled={isLoading}
+          title={
+            isWebSocketConnected
+              ? 'Manual refresh (real-time updates active)'
+              : 'Refresh tasks (polling mode)'
+          }
         >
           <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
           {t('common.refresh')}

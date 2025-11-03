@@ -4,14 +4,26 @@
 // Module declarations
 mod commands;
 mod kopia_server;
+mod kopia_websocket;
 mod types;
 
 use kopia_server::{create_server_state, KopiaServerState};
+use kopia_websocket::KopiaWebSocket;
+use std::sync::Arc;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Manager,
 };
+use tokio::sync::Mutex;
+
+/// WebSocket state type
+pub type KopiaWebSocketState = Arc<Mutex<KopiaWebSocket>>;
+
+/// Create WebSocket state
+pub fn create_websocket_state() -> KopiaWebSocketState {
+    Arc::new(Mutex::new(KopiaWebSocket::new()))
+}
 
 /// Auto-start the Kopia server on app launch
 async fn auto_start_server(state: KopiaServerState) -> Result<(), String> {
@@ -44,12 +56,14 @@ async fn auto_start_server(state: KopiaServerState) -> Result<(), String> {
 pub fn run() {
     // Initialize Kopia server state
     let server_state = create_server_state();
+    let websocket_state = create_websocket_state();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(server_state.clone())
+        .manage(websocket_state.clone())
         .setup(move |app| {
             // Create system tray menu
             let show_i = MenuItem::with_id(app, "show", "Show Window", true, None::<&str>)?;
@@ -166,6 +180,10 @@ pub fn run() {
             commands::get_current_user,
             commands::select_folder,
             commands::select_file,
+            // WebSocket
+            commands::websocket_connect,
+            commands::websocket_disconnect,
+            commands::websocket_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

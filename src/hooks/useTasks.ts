@@ -18,6 +18,7 @@ interface UseTasksReturn {
   summary: TasksSummary | null;
   isLoading: boolean;
   error: string | null;
+  isWebSocketConnected: boolean;
   fetchTasks: () => Promise<void>;
   fetchSummary: () => Promise<void>;
   getTask: (taskId: string) => Promise<Task | null>;
@@ -28,7 +29,7 @@ interface UseTasksReturn {
 /**
  * Hook for task monitoring.
  * Uses global Zustand store for state - no local state or polling.
- * Tasks are automatically refreshed every 5 seconds by the global store.
+ * Tasks are automatically updated in real-time via WebSocket, with polling fallback.
  */
 export function useTasks(_options: UseTasksOptions = {}): UseTasksReturn {
   // Legacy options are ignored - polling is controlled by global store
@@ -39,6 +40,7 @@ export function useTasks(_options: UseTasksOptions = {}): UseTasksReturn {
   const summary = useKopiaStore((state) => state.tasksSummary);
   const isLoading = useKopiaStore((state) => state.isTasksLoading);
   const error = useKopiaStore((state) => state.tasksError);
+  const isWebSocketConnected = useKopiaStore((state) => state.isWebSocketConnected);
   const fetchTasks = useKopiaStore((state) => state.refreshTasks);
   const fetchSummary = useKopiaStore((state) => state.refreshTasksSummary);
   const getTask = useKopiaStore((state) => state.getTask);
@@ -53,6 +55,7 @@ export function useTasks(_options: UseTasksOptions = {}): UseTasksReturn {
     summary,
     isLoading,
     error,
+    isWebSocketConnected,
     fetchTasks,
     fetchSummary,
     getTask,

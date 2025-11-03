@@ -13,6 +13,7 @@
 
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import {
   getKopiaServerStatus,
   getRepositoryStatus,
@@ -32,6 +33,8 @@ import {
   getTasksSummary,
   getTask as apiGetTask,
   cancelTask as apiCancelTask,
+  connectWebSocket,
+  disconnectWebSocket,
   type KopiaServerStatus,
   type KopiaServerInfo,
   type RepositoryStatus,
@@ -44,6 +47,7 @@ import type {
   PolicyResponse,
   Task,
   TasksSummary,
+  WebSocketEvent,
 } from '@/lib/kopia/types';
 import { getErrorMessage } from '@/lib/kopia/errors';
 import { notifyTaskComplete } from '@/lib/notifications';
@@ -51,6 +55,7 @@ import { notifyTaskComplete } from '@/lib/notifications';
 interface KopiaStore {
   // Server state
   serverStatus: KopiaServerStatus | null;
+  serverInfo: KopiaServerInfo | null; // Store server info including password
   serverError: string | null;
   isServerLoading: boolean;
 
@@ -79,7 +84,11 @@ interface KopiaStore {
   // Polling state
   isPolling: boolean;
   serverPollingInterval: number; // For server/repo (30s)
-  tasksPollingInterval: number; // For tasks (5s - real-time)
+  tasksPollingInterval: number; // For tasks (5s - real-time, fallback if WebSocket fails)
+
+  // WebSocket state
+  isWebSocketConnected: boolean;
+  useWebSocket: boolean; // Prefer WebSocket over polling for tasks
 
   // Derived state
   isServerRunning: () => boolean;
@@ -124,6 +133,11 @@ interface KopiaStore {
   setServerPollingInterval: (interval: number) => void;
   setTasksPollingInterval: (interval: number) => void;
 
+  // WebSocket control
+  startWebSocket: () => Promise<void>;
+  stopWebSocket: () => Promise<void>;
+  setUseWebSocket: (use: boolean) => void;
+
   // Utility
   refreshAll: () => Promise<void>;
   reset: () => void;
@@ -133,6 +147,10 @@ interface KopiaStore {
 let serverPollingTimer: ReturnType<typeof setInterval> | null = null;
 let tasksPollingTimer: ReturnType<typeof setInterval> | null = null;
 
+// WebSocket event listener (outside store to avoid serialization issues)
+let wsEventUnlisten: UnlistenFn | null = null;
+let wsDisconnectUnlisten: UnlistenFn | null = null;
+
 export const useKopiaStore = create<KopiaStore>()(
   subscribeWithSelector((set, get) => ({
     // ========================================================================
@@ -141,6 +159,7 @@ export const useKopiaStore = create<KopiaStore>()(
 
     // Server
     serverStatus: null,
+    serverInfo: null,
     serverError: null,
     isServerLoading: false,
 
@@ -170,6 +189,10 @@ export const useKopiaStore = create<KopiaStore>()(
     isPolling: false,
     serverPollingInterval: 30000, // 30 seconds
     tasksPollingInterval: 5000, // 5 seconds
+
+    // WebSocket
+    isWebSocketConnected: false,
+    useWebSocket: true, // Prefer WebSocket over polling by default
 
     // ========================================================================
     // Derived State
@@ -223,7 +246,7 @@ export const useKopiaStore = create<KopiaStore>()(
       try {
         const info = await startKopiaServer();
         await get().refreshServerStatus();
-        set({ isServerLoading: false });
+        set({ isServerLoading: false, serverInfo: info });
         return info;
       } catch (error) {
         const message = getErrorMessage(error);
@@ -538,12 +561,17 @@ export const useKopiaStore = create<KopiaStore>()(
     // ========================================================================
 
     startPolling: () => {
-      const { isPolling, serverPollingInterval, tasksPollingInterval } = get();
+      const { isPolling, serverPollingInterval, tasksPollingInterval, useWebSocket } = get();
 
       if (isPolling) return;
 
       // Initial fetch
       void get().refreshAll();
+
+      // Try to start WebSocket if enabled
+      if (useWebSocket) {
+        void get().startWebSocket();
+      }
 
       // Server/Repo polling (30s)
       serverPollingTimer = setInterval(() => {
@@ -551,11 +579,13 @@ export const useKopiaStore = create<KopiaStore>()(
         void get().refreshRepositoryStatus();
       }, serverPollingInterval);
 
-      // Tasks polling (5s for real-time updates)
-      tasksPollingTimer = setInterval(() => {
-        void get().refreshTasks();
-        void get().refreshTasksSummary();
-      }, tasksPollingInterval);
+      // Tasks polling (5s for real-time updates) - only if WebSocket is disabled
+      if (!useWebSocket) {
+        tasksPollingTimer = setInterval(() => {
+          void get().refreshTasks();
+          void get().refreshTasksSummary();
+        }, tasksPollingInterval);
+      }
 
       set({ isPolling: true });
     },
@@ -568,6 +598,10 @@ export const useKopiaStore = create<KopiaStore>()(
       if (tasksPollingTimer) {
         clearInterval(tasksPollingTimer);
         tasksPollingTimer = null;
+      }
+      // Stop WebSocket if connected
+      if (get().isWebSocketConnected) {
+        void get().stopWebSocket();
       }
       set({ isPolling: false });
     },
@@ -591,6 +625,146 @@ export const useKopiaStore = create<KopiaStore>()(
     },
 
     // ========================================================================
+    // WebSocket Control
+    // ========================================================================
+
+    startWebSocket: async () => {
+      const { isWebSocketConnected, serverStatus, serverInfo } = get();
+
+      if (isWebSocketConnected) {
+        console.log('WebSocket already connected');
+        return;
+      }
+
+      if (!serverStatus?.running || !serverStatus.serverUrl) {
+        console.error('Cannot connect WebSocket: server not running');
+        return;
+      }
+
+      if (!serverInfo?.password) {
+        console.error('Cannot connect WebSocket: server password not available');
+        return;
+      }
+
+      try {
+        // Connect to WebSocket
+        await connectWebSocket(
+          serverStatus.serverUrl,
+          'kopia-desktop', // Server username (constant from backend)
+          serverInfo.password
+        );
+
+        // Set up event listeners
+        wsEventUnlisten = await listen<WebSocketEvent>('kopia-ws-event', (event) => {
+          const wsEvent = event.payload;
+          console.log('WebSocket event received:', wsEvent.type);
+
+          // Handle different event types
+          if (wsEvent.type === 'task-progress') {
+            // Refresh tasks to get updated status
+            void get().refreshTasks();
+          } else if (wsEvent.type === 'snapshot-progress') {
+            // Refresh snapshots and sources
+            void get().refreshSnapshots();
+            void get().refreshSources();
+          }
+        });
+
+        wsDisconnectUnlisten = await listen('kopia-ws-disconnected', () => {
+          console.log('WebSocket disconnected');
+          set({ isWebSocketConnected: false });
+
+          // Fall back to polling if WebSocket disconnects
+          if (get().useWebSocket && !get().isPolling) {
+            console.log('Falling back to polling after WebSocket disconnect');
+            get().startPolling();
+          }
+        });
+
+        set({ isWebSocketConnected: true });
+        console.log('WebSocket connected successfully');
+
+        // Stop task polling since WebSocket will handle real-time updates
+        if (tasksPollingTimer) {
+          clearInterval(tasksPollingTimer);
+          tasksPollingTimer = null;
+        }
+      } catch (error) {
+        console.error('Failed to connect WebSocket:', error);
+        set({ isWebSocketConnected: false });
+
+        // Fall back to polling
+        if (get().useWebSocket && !get().isPolling) {
+          console.log('Falling back to polling after WebSocket error');
+          get().startPolling();
+        }
+      }
+    },
+
+    stopWebSocket: async () => {
+      const { isWebSocketConnected } = get();
+
+      if (!isWebSocketConnected) {
+        return;
+      }
+
+      try {
+        // Clean up event listeners
+        if (wsEventUnlisten) {
+          wsEventUnlisten();
+          wsEventUnlisten = null;
+        }
+        if (wsDisconnectUnlisten) {
+          wsDisconnectUnlisten();
+          wsDisconnectUnlisten = null;
+        }
+
+        // Disconnect WebSocket
+        await disconnectWebSocket();
+        set({ isWebSocketConnected: false });
+        console.log('WebSocket disconnected');
+      } catch (error) {
+        console.error('Failed to disconnect WebSocket:', error);
+      }
+    },
+
+    setUseWebSocket: (use: boolean) => {
+      const { useWebSocket, isWebSocketConnected, isPolling } = get();
+
+      if (useWebSocket === use) {
+        return;
+      }
+
+      set({ useWebSocket: use });
+
+      if (use) {
+        // Enable WebSocket: stop polling and start WebSocket
+        if (isPolling) {
+          if (tasksPollingTimer) {
+            clearInterval(tasksPollingTimer);
+            tasksPollingTimer = null;
+          }
+        }
+        if (!isWebSocketConnected) {
+          void get().startWebSocket();
+        }
+      } else {
+        // Disable WebSocket: stop WebSocket and start polling
+        if (isWebSocketConnected) {
+          void get().stopWebSocket();
+        }
+        if (isPolling && !tasksPollingTimer) {
+          // Restart task polling
+          const { tasksPollingInterval } = get();
+          tasksPollingTimer = setInterval(() => {
+            void get().refreshTasks();
+            void get().refreshTasksSummary();
+          }, tasksPollingInterval);
+        }
+      }
+    },
+
+    // ========================================================================
     // Utility
     // ========================================================================
 
@@ -608,8 +782,10 @@ export const useKopiaStore = create<KopiaStore>()(
 
     reset: () => {
       get().stopPolling();
+      void get().stopWebSocket();
       set({
         serverStatus: null,
+        serverInfo: null,
         serverError: null,
         isServerLoading: false,
         repositoryStatus: null,
@@ -626,6 +802,7 @@ export const useKopiaStore = create<KopiaStore>()(
         tasksSummary: null,
         tasksError: null,
         isTasksLoading: false,
+        isWebSocketConnected: false,
       });
     },
   }))
