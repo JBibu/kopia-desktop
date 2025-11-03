@@ -1374,7 +1374,7 @@ pub async fn ui_preferences_set(
 #[tauri::command]
 pub async fn notification_profiles_list(
     server: State<'_, KopiaServerState>,
-) -> Result<crate::types::NotificationProfilesResponse, String> {
+) -> Result<Vec<crate::types::NotificationProfile>, String> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
@@ -1384,16 +1384,18 @@ pub async fn notification_profiles_list(
         .map_err(|e| format!("Failed to list notification profiles: {}", e))?;
 
     if !response.status().is_success() {
+        // If 404 or no profiles, return empty array
+        if response.status().as_u16() == 404 {
+            return Ok(vec![]);
+        }
         return Err(format!(
             "Failed to list notification profiles: {}",
             response.status()
         ));
     }
 
-    let result = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+    let result: Vec<crate::types::NotificationProfile> =
+        response.json().await.unwrap_or_else(|_| vec![]); // Return empty array if parsing fails
 
     Ok(result)
 }
@@ -1454,17 +1456,17 @@ pub async fn notification_profile_delete(
     Ok(())
 }
 
-/// Test notification profile
+/// Test notification profile (send test notification)
 #[tauri::command]
 pub async fn notification_profile_test(
     server: State<'_, KopiaServerState>,
-    profile_name: String,
+    profile: crate::types::NotificationProfile,
 ) -> Result<(), String> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
         .post(format!("{}/api/v1/testNotificationProfile", server_url))
-        .json(&serde_json::json!({ "profileName": profile_name }))
+        .json(&profile)
         .send()
         .await
         .map_err(|e| format!("Failed to test notification profile: {}", e))?;

@@ -533,30 +533,79 @@ export interface UIPreferences {
 // Notification Types
 // ============================================================================
 
+export type NotificationSeverity = -100 | -10 | 0 | 10 | 20;
+
+export const NotificationSeverities = {
+  VERBOSE: -100 as NotificationSeverity,
+  SUCCESS: -10 as NotificationSeverity,
+  REPORT: 0 as NotificationSeverity,
+  WARNING: 10 as NotificationSeverity,
+  ERROR: 20 as NotificationSeverity,
+} as const;
+
+export const SeverityLabels: Record<NotificationSeverity, string> = {
+  [-100]: 'Verbose',
+  [-10]: 'Success',
+  [0]: 'Report',
+  [10]: 'Warning',
+  [20]: 'Error',
+};
+
+/**
+ * Notification method configuration
+ */
+export interface NotificationMethod {
+  type: 'email' | 'pushover' | 'webhook';
+  config: EmailConfig | PushoverConfig | WebhookConfig | Record<string, unknown>;
+}
+
+/**
+ * Email notification configuration
+ */
+export interface EmailConfig {
+  smtpServer: string;
+  smtpPort: number;
+  smtpUsername?: string;
+  smtpPassword?: string;
+  smtpIdentity?: string;
+  from: string;
+  to: string;
+  cc?: string;
+  format: 'txt' | 'html';
+}
+
+/**
+ * Pushover notification configuration
+ */
+export interface PushoverConfig {
+  appToken: string;
+  userKey: string;
+  format: 'txt' | 'html';
+}
+
+/**
+ * Webhook notification configuration
+ */
+export interface WebhookConfig {
+  endpoint: string;
+  method: 'POST' | 'PUT';
+  headers?: string; // Multi-line string, one header per line
+  format: 'txt' | 'html';
+}
+
 /**
  * Notification profile
  */
 export interface NotificationProfile {
-  profileName: string;
-  method: 'email' | 'slack' | 'webhook';
-  config: {
-    smtpServer?: string;
-    smtpPort?: number;
-    smtpUsername?: string;
-    toAddress?: string;
-    webhookURL?: string;
-    url?: string;
-    method?: 'GET' | 'POST';
-    headers?: Record<string, string>;
-  };
+  profile: string;
+  method: NotificationMethod;
+  minSeverity: NotificationSeverity;
 }
 
 /**
- * Notification profiles list response
+ * Notification profiles list response (just an array)
  */
-export interface NotificationProfilesResponse {
-  profiles: NotificationProfile[];
-}
+export type NotificationProfilesResponse = NotificationProfile[];
 
 // ============================================================================
 // WebSocket Event Types

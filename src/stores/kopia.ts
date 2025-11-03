@@ -46,6 +46,7 @@ import type {
   TasksSummary,
 } from '@/lib/kopia/types';
 import { getErrorMessage } from '@/lib/kopia/errors';
+import { notifyTaskComplete } from '@/lib/notifications';
 
 interface KopiaStore {
   // Server state
@@ -452,6 +453,29 @@ export const useKopiaStore = create<KopiaStore>()(
         const response = await listTasks();
         const newTasks = response.tasks || [];
         const currentTasks = get().tasks;
+
+        // Detect task completions for notifications
+        if (currentTasks.length > 0) {
+          for (const currentTask of currentTasks) {
+            // Find if this task has changed status
+            const newTask = newTasks.find((t) => t.id === currentTask.id);
+
+            // If task was RUNNING and is now completed (SUCCESS, FAILED, or CANCELED)
+            if (
+              currentTask.status === 'RUNNING' &&
+              newTask &&
+              (newTask.status === 'SUCCESS' ||
+                newTask.status === 'FAILED' ||
+                newTask.status === 'CANCELED')
+            ) {
+              // Send desktop notification (fire and forget, don't await)
+              void notifyTaskComplete(
+                currentTask.description || currentTask.kind,
+                newTask.status === 'SUCCESS'
+              );
+            }
+          }
+        }
 
         // Only update if tasks actually changed to avoid unnecessary re-renders
         if (JSON.stringify(currentTasks) !== JSON.stringify(newTasks)) {

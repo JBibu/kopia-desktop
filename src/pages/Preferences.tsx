@@ -11,6 +11,7 @@ import { usePreferencesStore } from '@/stores/preferences';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import {
   Select,
@@ -19,7 +20,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Palette, Globe, Bell, Zap, Sun, Moon, Monitor, Type } from 'lucide-react';
+import { Palette, Globe, Bell, Zap, Sun, Moon, Monitor, Type, Mail } from 'lucide-react';
+import { NotificationProfiles } from '@/components/kopia/notifications/NotificationProfiles';
+import { sendDesktopNotification } from '@/lib/notifications';
+import { toast } from 'sonner';
 
 export function Preferences() {
   const { t } = useTranslation();
@@ -28,6 +32,19 @@ export function Preferences() {
   const { fontSize, setFontSize } = useFontSizeStore();
   const { minimizeToTray, setMinimizeToTray } = usePreferencesStore();
   const [notifications, setNotifications] = useState(true);
+
+  const handleTestNotification = async () => {
+    try {
+      await sendDesktopNotification({
+        title: 'Test Notification',
+        body: 'This is a test notification from Kopia Desktop. If you see this, native notifications are working!',
+      });
+      toast.success('Test notification sent');
+    } catch (error) {
+      toast.error('Failed to send test notification');
+      console.error('Notification error:', error);
+    }
+  };
   const [autoBackup, setAutoBackup] = useState(false);
   const [soundEffects, setSoundEffects] = useState(true);
 
@@ -137,7 +154,7 @@ export function Preferences() {
         </CardContent>
       </Card>
 
-      {/* Notifications */}
+      {/* Desktop Notifications */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
@@ -158,6 +175,24 @@ export function Preferences() {
             </Label>
             <Switch id="sound" checked={soundEffects} onCheckedChange={setSoundEffects} />
           </div>
+          <div className="pt-2">
+            <Button variant="outline" size="sm" onClick={() => void handleTestNotification()}>
+              Test Desktop Notification
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Kopia Notification Profiles */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Mail className="h-4 w-4" />
+            Kopia Notification Profiles
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <NotificationProfiles />
         </CardContent>
       </Card>
 

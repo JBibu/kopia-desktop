@@ -630,27 +630,53 @@ pub struct UIPreferences {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct NotificationProfilesResponse {
-    pub profiles: Vec<NotificationProfile>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct NotificationProfile {
-    pub profile_name: String,
-    pub method: String,
-    pub config: NotificationConfig,
+    pub profile: String,
+    pub method: NotificationMethod,
+    pub min_severity: i32, // -100 (Verbose), -10 (Success), 0 (Report), 10 (Warning), 20 (Error)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct NotificationConfig {
-    pub smtp_server: Option<String>,
-    pub smtp_port: Option<i64>,
+pub struct NotificationMethod {
+    #[serde(rename = "type")]
+    pub method_type: String, // "email", "pushover", "webhook"
+    pub config: serde_json::Value, // Method-specific configuration
+}
+
+// Email notification config (helper type for documentation)
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmailNotificationConfig {
+    pub smtp_server: String,
+    pub smtp_port: i32,
     pub smtp_username: Option<String>,
-    pub to_address: Option<String>,
-    pub webhook_url: Option<String>,
-    pub url: Option<String>,
-    pub method: Option<String>,
-    pub headers: Option<HashMap<String, String>>,
+    pub smtp_password: Option<String>,
+    pub smtp_identity: Option<String>,
+    pub from: String,
+    pub to: String,
+    pub cc: Option<String>,
+    pub format: String, // "txt" or "html"
+}
+
+// Pushover notification config (helper type for documentation)
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PushoverNotificationConfig {
+    pub app_token: String,
+    pub user_key: String,
+    pub format: String, // "txt" or "html"
+}
+
+// Webhook notification config (helper type for documentation)
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WebhookNotificationConfig {
+    pub endpoint: String,
+    pub method: String,          // "POST" or "PUT"
+    pub headers: Option<String>, // Multi-line string, one header per line
+    pub format: String,          // "txt" or "html"
 }

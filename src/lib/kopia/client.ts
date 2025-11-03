@@ -463,10 +463,12 @@ export async function deleteNotificationProfile(profileName: string): Promise<vo
 }
 
 /**
- * Test notification profile
+ * Test notification profile (send test notification)
  */
-export async function testNotificationProfile(profileName: string): Promise<void> {
-  return invoke('notification_profile_test', { profileName });
+export async function testNotificationProfile(
+  profile: import('./types').NotificationProfile
+): Promise<void> {
+  return invoke('notification_profile_test', { profile });
 }
 
 // ============================================================================
