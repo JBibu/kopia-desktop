@@ -62,7 +62,7 @@ export function Repository() {
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-success">
                 <CheckCircle className="h-4 w-4" />
-                <span className="text-2xl">{t('common.connected')}</span>
+                <span className="text-lg">{t('common.connected')}</span>
               </div>
               {status.username && status.hostname && (
                 <p className="text-xs text-muted-foreground">
@@ -75,7 +75,7 @@ export function Repository() {
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-destructive">
                 <XCircle className="h-4 w-4" />
-                <span className="text-2xl">{t('common.notConnected')}</span>
+                <span className="text-lg">{t('common.notConnected')}</span>
               </div>
               <Button size="sm" onClick={() => void navigate('/setup')} className="w-full">
                 <Settings className="mr-2 h-4 w-4" />
