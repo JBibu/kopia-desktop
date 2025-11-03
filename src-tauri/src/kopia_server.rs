@@ -74,27 +74,37 @@ impl KopiaServer {
         let server_password = self.generate_password();
         let config_file = format!("{}/kopia-desktop.config", config_dir);
 
-        let mut child = Command::new(&binary_path)
-            .args([
-                "server",
-                "start",
-                "--ui",
-                &format!("--address=localhost:{}", port),
-                "--tls-generate-cert",               // Generate self-signed TLS certificate
-                "--tls-generate-cert-name=localhost", // Certificate for localhost
-                "--disable-csrf-token-checks",        // CSRF not needed for localhost-only
-                "--server-username",
-                SERVER_USERNAME,
-                "--server-password",
-                &server_password,
-                "--config-file",
-                &config_file,
-                "--shutdown-on-stdin",
-            ])
-            .env("KOPIA_CHECK_FOR_UPDATES", "false")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+        let mut cmd = Command::new(&binary_path);
+        cmd.args([
+            "server",
+            "start",
+            "--ui",
+            &format!("--address=localhost:{}", port),
+            "--tls-generate-cert",               // Generate self-signed TLS certificate
+            "--tls-generate-cert-name=localhost", // Certificate for localhost
+            "--disable-csrf-token-checks",        // CSRF not needed for localhost-only
+            "--server-username",
+            SERVER_USERNAME,
+            "--server-password",
+            &server_password,
+            "--config-file",
+            &config_file,
+            "--shutdown-on-stdin",
+        ])
+        .env("KOPIA_CHECK_FOR_UPDATES", "false")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+        // On Windows, prevent console window from appearing
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            cmd.creation_flags(CREATE_NO_WINDOW);
+        }
+
+        let mut child = cmd
             .spawn()
             .map_err(|e| format!("Failed to spawn Kopia server: {}", e))?;
 
