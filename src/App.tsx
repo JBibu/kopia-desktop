@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { useThemeStore } from './stores/theme';
 import { useLanguageStore } from './stores/language';
+import { useFontSizeStore } from './stores/fontSize';
 import { useKopiaStore } from './stores/kopia';
 import { AppLayout } from './components/layout/AppLayout';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -42,6 +43,9 @@ function App(): React.JSX.Element {
   const language = useLanguageStore((state) => state.language);
   const startPolling = useKopiaStore((state) => state.startPolling);
   const stopPolling = useKopiaStore((state) => state.stopPolling);
+
+  // Initialize font size store (font size is applied automatically by the store)
+  useFontSizeStore();
 
   // Initialize global Kopia state polling
   useEffect(() => {

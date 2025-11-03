@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useThemeStore } from '@/stores/theme';
 import { useLanguageStore } from '@/stores/language';
+import { useFontSizeStore, type FontSize } from '@/stores/fontSize';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -17,12 +18,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Palette, Globe, Bell, Zap, Sun, Moon, Monitor } from 'lucide-react';
+import { Palette, Globe, Bell, Zap, Sun, Moon, Monitor, Type } from 'lucide-react';
 
 export function Preferences() {
   const { t } = useTranslation();
   const { theme, setTheme } = useThemeStore();
   const { language, setLanguage } = useLanguageStore();
+  const { fontSize, setFontSize } = useFontSizeStore();
   const [notifications, setNotifications] = useState(true);
   const [autoBackup, setAutoBackup] = useState(false);
   const [soundEffects, setSoundEffects] = useState(true);
@@ -42,7 +44,7 @@ export function Preferences() {
             {t('preferences.appearance')}
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <Label htmlFor="theme" className="text-sm">
               {t('preferences.theme')}
@@ -68,6 +70,37 @@ export function Preferences() {
                   <div className="flex items-center gap-2">
                     <Monitor className="h-4 w-4" />
                     {t('preferences.system')}
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <Label htmlFor="fontSize" className="text-sm">
+              {t('preferences.textSize')}
+            </Label>
+            <Select value={fontSize} onValueChange={(value: FontSize) => setFontSize(value)}>
+              <SelectTrigger id="fontSize" className="w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="small">
+                  <div className="flex items-center gap-2">
+                    <Type className="h-3 w-3" />
+                    {t('preferences.small')}
+                  </div>
+                </SelectItem>
+                <SelectItem value="medium">
+                  <div className="flex items-center gap-2">
+                    <Type className="h-4 w-4" />
+                    {t('preferences.medium')}
+                  </div>
+                </SelectItem>
+                <SelectItem value="large">
+                  <div className="flex items-center gap-2">
+                    <Type className="h-5 w-5" />
+                    {t('preferences.large')}
                   </div>
                 </SelectItem>
               </SelectContent>
