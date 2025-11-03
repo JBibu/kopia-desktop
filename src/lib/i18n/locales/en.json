@@ -47,7 +47,18 @@
     "checkingConnection": "Checking connection...",
     "quickActions": "Quick Actions",
     "viewSnapshots": "View Snapshots",
-    "managePolicies": "Manage Policies"
+    "managePolicies": "Manage Policies",
+    "totalSnapshots": "Total Snapshots",
+    "storageUsed": "Storage Used",
+    "complete": "complete",
+    "incomplete": "incomplete",
+    "files": "files",
+    "snapshotActivity": "Snapshot Activity (Last 7 Days)",
+    "snapshots": "Snapshots",
+    "topSources": "Top Backup Sources",
+    "taskStatus": "Task Status",
+    "recentActivity": "Recent Activity",
+    "viewAll": "View All"
   },
   "repository": {
     "title": "Repository",

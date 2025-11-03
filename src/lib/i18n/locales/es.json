@@ -47,7 +47,18 @@
     "checkingConnection": "Verificando conexión...",
     "quickActions": "Acciones Rápidas",
     "viewSnapshots": "Ver Instantáneas",
-    "managePolicies": "Administrar Políticas"
+    "managePolicies": "Administrar Políticas",
+    "totalSnapshots": "Instantáneas Totales",
+    "storageUsed": "Almacenamiento Usado",
+    "complete": "completas",
+    "incomplete": "incompletas",
+    "files": "archivos",
+    "snapshotActivity": "Actividad de Instantáneas (Últimos 7 Días)",
+    "snapshots": "Instantáneas",
+    "topSources": "Fuentes Principales",
+    "taskStatus": "Estado de Tareas",
+    "recentActivity": "Actividad Reciente",
+    "viewAll": "Ver Todo"
   },
   "repository": {
     "title": "Repositorio",
