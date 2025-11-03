@@ -47,15 +47,10 @@ export function Repository() {
       {/* Connection Status */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Database className="h-4 w-4" />
-              {t('repository.connectionStatus')}
-            </CardTitle>
-            {isConnected && (
-              <Badge className="bg-success text-success-foreground">{t('common.connected')}</Badge>
-            )}
-          </div>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Database className="h-4 w-4" />
+            {t('repository.connectionStatus')}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading && !isConnected ? (
