@@ -9,7 +9,6 @@ import { useKopiaServer } from '@/hooks/useKopiaServer';
 import { useRepository } from '@/hooks/useRepository';
 import { useSnapshots } from '@/hooks/useSnapshots';
 import { useTasks } from '@/hooks/useTasks';
-import type { SnapshotSource } from '@/lib/kopia/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,8 +29,6 @@ import {
 import {
   AreaChart,
   Area,
-  BarChart,
-  Bar,
   PieChart,
   Pie,
   Cell,
@@ -62,7 +59,7 @@ export function Overview() {
   const navigate = useNavigate();
   const { serverStatus, isLoading: serverLoading, startServer } = useKopiaServer();
   const { status: repoStatus, isLoading: repoLoading } = useRepository();
-  const { snapshots, sources, isLoading: snapshotsLoading } = useSnapshots();
+  const { snapshots, isLoading: snapshotsLoading } = useSnapshots();
   const { tasks, summary: tasksSummary } = useTasks();
   const hasTriedToStart = useRef(false);
 
@@ -123,25 +120,6 @@ export function Overview() {
     };
   }, [snapshots]);
 
-  // Calculate source statistics
-  const sourceStats = useMemo(() => {
-    if (!sources.length) return null;
-
-    const sourceString = (s: SnapshotSource) =>
-      `${s.source.userName}@${s.source.host}:${s.source.path}`;
-
-    const topSources = sources
-      .slice()
-      .slice(0, 5)
-      .map((source) => ({
-        name: source.source.path.split('/').pop() || source.source.path,
-        fullPath: sourceString(source),
-        snapshots: source.lastSnapshot ? 1 : 0, // Note: API doesn't provide full snapshot count per source
-      }));
-
-    return topSources;
-  }, [sources]);
-
   // Task status distribution
   const taskStatusData = useMemo(() => {
     if (!tasksSummary) return null;
@@ -169,13 +147,11 @@ export function Overview() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {/* Server Status */}
         <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Server className="h-4 w-4 text-muted-foreground" />
-                {t('overview.kopiaServer')}
-              </CardTitle>
-            </div>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Server className="h-4 w-4 text-muted-foreground" />
+              {t('overview.kopiaServer')}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {serverLoading ? (
@@ -211,7 +187,7 @@ export function Overview() {
 
         {/* Repository Status */}
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Database className="h-4 w-4 text-muted-foreground" />
               {t('overview.repository')}
@@ -256,7 +232,7 @@ export function Overview() {
 
         {/* Total Snapshots */}
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <FolderArchive className="h-4 w-4 text-muted-foreground" />
               {t('overview.totalSnapshots')}
@@ -281,7 +257,7 @@ export function Overview() {
 
         {/* Storage Used */}
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <HardDrive className="h-4 w-4 text-muted-foreground" />
               {t('overview.storageUsed')}
@@ -347,85 +323,43 @@ export function Overview() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Top Sources Chart */}
-            {sourceStats && sourceStats.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <FolderArchive className="h-4 w-4" />
-                    {t('overview.topSources')}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={sourceStats} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis type="number" className="text-xs" />
-                      <YAxis
-                        type="category"
-                        dataKey="name"
-                        width={120}
-                        className="text-xs"
-                        tick={{ fontSize: 11 }}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: 'hsl(var(--card))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px',
-                        }}
-                      />
-                      <Bar
-                        dataKey="snapshots"
-                        fill={CHART_COLORS.chart2}
-                        name={t('overview.snapshots')}
-                        radius={[0, 4, 4, 0]}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Task Status Chart */}
-            {taskStatusData && taskStatusData.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Activity className="h-4 w-4" />
-                    {t('overview.taskStatus')}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={taskStatusData}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {taskStatusData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: 'hsl(var(--card))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px',
-                        }}
-                      />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+          {/* Task Status Chart */}
+          {taskStatusData && taskStatusData.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Activity className="h-4 w-4" />
+                  {t('overview.taskStatus')}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={taskStatusData}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {taskStatusData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                      }}
+                    />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Recent Activity */}
           {tasks.length > 0 && (
