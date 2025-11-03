@@ -11,7 +11,10 @@ use kopia_server::{create_server_state, KopiaServerState};
 /// Auto-start the Kopia server on app launch
 async fn auto_start_server(state: KopiaServerState) -> Result<(), String> {
     let config_dir = commands::kopia::get_default_config_dir().unwrap_or_else(|e| {
-        log::warn!("Failed to get config directory: {}, using current directory", e);
+        log::warn!(
+            "Failed to get config directory: {}, using current directory",
+            e
+        );
         ".".to_string()
     });
 

@@ -111,7 +111,17 @@
     "snapshotCreatedDescription": "The backup task has been started. Check the Tasks page for progress.",
     "snapshotDeleted": "Snapshot Deleted",
     "snapshotsDeleted": "{{count}} snapshot deleted",
-    "snapshotsDeleted_other": "{{count}} snapshots deleted"
+    "snapshotsDeleted_other": "{{count}} snapshots deleted",
+    "estimateSize": "Estimate Size",
+    "estimating": "Estimating...",
+    "estimationComplete": "Estimation Complete",
+    "estimationResults": "Estimation Results",
+    "totalSize": "Size",
+    "totalFiles": "Files",
+    "totalDirectories": "Directories",
+    "totalErrors": "Errors",
+    "excluded": "excluded",
+    "ignored": "ignored"
   },
   "policies": {
     "title": "Policies",

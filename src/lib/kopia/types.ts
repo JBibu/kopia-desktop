@@ -204,6 +204,30 @@ export interface SnapshotEditRequest {
   removePins?: string[];
 }
 
+/**
+ * Snapshot estimation request
+ *
+ * Used to start an estimation task that calculates the size and statistics
+ * of a potential snapshot before actually creating it.
+ */
+export interface EstimateRequest {
+  /** The root path to estimate */
+  root: string;
+  /** Optional limit for examples per bucket */
+  maxExamplesPerBucket?: number;
+}
+
+/**
+ * Snapshot estimation response
+ *
+ * Returns a task ID that can be polled to get the actual estimation results
+ * (file count, size, errors, etc.) via the Tasks API.
+ */
+export interface EstimateResponse {
+  /** Task ID to poll for estimation results using getTask() */
+  id: string;
+}
+
 // ============================================================================
 // Directory & File Browsing Types
 // ============================================================================
@@ -304,16 +328,13 @@ export interface PolicyDefinition {
     keepAnnual?: number;
   };
   scheduling?: {
-    interval?: string;
-    timeOfDay?: Array<{
-      hour: number;
-      min: number;
-    }>;
+    interval?: number;
+    timesOfDay?: string[];
     manual?: boolean;
   };
   files?: {
     ignore?: string[];
-    ignoreDotFiles?: string[];
+    dotIgnoreFiles?: string[];
     scanOneFilesystem?: boolean;
     noParentIgnore?: boolean;
   };
@@ -340,14 +361,14 @@ export interface PolicyDefinition {
   };
   logging?: {
     directories?: {
-      snapshotted?: string;
-      ignored?: string;
+      snapshotted?: number | { minSize?: number; maxSize?: number };
+      ignored?: number | { minSize?: number; maxSize?: number };
     };
     entries?: {
-      snapshotted?: string;
-      ignored?: string;
-      cacheHit?: string;
-      cacheMiss?: string;
+      snapshotted?: number | { minSize?: number; maxSize?: number };
+      ignored?: number | { minSize?: number; maxSize?: number };
+      cacheHit?: number | { minSize?: number; maxSize?: number };
+      cacheMiss?: number | { minSize?: number; maxSize?: number };
     };
   };
 }
@@ -365,6 +386,7 @@ export interface PolicyTarget {
  * Policy with target
  */
 export interface PolicyResponse {
+  id?: string;
   target: PolicyTarget;
   policy: PolicyDefinition;
 }
@@ -373,10 +395,7 @@ export interface PolicyResponse {
  * Policies list response
  */
 export interface PoliciesResponse {
-  policies: Array<{
-    target: PolicyTarget;
-    policy: PolicyDefinition;
-  }>;
+  policies: PolicyResponse[];
 }
 
 /**

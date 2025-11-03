@@ -111,7 +111,17 @@
     "snapshotCreatedDescription": "La tarea de respaldo ha sido iniciada. Revisa la página de Tareas para ver el progreso.",
     "snapshotDeleted": "Instantánea Eliminada",
     "snapshotsDeleted": "{{count}} instantánea eliminada",
-    "snapshotsDeleted_other": "{{count}} instantáneas eliminadas"
+    "snapshotsDeleted_other": "{{count}} instantáneas eliminadas",
+    "estimateSize": "Estimar Tamaño",
+    "estimating": "Estimando...",
+    "estimationComplete": "Estimación Completa",
+    "estimationResults": "Resultados de Estimación",
+    "totalSize": "Tamaño",
+    "totalFiles": "Archivos",
+    "totalDirectories": "Directorios",
+    "totalErrors": "Errores",
+    "excluded": "excluidos",
+    "ignored": "ignorados"
   },
   "policies": {
     "title": "Políticas",

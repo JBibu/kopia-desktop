@@ -189,22 +189,31 @@ export const useKopiaStore = create<KopiaStore>()(
     // ========================================================================
 
     refreshServerStatus: async () => {
-      set({ isServerLoading: true, serverError: null });
       try {
         const status = await getKopiaServerStatus();
-        set({ serverStatus: status, isServerLoading: false });
+        const currentStatus = get().serverStatus;
+
+        // Only update if status actually changed to avoid unnecessary re-renders
+        if (JSON.stringify(currentStatus) !== JSON.stringify(status)) {
+          set({ serverStatus: status });
+        }
+        // Don't call set() at all if nothing changed - this prevents re-renders
       } catch (error) {
         const message = getErrorMessage(error);
-        set({
-          serverError: message,
-          isServerLoading: false,
-          serverStatus: {
-            running: false,
-            serverUrl: undefined,
-            port: undefined,
-            uptime: undefined,
-          },
-        });
+        const currentError = get().serverError;
+
+        // Only update if error changed
+        if (currentError !== message) {
+          set({
+            serverError: message,
+            serverStatus: {
+              running: false,
+              serverUrl: undefined,
+              port: undefined,
+              uptime: undefined,
+            },
+          });
+        }
       }
     },
 
@@ -239,25 +248,39 @@ export const useKopiaStore = create<KopiaStore>()(
     // ========================================================================
 
     refreshRepositoryStatus: async () => {
-      set({ isRepositoryLoading: true, repositoryError: null });
       try {
         const status = await getRepositoryStatus();
-        set({ repositoryStatus: status, isRepositoryLoading: false });
+        const currentStatus = get().repositoryStatus;
+
+        // Only update if status actually changed to avoid unnecessary re-renders
+        if (JSON.stringify(currentStatus) !== JSON.stringify(status)) {
+          set({ repositoryStatus: status });
+        }
+        // Don't call set() at all if nothing changed
       } catch (error) {
         const message = getErrorMessage(error);
-        if (!message.includes('not running') && !message.includes('not connected')) {
-          set({ repositoryError: message });
+        const currentError = get().repositoryError;
+        const currentStatus = get().repositoryStatus;
+
+        // Only update if something changed
+        const shouldUpdateError =
+          !message.includes('not running') &&
+          !message.includes('not connected') &&
+          currentError !== message;
+        const shouldUpdateStatus = currentStatus?.connected !== false;
+
+        if (shouldUpdateError || shouldUpdateStatus) {
+          set({
+            ...(shouldUpdateError && { repositoryError: message }),
+            repositoryStatus: {
+              connected: false,
+              configFile: undefined,
+              storage: undefined,
+              hash: undefined,
+              encryption: undefined,
+            },
+          });
         }
-        set({
-          isRepositoryLoading: false,
-          repositoryStatus: {
-            connected: false,
-            configFile: undefined,
-            storage: undefined,
-            hash: undefined,
-            encryption: undefined,
-          },
-        });
       }
     },
 
@@ -425,21 +448,36 @@ export const useKopiaStore = create<KopiaStore>()(
     // ========================================================================
 
     refreshTasks: async () => {
-      // Don't show errors for tasks polling - they happen frequently
-      set({ isTasksLoading: true });
       try {
         const response = await listTasks();
-        set({ tasks: response.tasks || [], tasksError: null, isTasksLoading: false });
+        const newTasks = response.tasks || [];
+        const currentTasks = get().tasks;
+
+        // Only update if tasks actually changed to avoid unnecessary re-renders
+        if (JSON.stringify(currentTasks) !== JSON.stringify(newTasks)) {
+          set({ tasks: newTasks, tasksError: null });
+        }
+        // Don't call set() at all if nothing changed
       } catch (error) {
         const message = getErrorMessage(error);
-        set({ tasksError: message, isTasksLoading: false });
+        const currentError = get().tasksError;
+
+        // Only update if error changed
+        if (currentError !== message) {
+          set({ tasksError: message });
+        }
       }
     },
 
     refreshTasksSummary: async () => {
       try {
         const summary = await getTasksSummary();
-        set({ tasksSummary: summary });
+        const currentSummary = get().tasksSummary;
+
+        // Only update if summary actually changed
+        if (JSON.stringify(currentSummary) !== JSON.stringify(summary)) {
+          set({ tasksSummary: summary });
+        }
       } catch {
         // Silently fail for summary - not critical
       }

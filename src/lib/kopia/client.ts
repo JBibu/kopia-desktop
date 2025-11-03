@@ -393,10 +393,28 @@ export async function resolvePath(path: string): Promise<import('./types').Sourc
 }
 
 /**
- * Estimate snapshot size
+ * Estimate snapshot size for a given path
+ *
+ * Starts an estimation task that calculates file count, total size, and other
+ * statistics for a potential snapshot. The returned task ID can be polled
+ * using `getTask()` to retrieve the actual estimation results.
+ *
+ * @param path - The path to estimate (can be relative or absolute)
+ * @param maxExamplesPerBucket - Optional limit for examples per bucket
+ * @returns Promise resolving to an EstimateResponse with a task ID
+ *
+ * @example
+ * ```ts
+ * const result = await estimateSnapshot('/path/to/backup');
+ * const task = await getTask(result.id);
+ * console.log('Estimated size:', task.counters['Bytes']);
+ * ```
  */
-export async function estimateSnapshot(root: string, maxExamples?: number): Promise<string> {
-  return invoke('estimate_snapshot', { root, maxExamples });
+export async function estimateSnapshot(
+  path: string,
+  maxExamplesPerBucket?: number
+): Promise<import('./types').EstimateResponse> {
+  return invoke('estimate_snapshot', { path, maxExamplesPerBucket });
 }
 
 /**

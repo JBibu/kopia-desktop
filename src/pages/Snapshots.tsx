@@ -43,10 +43,11 @@ import {
   FolderOpen,
   ChevronRight,
 } from 'lucide-react';
-import type { SnapshotSource } from '@/lib/kopia/types';
-import { selectFolder } from '@/lib/kopia/client';
+import type { SnapshotSource, TaskDetail } from '@/lib/kopia/types';
+import { selectFolder, estimateSnapshot, getTask } from '@/lib/kopia/client';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia/errors';
+import { useEffect, useRef } from 'react';
 
 export function Snapshots() {
   const { t } = useTranslation();
@@ -57,6 +58,9 @@ export function Snapshots() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [createPath, setCreatePath] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [isEstimating, setIsEstimating] = useState(false);
+  const [estimateTask, setEstimateTask] = useState<TaskDetail | null>(null);
+  const estimatePollInterval = useRef<NodeJS.Timeout | null>(null);
 
   const handleRefresh = async () => {
     await refreshAll();
@@ -67,11 +71,75 @@ export function Snapshots() {
       const folder = await selectFolder();
       if (folder) {
         setCreatePath(folder);
+        // Clear estimate when path changes
+        setEstimateTask(null);
+        if (estimatePollInterval.current) {
+          clearInterval(estimatePollInterval.current);
+          estimatePollInterval.current = null;
+        }
       }
     } catch (err) {
       toast.error(getErrorMessage(err));
     }
   };
+
+  const pollEstimateTask = async (taskId: string) => {
+    try {
+      const task = await getTask(taskId);
+      setEstimateTask(task);
+
+      // Stop polling if task is done
+      if (task.endTime) {
+        if (estimatePollInterval.current) {
+          clearInterval(estimatePollInterval.current);
+          estimatePollInterval.current = null;
+        }
+        setIsEstimating(false);
+      }
+    } catch (err) {
+      console.error('Failed to poll estimate task:', err);
+      if (estimatePollInterval.current) {
+        clearInterval(estimatePollInterval.current);
+        estimatePollInterval.current = null;
+      }
+      setIsEstimating(false);
+    }
+  };
+
+  const handleEstimate = async () => {
+    if (!createPath.trim()) return;
+
+    setIsEstimating(true);
+    setEstimateTask(null);
+
+    // Clear any existing polling
+    if (estimatePollInterval.current) {
+      clearInterval(estimatePollInterval.current);
+      estimatePollInterval.current = null;
+    }
+
+    try {
+      const result = await estimateSnapshot(createPath.trim());
+
+      // Start polling the task for results
+      await pollEstimateTask(result.id);
+      estimatePollInterval.current = setInterval(() => {
+        void pollEstimateTask(result.id);
+      }, 500); // Poll every 500ms like HTML UI
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+      setIsEstimating(false);
+    }
+  };
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (estimatePollInterval.current) {
+        clearInterval(estimatePollInterval.current);
+      }
+    };
+  }, []);
 
   const handleCreateSnapshot = async () => {
     if (!createPath.trim()) return;
@@ -84,6 +152,13 @@ export function Snapshots() {
       });
       setShowCreateDialog(false);
       setCreatePath('');
+      setEstimateTask(null);
+
+      // Clear polling
+      if (estimatePollInterval.current) {
+        clearInterval(estimatePollInterval.current);
+        estimatePollInterval.current = null;
+      }
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -303,7 +378,14 @@ export function Snapshots() {
                   id="path"
                   placeholder={t('snapshots.pathPlaceholder')}
                   value={createPath}
-                  onChange={(e) => setCreatePath(e.target.value)}
+                  onChange={(e) => {
+                    setCreatePath(e.target.value);
+                    setEstimateTask(null);
+                    if (estimatePollInterval.current) {
+                      clearInterval(estimatePollInterval.current);
+                      estimatePollInterval.current = null;
+                    }
+                  }}
                   disabled={isCreating}
                 />
                 <Button
@@ -317,6 +399,78 @@ export function Snapshots() {
               </div>
               <p className="text-xs text-muted-foreground">{t('snapshots.pathDescription')}</p>
             </div>
+
+            {/* Estimate Button */}
+            <div className="flex justify-center">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void handleEstimate()}
+                disabled={isEstimating || isCreating || !createPath.trim()}
+              >
+                {isEstimating ? (
+                  <>
+                    <Spinner className="h-4 w-4 mr-2" />
+                    {t('snapshots.estimating')}
+                  </>
+                ) : (
+                  t('snapshots.estimateSize')
+                )}
+              </Button>
+            </div>
+
+            {/* Estimation Results */}
+            {estimateTask && estimateTask.counters && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-sm">
+                  <div className="font-medium mb-1">
+                    {estimateTask.status === 'RUNNING'
+                      ? t('snapshots.estimating')
+                      : t('snapshots.estimationComplete')}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">{t('snapshots.totalSize')}: </span>
+                      <span className="font-medium">
+                        {formatSize(estimateTask.counters['Bytes'] || 0)}
+                      </span>
+                      <span className="text-muted-foreground ml-1">
+                        ({formatSize(estimateTask.counters['Excluded Bytes'] || 0)}{' '}
+                        {t('snapshots.excluded')})
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">{t('snapshots.totalFiles')}: </span>
+                      <span className="font-medium">{estimateTask.counters['Files'] || 0}</span>
+                      <span className="text-muted-foreground ml-1">
+                        ({estimateTask.counters['Excluded Files'] || 0} {t('snapshots.excluded')})
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">
+                        {t('snapshots.totalDirectories')}:{' '}
+                      </span>
+                      <span className="font-medium">
+                        {estimateTask.counters['Directories'] || 0}
+                      </span>
+                      <span className="text-muted-foreground ml-1">
+                        ({estimateTask.counters['Excluded Directories'] || 0}{' '}
+                        {t('snapshots.excluded')})
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">{t('snapshots.totalErrors')}: </span>
+                      <span className="font-medium">{estimateTask.counters['Errors'] || 0}</span>
+                      <span className="text-muted-foreground ml-1">
+                        ({estimateTask.counters['Ignored Errors'] || 0} {t('snapshots.ignored')})
+                      </span>
+                    </div>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
           <DialogFooter>
             <Button

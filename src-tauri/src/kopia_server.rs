@@ -19,7 +19,7 @@ const HTTP_CONNECT_TIMEOUT_SECS: u64 = 10;
 pub struct KopiaServerInfo {
     pub server_url: String,
     pub port: u16,
-    pub http_password: String,  // HTTP Basic Auth password (not repository password)
+    pub http_password: String, // HTTP Basic Auth password (not repository password)
     pub pid: u32,
     pub csrf_token: Option<String>,
 }
@@ -70,14 +70,18 @@ impl KopiaServer {
 
         let mut child = Command::new(&binary_path)
             .args([
-                "server", "start",
+                "server",
+                "start",
                 "--ui",
                 &format!("--address=localhost:{}", port),
                 "--insecure",
                 "--disable-csrf-token-checks",
-                "--server-username", SERVER_USERNAME,
-                "--server-password", &server_password,
-                "--config-file", &config_file,
+                "--server-username",
+                SERVER_USERNAME,
+                "--server-password",
+                &server_password,
+                "--config-file",
+                &config_file,
                 "--shutdown-on-stdin",
             ])
             .env("KOPIA_CHECK_FOR_UPDATES", "false")
@@ -91,7 +95,10 @@ impl KopiaServer {
         std::thread::sleep(Duration::from_millis(STARTUP_CHECK_DELAY_MS));
         if let Ok(Some(status)) = child.try_wait() {
             let stderr = self.read_stderr(&mut child);
-            return Err(format!("Kopia server exited with status {}: {}", status, stderr));
+            return Err(format!(
+                "Kopia server exited with status {}: {}",
+                status, stderr
+            ));
         }
 
         let info = KopiaServerInfo {
@@ -132,13 +139,18 @@ impl KopiaServer {
     }
 
     /// Get a future to wait for server readiness (can be called outside mutex lock)
-    pub fn get_ready_waiter(&self) -> Result<impl std::future::Future<Output = Result<(), String>>, String> {
+    pub fn get_ready_waiter(
+        &self,
+    ) -> Result<impl std::future::Future<Output = Result<(), String>>, String> {
         let http_client = self.http_client.clone().ok_or("Server not started")?;
-        let server_url = self.info.as_ref().ok_or("Server info not available")?.server_url.clone();
+        let server_url = self
+            .info
+            .as_ref()
+            .ok_or("Server info not available")?
+            .server_url
+            .clone();
 
-        Ok(async move {
-            wait_for_server_ready(http_client, server_url).await
-        })
+        Ok(async move { wait_for_server_ready(http_client, server_url).await })
     }
 
     /// Stop the Kopia server process gracefully
@@ -153,8 +165,12 @@ impl KopiaServer {
 
         // Force kill if graceful shutdown failed
         log::warn!("Graceful shutdown timed out, forcing kill");
-        process.kill().map_err(|e| format!("Failed to kill server: {}", e))?;
-        process.wait().map_err(|e| format!("Failed to wait for server: {}", e))?;
+        process
+            .kill()
+            .map_err(|e| format!("Failed to kill server: {}", e))?;
+        process
+            .wait()
+            .map_err(|e| format!("Failed to wait for server: {}", e))?;
         self.cleanup();
         Ok(())
     }
@@ -250,17 +266,22 @@ impl KopiaServer {
 
         // Search paths in priority order
         [
-            exe_dir.join("../../../bin").join(binary_name),      // Dev: target/debug
-            exe_dir.join("../../bin").join(binary_name),          // Dev: alternative
-            exe_dir.join("_up_/bin").join(binary_name),           // Production: Windows
-            exe_dir.join("resources/bin").join(binary_name),      // Production: macOS/Linux
-            std::path::PathBuf::from("./bin").join(binary_name),  // Current dir fallback
+            exe_dir.join("../../../bin").join(binary_name), // Dev: target/debug
+            exe_dir.join("../../bin").join(binary_name),    // Dev: alternative
+            exe_dir.join("_up_/bin").join(binary_name),     // Production: Windows
+            exe_dir.join("resources/bin").join(binary_name), // Production: macOS/Linux
+            std::path::PathBuf::from("./bin").join(binary_name), // Current dir fallback
         ]
         .iter()
         .find(|path| path.exists())
         .and_then(|p| p.to_str())
         .map(String::from)
-        .ok_or_else(|| format!("Kopia binary '{}' not found in standard locations", binary_name))
+        .ok_or_else(|| {
+            format!(
+                "Kopia binary '{}' not found in standard locations",
+                binary_name
+            )
+        })
     }
 
     /// Get platform-specific binary name
@@ -271,7 +292,7 @@ impl KopiaServer {
             ("macos", _) => "kopia-darwin-x64",
             ("linux", "aarch64") => "kopia-linux-arm64",
             ("linux", _) => "kopia-linux-x64",
-            _ => "kopia",  // Generic fallback
+            _ => "kopia", // Generic fallback
         }
     }
 
@@ -287,14 +308,24 @@ impl KopiaServer {
     }
 
     /// Create HTTP client with Basic Auth credentials
-    fn create_http_client(&self, username: &str, password: &str) -> Result<reqwest::Client, String> {
+    fn create_http_client(
+        &self,
+        username: &str,
+        password: &str,
+    ) -> Result<reqwest::Client, String> {
         use base64::Engine;
 
         let auth = format!("{}:{}", username, password);
-        let auth_header = format!("Basic {}", base64::prelude::BASE64_STANDARD.encode(auth.as_bytes()));
+        let auth_header = format!(
+            "Basic {}",
+            base64::prelude::BASE64_STANDARD.encode(auth.as_bytes())
+        );
 
         let mut headers = reqwest::header::HeaderMap::new();
-        headers.insert("X-Kopia-Csrf-Token", reqwest::header::HeaderValue::from_static("-"));
+        headers.insert(
+            "X-Kopia-Csrf-Token",
+            reqwest::header::HeaderValue::from_static("-"),
+        );
         headers.insert(
             reqwest::header::AUTHORIZATION,
             reqwest::header::HeaderValue::from_str(&auth_header)
@@ -314,7 +345,6 @@ impl KopiaServer {
     pub fn get_http_client(&self) -> Option<reqwest::Client> {
         self.http_client.clone()
     }
-
 }
 
 // Global server instance managed by Tauri state
@@ -325,7 +355,10 @@ pub fn create_server_state() -> KopiaServerState {
 }
 
 /// Wait for server to become ready (standalone async function)
-async fn wait_for_server_ready(http_client: reqwest::Client, server_url: String) -> Result<(), String> {
+async fn wait_for_server_ready(
+    http_client: reqwest::Client,
+    server_url: String,
+) -> Result<(), String> {
     for _ in 0..HEALTH_CHECK_RETRIES {
         if let Ok(response) = http_client
             .get(format!("{}/api/v1/repo/status", &server_url))
@@ -342,5 +375,8 @@ async fn wait_for_server_ready(http_client: reqwest::Client, server_url: String)
     }
 
     let timeout_secs = (HEALTH_CHECK_RETRIES as u64 * HEALTH_CHECK_INTERVAL_MS) / 1000;
-    Err(format!("Server failed to respond within {} seconds", timeout_secs))
+    Err(format!(
+        "Server failed to respond within {} seconds",
+        timeout_secs
+    ))
 }
