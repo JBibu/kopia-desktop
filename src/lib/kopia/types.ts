@@ -93,11 +93,30 @@ export interface AlgorithmsResponse {
 // ============================================================================
 
 /**
+ * Directory summary statistics
+ */
+export interface DirectorySummary {
+  size: number;
+  files: number;
+  dirs: number;
+  errors?: number;
+  maxTime?: string;
+}
+
+/**
+ * Root entry object
+ */
+export interface RootEntry {
+  obj?: string;
+  summ?: DirectorySummary;
+}
+
+/**
  * Snapshot metadata
  */
 export interface Snapshot {
   id: string;
-  rootID: string;
+  rootID?: string;
   startTime: string;
   endTime?: string;
   description?: string;
@@ -105,16 +124,16 @@ export interface Snapshot {
   retention?: string[];
   incomplete?: boolean;
   summary?: SnapshotSummary;
-  rootEntry?: string;
+  rootEntry?: RootEntry;
 }
 
 /**
  * Snapshot statistics summary
  */
 export interface SnapshotSummary {
-  size: number;
-  files: number;
-  dirs: number;
+  size?: number;
+  files?: number;
+  dirs?: number;
   symlinks?: number;
   errors?: number;
   errorCount?: number;
@@ -183,6 +202,30 @@ export interface SnapshotEditRequest {
   description?: string;
   addPins?: string[];
   removePins?: string[];
+}
+
+/**
+ * Snapshot estimation request
+ *
+ * Used to start an estimation task that calculates the size and statistics
+ * of a potential snapshot before actually creating it.
+ */
+export interface EstimateRequest {
+  /** The root path to estimate */
+  root: string;
+  /** Optional limit for examples per bucket */
+  maxExamplesPerBucket?: number;
+}
+
+/**
+ * Snapshot estimation response
+ *
+ * Returns a task ID that can be polled to get the actual estimation results
+ * (file count, size, errors, etc.) via the Tasks API.
+ */
+export interface EstimateResponse {
+  /** Task ID to poll for estimation results using getTask() */
+  id: string;
 }
 
 // ============================================================================
@@ -285,16 +328,13 @@ export interface PolicyDefinition {
     keepAnnual?: number;
   };
   scheduling?: {
-    interval?: string;
-    timeOfDay?: Array<{
-      hour: number;
-      min: number;
-    }>;
+    interval?: number;
+    timesOfDay?: string[];
     manual?: boolean;
   };
   files?: {
     ignore?: string[];
-    ignoreDotFiles?: string[];
+    dotIgnoreFiles?: string[];
     scanOneFilesystem?: boolean;
     noParentIgnore?: boolean;
   };
@@ -321,14 +361,14 @@ export interface PolicyDefinition {
   };
   logging?: {
     directories?: {
-      snapshotted?: string;
-      ignored?: string;
+      snapshotted?: number | { minSize?: number; maxSize?: number };
+      ignored?: number | { minSize?: number; maxSize?: number };
     };
     entries?: {
-      snapshotted?: string;
-      ignored?: string;
-      cacheHit?: string;
-      cacheMiss?: string;
+      snapshotted?: number | { minSize?: number; maxSize?: number };
+      ignored?: number | { minSize?: number; maxSize?: number };
+      cacheHit?: number | { minSize?: number; maxSize?: number };
+      cacheMiss?: number | { minSize?: number; maxSize?: number };
     };
   };
 }
@@ -346,6 +386,7 @@ export interface PolicyTarget {
  * Policy with target
  */
 export interface PolicyResponse {
+  id?: string;
   target: PolicyTarget;
   policy: PolicyDefinition;
 }
@@ -354,10 +395,7 @@ export interface PolicyResponse {
  * Policies list response
  */
 export interface PoliciesResponse {
-  policies: Array<{
-    target: PolicyTarget;
-    policy: PolicyDefinition;
-  }>;
+  policies: PolicyResponse[];
 }
 
 /**
@@ -495,30 +533,79 @@ export interface UIPreferences {
 // Notification Types
 // ============================================================================
 
+export type NotificationSeverity = -100 | -10 | 0 | 10 | 20;
+
+export const NotificationSeverities = {
+  VERBOSE: -100 as NotificationSeverity,
+  SUCCESS: -10 as NotificationSeverity,
+  REPORT: 0 as NotificationSeverity,
+  WARNING: 10 as NotificationSeverity,
+  ERROR: 20 as NotificationSeverity,
+} as const;
+
+export const SeverityLabels: Record<NotificationSeverity, string> = {
+  [-100]: 'Verbose',
+  [-10]: 'Success',
+  [0]: 'Report',
+  [10]: 'Warning',
+  [20]: 'Error',
+};
+
+/**
+ * Notification method configuration
+ */
+export interface NotificationMethod {
+  type: 'email' | 'pushover' | 'webhook';
+  config: EmailConfig | PushoverConfig | WebhookConfig | Record<string, unknown>;
+}
+
+/**
+ * Email notification configuration
+ */
+export interface EmailConfig {
+  smtpServer: string;
+  smtpPort: number;
+  smtpUsername?: string;
+  smtpPassword?: string;
+  smtpIdentity?: string;
+  from: string;
+  to: string;
+  cc?: string;
+  format: 'txt' | 'html';
+}
+
+/**
+ * Pushover notification configuration
+ */
+export interface PushoverConfig {
+  appToken: string;
+  userKey: string;
+  format: 'txt' | 'html';
+}
+
+/**
+ * Webhook notification configuration
+ */
+export interface WebhookConfig {
+  endpoint: string;
+  method: 'POST' | 'PUT';
+  headers?: string; // Multi-line string, one header per line
+  format: 'txt' | 'html';
+}
+
 /**
  * Notification profile
  */
 export interface NotificationProfile {
-  profileName: string;
-  method: 'email' | 'slack' | 'webhook';
-  config: {
-    smtpServer?: string;
-    smtpPort?: number;
-    smtpUsername?: string;
-    toAddress?: string;
-    webhookURL?: string;
-    url?: string;
-    method?: 'GET' | 'POST';
-    headers?: Record<string, string>;
-  };
+  profile: string;
+  method: NotificationMethod;
+  minSeverity: NotificationSeverity;
 }
 
 /**
- * Notification profiles list response
+ * Notification profiles list response (just an array)
  */
-export interface NotificationProfilesResponse {
-  profiles: NotificationProfile[];
-}
+export type NotificationProfilesResponse = NotificationProfile[];
 
 // ============================================================================
 // WebSocket Event Types

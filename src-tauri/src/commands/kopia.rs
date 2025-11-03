@@ -1,6 +1,6 @@
 use crate::kopia_server::{KopiaServerInfo, KopiaServerState, KopiaServerStatus};
-use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use tauri::State;
 
 // Helper macro for mutex recovery
@@ -164,9 +164,7 @@ pub async fn repository_connect(
 
 /// Disconnect from repository
 #[tauri::command]
-pub async fn repository_disconnect(
-    server: State<'_, KopiaServerState>,
-) -> Result<(), String> {
+pub async fn repository_disconnect(server: State<'_, KopiaServerState>) -> Result<(), String> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
@@ -315,17 +313,68 @@ pub async fn snapshot_create(
 ) -> Result<crate::types::SourceInfo, String> {
     let (server_url, client) = get_server_client(&server)?;
 
-    let mut payload = serde_json::json!({
-        "path": path,
-        "createSnapshot": true
-    });
+    // First, resolve the path to get source info (userName@host)
+    log::info!("Resolving path: {}", path);
+    let source_info = {
+        let resolve_response = client
+            .post(format!("{}/api/v1/paths/resolve", server_url))
+            .json(&serde_json::json!({ "path": path }))
+            .send()
+            .await
+            .map_err(|e| format!("Failed to resolve path: {}", e))?;
 
-    if let Some(ref user) = user_name {
-        payload["userName"] = serde_json::json!(user);
-    }
-    if let Some(ref h) = host {
-        payload["host"] = serde_json::json!(h);
-    }
+        let status = resolve_response.status();
+        log::info!("Resolve response status: {}", status);
+
+        if !status.is_success() {
+            let error_text = resolve_response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            log::error!("Failed to resolve path: {}", error_text);
+            return Err(format!("Failed to resolve path: {}", error_text));
+        }
+
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct ResolveResponse {
+            source: crate::types::SourceInfo,
+        }
+
+        let resolve_result: ResolveResponse = resolve_response
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse resolve response: {}", e))?;
+
+        resolve_result.source
+    };
+
+    // Use provided userName/host or fall back to resolved values
+    let final_user_name = user_name.unwrap_or(source_info.user_name.clone());
+    let final_host = host.unwrap_or(source_info.host.clone());
+
+    // Create source and start snapshot
+    let mut payload = serde_json::Map::new();
+    payload.insert(
+        "path".to_string(),
+        serde_json::json!(source_info.path.clone()),
+    );
+    payload.insert("createSnapshot".to_string(), serde_json::json!(true));
+    payload.insert(
+        "userName".to_string(),
+        serde_json::json!(final_user_name.clone()),
+    );
+    payload.insert("host".to_string(), serde_json::json!(final_host.clone()));
+    // Add empty policy to use defaults (required by Kopia API)
+    payload.insert("policy".to_string(), serde_json::json!({}));
+
+    log::info!(
+        "Creating snapshot for {}@{}:{}",
+        final_user_name,
+        final_host,
+        source_info.path
+    );
+    log::debug!("Snapshot payload: {:?}", payload);
 
     let response = client
         .post(format!("{}/api/v1/sources", server_url))
@@ -334,15 +383,19 @@ pub async fn snapshot_create(
         .await
         .map_err(|e| format!("Failed to create snapshot: {}", e))?;
 
-    if !response.status().is_success() {
+    let status = response.status();
+    log::info!("Create snapshot response status: {}", status);
+
+    if !status.is_success() {
         let error_text = response
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
+        log::error!("Failed to create snapshot: {}", error_text);
         return Err(format!("Failed to create snapshot: {}", error_text));
     }
 
-    // The API returns {"snapshotted": bool} indicating if snapshot was started
+    // API returns {"snapshotted": bool}
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct CreateResponse {
@@ -358,12 +411,7 @@ pub async fn snapshot_create(
         return Err("Snapshot was not started".to_string());
     }
 
-    // Return the source info that was used for the snapshot
-    Ok(crate::types::SourceInfo {
-        user_name: user_name.unwrap_or_else(|| std::env::var("USER").unwrap_or_default()),
-        host: host.unwrap_or_else(|| hostname::get().ok().and_then(|h| h.into_string().ok()).unwrap_or_default()),
-        path,
-    })
+    Ok(source_info)
 }
 
 /// Cancel a snapshot
@@ -384,7 +432,10 @@ pub async fn snapshot_cancel(
     );
 
     let response = client
-        .post(format!("{}/api/v1/sources/cancel{}", server_url, query_params))
+        .post(format!(
+            "{}/api/v1/sources/cancel{}",
+            server_url, query_params
+        ))
         .send()
         .await
         .map_err(|e| format!("Failed to cancel snapshot: {}", e))?;
@@ -562,8 +613,7 @@ pub async fn object_download(
         .map_err(|e| format!("Failed to read response: {}", e))?;
 
     // Write to target path
-    std::fs::write(&target_path, bytes)
-        .map_err(|e| format!("Failed to write file: {}", e))?;
+    std::fs::write(&target_path, bytes).map_err(|e| format!("Failed to write file: {}", e))?;
 
     Ok(())
 }
@@ -699,13 +749,15 @@ pub async fn policies_list(
         .map_err(|e| format!("Failed to list policies: {}", e))?;
 
     if !response.status().is_success() {
-        return Err(format!("Failed to list policies: {}", response.status()));
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(format!("Failed to list policies: {} - {}", status, body));
     }
 
     let result = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_err(|e| format!("Failed to parse policies response: {}", e))?;
 
     Ok(result)
 }
@@ -949,7 +1001,7 @@ pub async fn task_get(
         return Err(format!("Failed to get task: {}", response.status()));
     }
 
-    let result = response
+    let result: crate::types::TaskDetail = response
         .json()
         .await
         .map_err(|e| format!("Failed to parse response: {}", e))?;
@@ -1023,7 +1075,10 @@ pub async fn tasks_summary(
         .map_err(|e| format!("Failed to get tasks summary: {}", e))?;
 
     if !response.status().is_success() {
-        return Err(format!("Failed to get tasks summary: {}", response.status()));
+        return Err(format!(
+            "Failed to get tasks summary: {}",
+            response.status()
+        ));
     }
 
     let result = response
@@ -1175,32 +1230,73 @@ pub async fn path_resolve(
     Ok(result.source)
 }
 
-/// Estimate snapshot size
+/// Estimate snapshot size for a given path
+///
+/// This command starts an estimation task that calculates the size, file count,
+/// and other statistics for a potential snapshot. It returns a task ID that can
+/// be polled to get the estimation results.
+///
+/// # Arguments
+/// * `path` - The path to estimate (can be relative or absolute)
+/// * `max_examples_per_bucket` - Optional limit for examples per bucket
+///
+/// # Returns
+/// EstimateResponse containing the task ID to poll for results
 #[tauri::command]
 pub async fn estimate_snapshot(
     server: State<'_, KopiaServerState>,
-    root: String,
-    max_examples: Option<i64>,
-) -> Result<String, String> {
+    path: String,
+    max_examples_per_bucket: Option<i64>,
+) -> Result<crate::types::EstimateResponse, String> {
     let (server_url, client) = get_server_client(&server)?;
 
-    let mut payload = serde_json::Map::new();
-    payload.insert("root".to_string(), serde_json::json!(root));
-    if let Some(max) = max_examples {
-        payload.insert(
-            "maxExamplesPerBucket".to_string(),
-            serde_json::json!(max),
-        );
-    }
+    // Step 1: Resolve the path to get the absolute path
+    let resolved_path = {
+        let resolve_response = client
+            .post(format!("{}/api/v1/paths/resolve", server_url))
+            .json(&serde_json::json!({ "path": path }))
+            .send()
+            .await
+            .map_err(|e| format!("Failed to resolve path: {}", e))?;
+
+        let status = resolve_response.status();
+        if !status.is_success() {
+            let error_text = resolve_response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(format!("Failed to resolve path: {}", error_text));
+        }
+
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct ResolveResponse {
+            source: crate::types::SourceInfo,
+        }
+
+        let resolve_result: ResolveResponse = resolve_response
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse resolve response: {}", e))?;
+
+        resolve_result.source.path
+    };
+
+    // Step 2: Start the estimation task
+    let estimate_req = crate::types::EstimateRequest {
+        root: resolved_path,
+        max_examples_per_bucket,
+    };
 
     let response = client
         .post(format!("{}/api/v1/estimate", server_url))
-        .json(&payload)
+        .json(&estimate_req)
         .send()
         .await
         .map_err(|e| format!("Failed to estimate snapshot: {}", e))?;
 
-    if !response.status().is_success() {
+    let status = response.status();
+    if !status.is_success() {
         let error_text = response
             .text()
             .await
@@ -1208,18 +1304,12 @@ pub async fn estimate_snapshot(
         return Err(format!("Failed to estimate snapshot: {}", error_text));
     }
 
-    #[derive(Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    struct EstimateResponse {
-        task_id: String,
-    }
-
-    let result: EstimateResponse = response
+    let result: crate::types::EstimateResponse = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_err(|e| format!("Failed to parse estimate response: {}", e))?;
 
-    Ok(result.task_id)
+    Ok(result)
 }
 
 /// Get UI preferences
@@ -1284,7 +1374,7 @@ pub async fn ui_preferences_set(
 #[tauri::command]
 pub async fn notification_profiles_list(
     server: State<'_, KopiaServerState>,
-) -> Result<crate::types::NotificationProfilesResponse, String> {
+) -> Result<Vec<crate::types::NotificationProfile>, String> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
@@ -1294,16 +1384,18 @@ pub async fn notification_profiles_list(
         .map_err(|e| format!("Failed to list notification profiles: {}", e))?;
 
     if !response.status().is_success() {
+        // If 404 or no profiles, return empty array
+        if response.status().as_u16() == 404 {
+            return Ok(vec![]);
+        }
         return Err(format!(
             "Failed to list notification profiles: {}",
             response.status()
         ));
     }
 
-    let result = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+    let result: Vec<crate::types::NotificationProfile> =
+        response.json().await.unwrap_or_else(|_| vec![]); // Return empty array if parsing fails
 
     Ok(result)
 }
@@ -1364,17 +1456,17 @@ pub async fn notification_profile_delete(
     Ok(())
 }
 
-/// Test notification profile
+/// Test notification profile (send test notification)
 #[tauri::command]
 pub async fn notification_profile_test(
     server: State<'_, KopiaServerState>,
-    profile_name: String,
+    profile: crate::types::NotificationProfile,
 ) -> Result<(), String> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
         .post(format!("{}/api/v1/testNotificationProfile", server_url))
-        .json(&serde_json::json!({ "profileName": profile_name }))
+        .json(&profile)
         .send()
         .await
         .map_err(|e| format!("Failed to test notification profile: {}", e))?;
@@ -1398,7 +1490,9 @@ pub async fn notification_profile_test(
 // ============================================================================
 
 /// Get server URL and HTTP client
-fn get_server_client(server: &State<'_, KopiaServerState>) -> Result<(String, reqwest::Client), String> {
+fn get_server_client(
+    server: &State<'_, KopiaServerState>,
+) -> Result<(String, reqwest::Client), String> {
     let server_guard = lock_server!(server);
     let status = server_guard.status();
 
@@ -1407,24 +1501,11 @@ fn get_server_client(server: &State<'_, KopiaServerState>) -> Result<(String, re
     }
 
     let server_url = status.server_url.ok_or("Server URL not available")?;
-    let client = server_guard.get_http_client().ok_or("HTTP client not available")?;
+    let client = server_guard
+        .get_http_client()
+        .ok_or("HTTP client not available")?;
 
     Ok((server_url, client))
-}
-
-/// Build query string from optional parameters
-#[allow(dead_code)]
-fn build_query(params: &[(&str, Option<&str>)]) -> String {
-    let parts: Vec<_> = params
-        .iter()
-        .filter_map(|(key, val)| val.map(|v| format!("{}={}", key, urlencoding::encode(v))))
-        .collect();
-
-    if parts.is_empty() {
-        String::new()
-    } else {
-        format!("?{}", parts.join("&"))
-    }
 }
 
 /// Handle API response - check status and parse JSON
@@ -1433,7 +1514,10 @@ async fn handle_response<T: DeserializeOwned>(
     operation: &str,
 ) -> Result<T, String> {
     if !response.status().is_success() {
-        let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".into());
+        let error_text = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "Unknown error".into());
         return Err(format!("{}: {}", operation, error_text));
     }
 
@@ -1446,7 +1530,10 @@ async fn handle_response<T: DeserializeOwned>(
 /// Handle API response that returns empty/unit result
 async fn handle_empty_response(response: reqwest::Response, operation: &str) -> Result<(), String> {
     if !response.status().is_success() {
-        let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".into());
+        let error_text = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "Unknown error".into());
         return Err(format!("{}: {}", operation, error_text));
     }
     Ok(())

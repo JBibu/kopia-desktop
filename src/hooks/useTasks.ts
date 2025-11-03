@@ -1,16 +1,16 @@
 /**
  * Custom hook for task monitoring
+ *
+ * Now delegates to global Zustand store to eliminate redundant state management.
+ * Polling is handled centrally in the store (5-second interval for real-time updates).
  */
 
-import { useState, useCallback, useEffect } from 'react';
-import * as kopia from '@/lib/kopia/client';
+import { useKopiaStore } from '@/stores/kopia';
 import type { Task, TasksSummary } from '@/lib/kopia/types';
-import { getErrorMessage } from '@/lib/kopia/errors';
-import { toast } from 'sonner';
 
 interface UseTasksOptions {
-  autoRefresh?: boolean;
-  refreshInterval?: number;
+  autoRefresh?: boolean; // Legacy option - now ignored (always auto-refresh from store)
+  refreshInterval?: number; // Legacy option - now ignored (controlled by store)
 }
 
 interface UseTasksReturn {
@@ -18,6 +18,7 @@ interface UseTasksReturn {
   summary: TasksSummary | null;
   isLoading: boolean;
   error: string | null;
+  isWebSocketConnected: boolean;
   fetchTasks: () => Promise<void>;
   fetchSummary: () => Promise<void>;
   getTask: (taskId: string) => Promise<Task | null>;
@@ -25,102 +26,36 @@ interface UseTasksReturn {
   refreshAll: () => Promise<void>;
 }
 
-export function useTasks(options: UseTasksOptions = {}): UseTasksReturn {
-  const { autoRefresh = false, refreshInterval = 5000 } = options;
+/**
+ * Hook for task monitoring.
+ * Uses global Zustand store for state - no local state or polling.
+ * Tasks are automatically updated in real-time via WebSocket, with polling fallback.
+ */
+export function useTasks(_options: UseTasksOptions = {}): UseTasksReturn {
+  // Legacy options are ignored - polling is controlled by global store
+  // Keeping the signature for backward compatibility
 
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [summary, setSummary] = useState<TasksSummary | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Subscribe to global store
+  const tasks = useKopiaStore((state) => state.tasks);
+  const summary = useKopiaStore((state) => state.tasksSummary);
+  const isLoading = useKopiaStore((state) => state.isTasksLoading);
+  const error = useKopiaStore((state) => state.tasksError);
+  const isWebSocketConnected = useKopiaStore((state) => state.isWebSocketConnected);
+  const fetchTasks = useKopiaStore((state) => state.refreshTasks);
+  const fetchSummary = useKopiaStore((state) => state.refreshTasksSummary);
+  const getTask = useKopiaStore((state) => state.getTask);
+  const cancelTask = useKopiaStore((state) => state.cancelTask);
 
-  const fetchTasks = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await kopia.listTasks();
-      setTasks(response.tasks || []);
-    } catch (err) {
-      const message = getErrorMessage(err);
-      setError(message);
-      // Don't show toast for polling errors to avoid spam
-      if (!autoRefresh) {
-        toast.error(`Failed to fetch tasks: ${message}`);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [autoRefresh]);
-
-  const fetchSummary = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const result = await kopia.getTasksSummary();
-      setSummary(result);
-    } catch (err) {
-      const message = getErrorMessage(err);
-      setError(message);
-      if (!autoRefresh) {
-        toast.error(`Failed to fetch task summary: ${message}`);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [autoRefresh]);
-
-  const getTask = useCallback(async (taskId: string): Promise<Task | null> => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const result = await kopia.getTask(taskId);
-      return result;
-    } catch (err) {
-      const message = getErrorMessage(err);
-      setError(message);
-      toast.error(`Failed to fetch task details: ${message}`);
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const cancelTask = useCallback(
-    async (taskId: string) => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        await kopia.cancelTask(taskId);
-        toast.success('Task cancelled successfully');
-        await fetchTasks();
-      } catch (err) {
-        const message = getErrorMessage(err);
-        setError(message);
-        toast.error(`Failed to cancel task: ${message}`);
-        throw err;
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [fetchTasks]
-  );
-
-  const refreshAll = useCallback(async () => {
+  const refreshAll = async () => {
     await Promise.all([fetchTasks(), fetchSummary()]);
-  }, [fetchTasks, fetchSummary]);
-
-  // Auto-refresh effect
-  useEffect(() => {
-    if (autoRefresh) {
-      const interval = setInterval(() => void refreshAll(), refreshInterval);
-      return () => clearInterval(interval);
-    }
-  }, [autoRefresh, refreshInterval, refreshAll]);
+  };
 
   return {
     tasks,
     summary,
     isLoading,
     error,
+    isWebSocketConnected,
     fetchTasks,
     fetchSummary,
     getTask,

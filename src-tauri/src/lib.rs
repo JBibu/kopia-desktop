@@ -4,14 +4,34 @@
 // Module declarations
 mod commands;
 mod kopia_server;
+mod kopia_websocket;
 mod types;
 
 use kopia_server::{create_server_state, KopiaServerState};
+use kopia_websocket::KopiaWebSocket;
+use std::sync::Arc;
+use tauri::{
+    menu::{Menu, MenuItem},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    Manager,
+};
+use tokio::sync::Mutex;
+
+/// WebSocket state type
+pub type KopiaWebSocketState = Arc<Mutex<KopiaWebSocket>>;
+
+/// Create WebSocket state
+pub fn create_websocket_state() -> KopiaWebSocketState {
+    Arc::new(Mutex::new(KopiaWebSocket::new()))
+}
 
 /// Auto-start the Kopia server on app launch
 async fn auto_start_server(state: KopiaServerState) -> Result<(), String> {
     let config_dir = commands::kopia::get_default_config_dir().unwrap_or_else(|e| {
-        log::warn!("Failed to get config directory: {}, using current directory", e);
+        log::warn!(
+            "Failed to get config directory: {}, using current directory",
+            e
+        );
         ".".to_string()
     });
 
@@ -36,13 +56,61 @@ async fn auto_start_server(state: KopiaServerState) -> Result<(), String> {
 pub fn run() {
     // Initialize Kopia server state
     let server_state = create_server_state();
+    let websocket_state = create_websocket_state();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(server_state.clone())
-        .setup(move |_app| {
+        .manage(websocket_state.clone())
+        .setup(move |app| {
+            // Create system tray menu
+            let show_i = MenuItem::with_id(app, "show", "Show Window", true, None::<&str>)?;
+            let hide_i = MenuItem::with_id(app, "hide", "Hide Window", true, None::<&str>)?;
+            let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&show_i, &hide_i, &quit_i])?;
+
+            // Build system tray
+            let _tray = TrayIconBuilder::new()
+                .icon(app.default_window_icon().unwrap().clone())
+                .menu(&menu)
+                .show_menu_on_left_click(false)
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.unminimize();
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    "hide" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.hide();
+                        }
+                    }
+                    "quit" => {
+                        app.exit(0);
+                    }
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } = event
+                    {
+                        let app = tray.app_handle();
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.unminimize();
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                })
+                .build(app)?;
+
             // Auto-start Kopia server on app launch
             let state = server_state.clone();
             tauri::async_runtime::spawn(async move {
@@ -112,6 +180,10 @@ pub fn run() {
             commands::get_current_user,
             commands::select_folder,
             commands::select_file,
+            // WebSocket
+            commands::websocket_connect,
+            commands::websocket_disconnect,
+            commands::websocket_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,9 +1,13 @@
 /**
- * Snapshots page - Browse and manage backup snapshots
+ * Snapshots page - Browse and manage snapshot sources
+ *
+ * This page displays a list of sources (user@host:/path combinations) that have snapshots.
+ * Click on a source to view its snapshot history and manage individual snapshots.
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router';
 import { useSnapshots } from '@/hooks/useSnapshots';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,34 +37,109 @@ import {
   RefreshCw,
   Plus,
   Search,
-  Trash2,
-  Download,
   Calendar,
   HardDrive,
   AlertCircle,
+  FolderOpen,
+  ChevronRight,
 } from 'lucide-react';
-import type { Snapshot } from '@/lib/kopia/types';
+import type { SnapshotSource, TaskDetail } from '@/lib/kopia/types';
+import { selectFolder, estimateSnapshot, getTask } from '@/lib/kopia/client';
+import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/kopia/errors';
+import { useEffect, useRef } from 'react';
 
 export function Snapshots() {
   const { t } = useTranslation();
-  const { snapshots, sources, isLoading, error, createSnapshot, deleteSnapshots, refreshAll } =
-    useSnapshots();
+  const navigate = useNavigate();
+  const { sources, isLoading, error, createSnapshot, refreshAll } = useSnapshots();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [selectedSnapshot, setSelectedSnapshot] = useState<Snapshot | null>(null);
   const [createPath, setCreatePath] = useState('');
   const [isCreating, setIsCreating] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  useEffect(() => {
-    void refreshAll();
-  }, [refreshAll]);
+  const [isEstimating, setIsEstimating] = useState(false);
+  const [estimateTask, setEstimateTask] = useState<TaskDetail | null>(null);
+  const estimatePollInterval = useRef<NodeJS.Timeout | null>(null);
 
   const handleRefresh = async () => {
     await refreshAll();
   };
+
+  const handleBrowseFolder = async () => {
+    try {
+      const folder = await selectFolder();
+      if (folder) {
+        setCreatePath(folder);
+        // Clear estimate when path changes
+        setEstimateTask(null);
+        if (estimatePollInterval.current) {
+          clearInterval(estimatePollInterval.current);
+          estimatePollInterval.current = null;
+        }
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  };
+
+  const pollEstimateTask = async (taskId: string) => {
+    try {
+      const task = await getTask(taskId);
+      setEstimateTask(task);
+
+      // Stop polling if task is done
+      if (task.endTime) {
+        if (estimatePollInterval.current) {
+          clearInterval(estimatePollInterval.current);
+          estimatePollInterval.current = null;
+        }
+        setIsEstimating(false);
+      }
+    } catch (err) {
+      console.error('Failed to poll estimate task:', err);
+      if (estimatePollInterval.current) {
+        clearInterval(estimatePollInterval.current);
+        estimatePollInterval.current = null;
+      }
+      setIsEstimating(false);
+    }
+  };
+
+  const handleEstimate = async () => {
+    if (!createPath.trim()) return;
+
+    setIsEstimating(true);
+    setEstimateTask(null);
+
+    // Clear any existing polling
+    if (estimatePollInterval.current) {
+      clearInterval(estimatePollInterval.current);
+      estimatePollInterval.current = null;
+    }
+
+    try {
+      const result = await estimateSnapshot(createPath.trim());
+
+      // Start polling the task for results
+      await pollEstimateTask(result.id);
+      estimatePollInterval.current = setInterval(() => {
+        void pollEstimateTask(result.id);
+      }, 500); // Poll every 500ms like HTML UI
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+      setIsEstimating(false);
+    }
+  };
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (estimatePollInterval.current) {
+        clearInterval(estimatePollInterval.current);
+      }
+    };
+  }, []);
 
   const handleCreateSnapshot = async () => {
     if (!createPath.trim()) return;
@@ -68,36 +147,41 @@ export function Snapshots() {
     setIsCreating(true);
     try {
       await createSnapshot(createPath.trim());
+      toast.success(t('snapshots.snapshotCreated'), {
+        description: t('snapshots.snapshotCreatedDescription'),
+      });
       setShowCreateDialog(false);
       setCreatePath('');
-    } catch {
-      // Error is handled by the hook
+      setEstimateTask(null);
+
+      // Clear polling
+      if (estimatePollInterval.current) {
+        clearInterval(estimatePollInterval.current);
+        estimatePollInterval.current = null;
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     } finally {
       setIsCreating(false);
     }
   };
 
-  const handleDeleteSnapshot = async () => {
-    if (!selectedSnapshot) return;
-
-    setIsDeleting(true);
-    try {
-      await deleteSnapshots([selectedSnapshot.id]);
-      setShowDeleteDialog(false);
-      setSelectedSnapshot(null);
-    } catch {
-      // Error is handled by the hook
-    } finally {
-      setIsDeleting(false);
-    }
+  const handleViewSource = (source: SnapshotSource) => {
+    const params = new URLSearchParams({
+      userName: source.source.userName,
+      host: source.source.host,
+      path: source.source.path,
+    });
+    void navigate(`/snapshots/history?${params.toString()}`);
   };
 
-  const filteredSnapshots = snapshots.filter((snapshot) => {
-    const matchesSearch =
+  const filteredSources = sources.filter((source) => {
+    const sourceString = `${source.source.userName}@${source.source.host}:${source.source.path}`;
+    return (
       searchQuery === '' ||
-      snapshot.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      snapshot.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
+      sourceString.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      source.source.path.toLowerCase().includes(searchQuery.toLowerCase())
+    );
   });
 
   const formatDate = (timestamp: string) => {
@@ -145,43 +229,14 @@ export function Snapshots() {
         </Alert>
       )}
 
-      {/* Sources Summary */}
-      {sources.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-3">
-          {sources.slice(0, 3).map((source, idx) => {
-            const sourceKey = `${source.source.userName}@${source.source.host}:${source.source.path}`;
-            return (
-              <Card key={idx}>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium">
-                    <div className="flex items-center gap-2">
-                      <FolderArchive className="h-4 w-4 text-muted-foreground" />
-                      <span className="truncate">{sourceKey}</span>
-                    </div>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">{t('common.status')}</span>
-                    <Badge variant={source.status === 'IDLE' ? 'secondary' : 'default'}>
-                      {source.status}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-
       {/* Main Content */}
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>{t('snapshots.allSnapshots')}</CardTitle>
+              <CardTitle className="text-base">{t('snapshots.sources')}</CardTitle>
               <CardDescription>
-                {t('snapshots.snapshotsFound', { count: filteredSnapshots.length })}
+                {t('snapshots.sourcesFound', { count: filteredSources.length })}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -199,16 +254,16 @@ export function Snapshots() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading && snapshots.length === 0 ? (
+          {isLoading && sources.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <Spinner className="h-8 w-8" />
             </div>
-          ) : filteredSnapshots.length === 0 ? (
+          ) : filteredSources.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <FolderArchive className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">{t('snapshots.noSnapshotsFound')}</h3>
+              <h3 className="text-lg font-medium mb-2">{t('snapshots.noSourcesFound')}</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                {searchQuery ? t('snapshots.noSnapshotsMatch') : t('snapshots.createFirst')}
+                {searchQuery ? t('snapshots.noSourcesMatch') : t('snapshots.createFirst')}
               </p>
               {!searchQuery && (
                 <Button onClick={() => setShowCreateDialog(true)}>
@@ -221,56 +276,84 @@ export function Snapshots() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t('snapshots.id')}</TableHead>
-                  <TableHead>{t('snapshots.description')}</TableHead>
-                  <TableHead>{t('snapshots.time')}</TableHead>
+                  <TableHead>{t('snapshots.path')}</TableHead>
+                  <TableHead>{t('snapshots.owner')}</TableHead>
+                  <TableHead>{t('snapshots.status')}</TableHead>
+                  <TableHead>{t('snapshots.lastSnapshot')}</TableHead>
                   <TableHead className="text-right">{t('snapshots.size')}</TableHead>
-                  <TableHead className="text-right">{t('snapshots.files')}</TableHead>
                   <TableHead className="text-right">{t('common.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredSnapshots.map((snapshot) => (
-                  <TableRow key={snapshot.id}>
-                    <TableCell className="font-mono text-xs">
-                      {snapshot.id.slice(0, 8)}...
+                {filteredSources.map((source, idx) => (
+                  <TableRow
+                    key={idx}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleViewSource(source)}
+                  >
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <FolderArchive className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium truncate max-w-[300px]">
+                          {source.source.path}
+                        </span>
+                      </div>
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm truncate max-w-[200px] block">
-                        {snapshot.description || t('snapshots.noDescription')}
+                      <span className="text-sm text-muted-foreground">
+                        {source.source.userName}@{source.source.host}
                       </span>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-sm">{formatDate(snapshot.startTime)}</span>
-                      </div>
+                      <Badge
+                        variant={
+                          source.status === 'IDLE'
+                            ? 'secondary'
+                            : source.status === 'UPLOADING'
+                              ? 'default'
+                              : 'outline'
+                        }
+                      >
+                        {source.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {source.lastSnapshot ? (
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-sm">
+                            {formatDate(source.lastSnapshot.startTime)}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">
+                          {t('snapshots.noSnapshots')}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <HardDrive className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-sm">{formatSize(snapshot.summary?.size || 0)}</span>
-                      </div>
+                      {source.lastSnapshot?.stats.totalSize ? (
+                        <div className="flex items-center justify-end gap-2">
+                          <HardDrive className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-sm">
+                            {formatSize(source.lastSnapshot.stats.totalSize)}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">-</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Badge variant="secondary">{snapshot.summary?.files || 0}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="sm">
-                          <Download className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedSnapshot(snapshot);
-                            setShowDeleteDialog(true);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewSource(source);
+                        }}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -290,15 +373,104 @@ export function Snapshots() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="path">{t('snapshots.pathToBackup')}</Label>
-              <Input
-                id="path"
-                placeholder={t('snapshots.pathPlaceholder')}
-                value={createPath}
-                onChange={(e) => setCreatePath(e.target.value)}
-                disabled={isCreating}
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="path"
+                  placeholder={t('snapshots.pathPlaceholder')}
+                  value={createPath}
+                  onChange={(e) => {
+                    setCreatePath(e.target.value);
+                    setEstimateTask(null);
+                    if (estimatePollInterval.current) {
+                      clearInterval(estimatePollInterval.current);
+                      estimatePollInterval.current = null;
+                    }
+                  }}
+                  disabled={isCreating}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void handleBrowseFolder()}
+                  disabled={isCreating}
+                >
+                  <FolderOpen className="h-4 w-4" />
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground">{t('snapshots.pathDescription')}</p>
             </div>
+
+            {/* Estimate Button */}
+            <div className="flex justify-center">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void handleEstimate()}
+                disabled={isEstimating || isCreating || !createPath.trim()}
+              >
+                {isEstimating ? (
+                  <>
+                    <Spinner className="h-4 w-4 mr-2" />
+                    {t('snapshots.estimating')}
+                  </>
+                ) : (
+                  t('snapshots.estimateSize')
+                )}
+              </Button>
+            </div>
+
+            {/* Estimation Results */}
+            {estimateTask && estimateTask.counters && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-sm">
+                  <div className="font-medium mb-1">
+                    {estimateTask.status === 'RUNNING'
+                      ? t('snapshots.estimating')
+                      : t('snapshots.estimationComplete')}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">{t('snapshots.totalSize')}: </span>
+                      <span className="font-medium">
+                        {formatSize(estimateTask.counters['Bytes'] || 0)}
+                      </span>
+                      <span className="text-muted-foreground ml-1">
+                        ({formatSize(estimateTask.counters['Excluded Bytes'] || 0)}{' '}
+                        {t('snapshots.excluded')})
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">{t('snapshots.totalFiles')}: </span>
+                      <span className="font-medium">{estimateTask.counters['Files'] || 0}</span>
+                      <span className="text-muted-foreground ml-1">
+                        ({estimateTask.counters['Excluded Files'] || 0} {t('snapshots.excluded')})
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">
+                        {t('snapshots.totalDirectories')}:{' '}
+                      </span>
+                      <span className="font-medium">
+                        {estimateTask.counters['Directories'] || 0}
+                      </span>
+                      <span className="text-muted-foreground ml-1">
+                        ({estimateTask.counters['Excluded Directories'] || 0}{' '}
+                        {t('snapshots.excluded')})
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">{t('snapshots.totalErrors')}: </span>
+                      <span className="font-medium">{estimateTask.counters['Errors'] || 0}</span>
+                      <span className="text-muted-foreground ml-1">
+                        ({estimateTask.counters['Ignored Errors'] || 0} {t('snapshots.ignored')})
+                      </span>
+                    </div>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
           <DialogFooter>
             <Button
@@ -321,59 +493,6 @@ export function Snapshots() {
                 <>
                   <Plus className="h-4 w-4 mr-2" />
                   {t('snapshots.createSnapshot')}
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Snapshot Dialog */}
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('snapshots.deleteSnapshot')}</DialogTitle>
-            <DialogDescription>
-              {t('snapshots.confirmDelete')} {t('snapshots.deleteWarning')}
-            </DialogDescription>
-          </DialogHeader>
-          {selectedSnapshot && (
-            <div className="space-y-2 py-4">
-              <div className="text-sm">
-                <span className="font-medium">{t('snapshots.id')}:</span> {selectedSnapshot.id}
-              </div>
-              <div className="text-sm">
-                <span className="font-medium">{t('snapshots.description')}:</span>{' '}
-                {selectedSnapshot.description || t('snapshots.noDescription')}
-              </div>
-              <div className="text-sm">
-                <span className="font-medium">{t('snapshots.time')}:</span>{' '}
-                {formatDate(selectedSnapshot.startTime)}
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowDeleteDialog(false)}
-              disabled={isDeleting}
-            >
-              {t('common.cancel')}
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => void handleDeleteSnapshot()}
-              disabled={isDeleting}
-            >
-              {isDeleting ? (
-                <>
-                  <Spinner className="h-4 w-4 mr-2" />
-                  {t('snapshots.deleting')}
-                </>
-              ) : (
-                <>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  {t('snapshots.deleteSnapshot')}
                 </>
               )}
             </Button>

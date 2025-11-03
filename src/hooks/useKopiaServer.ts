@@ -1,16 +1,11 @@
 /**
  * Custom hook for managing Kopia server lifecycle
+ *
+ * Now delegates to global Zustand store to eliminate redundant polling.
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import {
-  startKopiaServer,
-  stopKopiaServer,
-  getKopiaServerStatus,
-  type KopiaServerInfo,
-  type KopiaServerStatus,
-} from '@/lib/kopia/client';
-import { getErrorMessage } from '@/lib/utils';
+import { useKopiaStore } from '@/stores/kopia';
+import type { KopiaServerInfo, KopiaServerStatus } from '@/lib/kopia/client';
 
 interface UseKopiaServerReturn {
   serverStatus: KopiaServerStatus | null;
@@ -21,54 +16,18 @@ interface UseKopiaServerReturn {
   refreshStatus: () => Promise<void>;
 }
 
+/**
+ * Hook for Kopia server lifecycle management.
+ * Uses global Zustand store for state - no local polling.
+ */
 export function useKopiaServer(): UseKopiaServerReturn {
-  const [serverStatus, setServerStatus] = useState<KopiaServerStatus | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const refreshStatus = useCallback(async () => {
-    try {
-      setError(null);
-      const status = await getKopiaServerStatus();
-      setServerStatus(status);
-    } catch (err) {
-      setError(getErrorMessage(err));
-      setServerStatus({ running: false });
-    }
-  }, []);
-
-  const startServer = useCallback(async (): Promise<KopiaServerInfo | null> => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const info = await startKopiaServer();
-      await refreshStatus();
-      return info;
-    } catch (err) {
-      setError(getErrorMessage(err));
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [refreshStatus]);
-
-  const stopServer = useCallback(async (): Promise<void> => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      await stopKopiaServer();
-      await refreshStatus();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [refreshStatus]);
-
-  // Check server status on mount
-  useEffect(() => {
-    void refreshStatus();
-  }, [refreshStatus]);
+  // Subscribe to global store
+  const serverStatus = useKopiaStore((state) => state.serverStatus);
+  const isLoading = useKopiaStore((state) => state.isServerLoading);
+  const error = useKopiaStore((state) => state.serverError);
+  const startServer = useKopiaStore((state) => state.startServer);
+  const stopServer = useKopiaStore((state) => state.stopServer);
+  const refreshStatus = useKopiaStore((state) => state.refreshServerStatus);
 
   return {
     serverStatus,

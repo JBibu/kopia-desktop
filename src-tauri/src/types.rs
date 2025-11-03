@@ -117,15 +117,15 @@ pub struct LastSnapshotInfo {
     pub start_time: String,
     pub end_time: Option<String>,
     pub stats: SnapshotStats,
-    pub root_entry: Option<String>,
+    pub root_entry: Option<RootEntry>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotStats {
-    pub total_size: i64,
-    pub total_file_count: i64,
-    pub total_dir_count: i64,
+    pub total_size: Option<i64>,
+    pub total_file_count: Option<i64>,
+    pub total_dir_count: Option<i64>,
     pub errors: Option<i64>,
 }
 
@@ -141,7 +141,7 @@ pub struct SnapshotsResponse {
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
     pub id: String,
-    pub root_id: String,
+    pub root_id: Option<String>,
     pub start_time: String,
     pub end_time: Option<String>,
     pub description: Option<String>,
@@ -149,15 +149,15 @@ pub struct Snapshot {
     pub retention: Option<Vec<String>>,
     pub incomplete: Option<bool>,
     pub summary: Option<SnapshotSummary>,
-    pub root_entry: Option<String>,
+    pub root_entry: Option<RootEntry>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotSummary {
-    pub size: i64,
-    pub files: i64,
-    pub dirs: i64,
+    pub size: Option<i64>,
+    pub files: Option<i64>,
+    pub dirs: Option<i64>,
     pub symlinks: Option<i64>,
     pub errors: Option<i64>,
     pub error_count: Option<i64>,
@@ -172,7 +172,7 @@ pub struct SnapshotSummary {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotEditRequest {
-    pub snapshots: Vec<String>,  // API expects "snapshots", not "manifest_ids"
+    pub snapshots: Vec<String>, // API expects "snapshots", not "manifest_ids"
     pub description: Option<String>,
     pub add_pins: Option<Vec<String>>,
     pub remove_pins: Option<Vec<String>>,
@@ -211,6 +211,13 @@ pub struct DirectorySummary {
     pub dirs: i64,
     pub errors: Option<i64>,
     pub max_time: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RootEntry {
+    pub obj: Option<String>,
+    pub summ: Option<DirectorySummary>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -278,6 +285,7 @@ pub struct PoliciesResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PolicyWithTarget {
+    pub id: Option<String>,
     pub target: PolicyTarget,
     pub policy: PolicyDefinition,
 }
@@ -297,7 +305,10 @@ pub struct PolicyDefinition {
     pub scheduling: Option<SchedulingPolicy>,
     pub files: Option<FilesPolicy>,
     pub compression: Option<CompressionPolicy>,
+    pub metadata_compression: Option<CompressionPolicy>,
+    pub splitter: Option<SplitterPolicy>,
     pub actions: Option<ActionsPolicy>,
+    pub os_snapshots: Option<OsSnapshotsPolicy>,
     pub error_handling: Option<ErrorHandlingPolicy>,
     pub upload: Option<UploadPolicy>,
     pub logging: Option<LoggingPolicy>,
@@ -312,21 +323,16 @@ pub struct RetentionPolicy {
     pub keep_weekly: Option<i64>,
     pub keep_monthly: Option<i64>,
     pub keep_annual: Option<i64>,
+    pub ignore_identical_snapshots: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SchedulingPolicy {
-    pub interval: Option<String>,
-    pub time_of_day: Option<Vec<TimeOfDay>>,
+    pub interval: Option<i64>,
+    pub times_of_day: Option<Vec<String>>,
     pub manual: Option<bool>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TimeOfDay {
-    pub hour: i64,
-    pub min: i64,
+    pub run_missed: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -370,6 +376,7 @@ pub struct ActionDefinition {
 pub struct ErrorHandlingPolicy {
     pub ignore_file_errors: Option<bool>,
     pub ignore_directory_errors: Option<bool>,
+    pub ignore_unknown_types: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -377,6 +384,7 @@ pub struct ErrorHandlingPolicy {
 pub struct UploadPolicy {
     pub max_parallel_snapshots: Option<i64>,
     pub max_parallel_file_reads: Option<i64>,
+    pub parallel_upload_above_size: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -389,17 +397,64 @@ pub struct LoggingPolicy {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoggingDirectoriesPolicy {
-    pub snapshotted: Option<String>,
-    pub ignored: Option<String>,
+    pub snapshotted: Option<LogLevel>,
+    pub ignored: Option<LogLevel>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoggingEntriesPolicy {
-    pub snapshotted: Option<String>,
-    pub ignored: Option<String>,
-    pub cache_hit: Option<String>,
-    pub cache_miss: Option<String>,
+    pub snapshotted: Option<LogLevel>,
+    pub ignored: Option<LogLevel>,
+    pub cache_hit: Option<LogLevel>,
+    pub cache_miss: Option<LogLevel>,
+}
+
+// LogLevel can be either a simple number or an object with minSize/maxSize
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum LogLevel {
+    Simple(i64),
+    Detailed {
+        min_size: Option<i64>,
+        max_size: Option<i64>,
+    },
+}
+
+impl serde::Serialize for LogLevel {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            LogLevel::Simple(n) => serializer.serialize_i64(*n),
+            LogLevel::Detailed { min_size, max_size } => {
+                use serde::ser::SerializeStruct;
+                let mut state = serializer.serialize_struct("LogLevel", 2)?;
+                state.serialize_field("minSize", min_size)?;
+                state.serialize_field("maxSize", max_size)?;
+                state.end()
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SplitterPolicy {
+    // Splitter policy fields (usually empty in most cases)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OsSnapshotsPolicy {
+    pub volume_shadow_copy: Option<VolumeShadowCopyPolicy>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VolumeShadowCopyPolicy {
+    pub enable: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -447,8 +502,33 @@ pub struct TaskProgress {
 pub struct TaskDetail {
     #[serde(flatten)]
     pub task: Task,
-    pub counters: Option<HashMap<String, i64>>,
+    pub counters: Option<HashMap<String, CounterValue>>,
     pub logs: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum CounterValue {
+    Simple(i64),
+    Detailed { value: i64 },
+}
+
+impl CounterValue {
+    pub fn value(&self) -> i64 {
+        match self {
+            CounterValue::Simple(n) => *n,
+            CounterValue::Detailed { value } => *value,
+        }
+    }
+}
+
+impl serde::Serialize for CounterValue {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_i64(self.value())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -529,6 +609,12 @@ pub struct EstimateRequest {
     pub max_examples_per_bucket: Option<i64>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EstimateResponse {
+    pub id: String, // Task ID to poll for results
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UIPreferences {
@@ -544,27 +630,53 @@ pub struct UIPreferences {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct NotificationProfilesResponse {
-    pub profiles: Vec<NotificationProfile>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct NotificationProfile {
-    pub profile_name: String,
-    pub method: String,
-    pub config: NotificationConfig,
+    pub profile: String,
+    pub method: NotificationMethod,
+    pub min_severity: i32, // -100 (Verbose), -10 (Success), 0 (Report), 10 (Warning), 20 (Error)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct NotificationConfig {
-    pub smtp_server: Option<String>,
-    pub smtp_port: Option<i64>,
+pub struct NotificationMethod {
+    #[serde(rename = "type")]
+    pub method_type: String, // "email", "pushover", "webhook"
+    pub config: serde_json::Value, // Method-specific configuration
+}
+
+// Email notification config (helper type for documentation)
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmailNotificationConfig {
+    pub smtp_server: String,
+    pub smtp_port: i32,
     pub smtp_username: Option<String>,
-    pub to_address: Option<String>,
-    pub webhook_url: Option<String>,
-    pub url: Option<String>,
-    pub method: Option<String>,
-    pub headers: Option<HashMap<String, String>>,
+    pub smtp_password: Option<String>,
+    pub smtp_identity: Option<String>,
+    pub from: String,
+    pub to: String,
+    pub cc: Option<String>,
+    pub format: String, // "txt" or "html"
+}
+
+// Pushover notification config (helper type for documentation)
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PushoverNotificationConfig {
+    pub app_token: String,
+    pub user_key: String,
+    pub format: String, // "txt" or "html"
+}
+
+// Webhook notification config (helper type for documentation)
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WebhookNotificationConfig {
+    pub endpoint: String,
+    pub method: String,          // "POST" or "PUT"
+    pub headers: Option<String>, // Multi-line string, one header per line
+    pub format: String,          // "txt" or "html"
 }

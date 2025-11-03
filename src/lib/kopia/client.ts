@@ -174,7 +174,7 @@ export async function createSnapshot(
   userName?: string,
   host?: string
 ): Promise<import('./types').SourceInfo> {
-  return invoke('snapshot_create', { path, userName, host });
+  return await invoke<import('./types').SourceInfo>('snapshot_create', { path, userName, host });
 }
 
 /**
@@ -393,10 +393,28 @@ export async function resolvePath(path: string): Promise<import('./types').Sourc
 }
 
 /**
- * Estimate snapshot size
+ * Estimate snapshot size for a given path
+ *
+ * Starts an estimation task that calculates file count, total size, and other
+ * statistics for a potential snapshot. The returned task ID can be polled
+ * using `getTask()` to retrieve the actual estimation results.
+ *
+ * @param path - The path to estimate (can be relative or absolute)
+ * @param maxExamplesPerBucket - Optional limit for examples per bucket
+ * @returns Promise resolving to an EstimateResponse with a task ID
+ *
+ * @example
+ * ```ts
+ * const result = await estimateSnapshot('/path/to/backup');
+ * const task = await getTask(result.id);
+ * console.log('Estimated size:', task.counters['Bytes']);
+ * ```
  */
-export async function estimateSnapshot(root: string, maxExamples?: number): Promise<string> {
-  return invoke('estimate_snapshot', { root, maxExamples });
+export async function estimateSnapshot(
+  path: string,
+  maxExamplesPerBucket?: number
+): Promise<import('./types').EstimateResponse> {
+  return invoke('estimate_snapshot', { path, maxExamplesPerBucket });
 }
 
 /**
@@ -445,10 +463,12 @@ export async function deleteNotificationProfile(profileName: string): Promise<vo
 }
 
 /**
- * Test notification profile
+ * Test notification profile (send test notification)
  */
-export async function testNotificationProfile(profileName: string): Promise<void> {
-  return invoke('notification_profile_test', { profileName });
+export async function testNotificationProfile(
+  profile: import('./types').NotificationProfile
+): Promise<void> {
+  return invoke('notification_profile_test', { profile });
 }
 
 // ============================================================================
@@ -456,69 +476,28 @@ export async function testNotificationProfile(profileName: string): Promise<void
 // ============================================================================
 
 /**
- * Connect to Kopia server WebSocket for real-time updates
+ * Connect to Kopia WebSocket for real-time task updates
  */
-export function connectWebSocket(
-  onEvent: (event: import('./types').WebSocketEvent) => void,
-  onError?: (error: Error) => void
-): () => void {
-  let ws: WebSocket | null = null;
-  let reconnectTimeout: number | null = null;
+export async function connectWebSocket(
+  serverUrl: string,
+  username: string,
+  password: string
+): Promise<void> {
+  return invoke('websocket_connect', { serverUrl, username, password });
+}
 
-  const connect = async () => {
-    try {
-      const serverStatus = await getKopiaServerStatus();
-      if (!serverStatus.running || !serverStatus.serverUrl) {
-        throw new Error('Kopia server not running');
-      }
+/**
+ * Disconnect from Kopia WebSocket
+ */
+export async function disconnectWebSocket(): Promise<void> {
+  return invoke('websocket_disconnect');
+}
 
-      const wsUrl = serverStatus.serverUrl.replace('http', 'ws') + '/api/v1/ws';
-      ws = new WebSocket(wsUrl);
-
-      ws.onmessage = (event) => {
-        try {
-          const parsed = JSON.parse(event.data as string) as import('./types').WebSocketEvent;
-
-          onEvent(parsed);
-        } catch (err) {
-          console.error('Failed to parse WebSocket message:', err);
-        }
-      };
-
-      ws.onerror = (event) => {
-        console.error('WebSocket error:', event);
-        if (onError) {
-          onError(new Error('WebSocket connection error'));
-        }
-      };
-
-      ws.onclose = () => {
-        // Attempt to reconnect after 5 seconds
-        reconnectTimeout = window.setTimeout(() => void connect(), 5000);
-      };
-    } catch (err) {
-      console.error('Failed to connect WebSocket:', err);
-      if (onError && err instanceof Error) {
-        onError(err);
-      }
-      // Retry after 5 seconds
-      reconnectTimeout = window.setTimeout(() => void connect(), 5000);
-    }
-  };
-
-  void connect();
-
-  // Return cleanup function
-  return () => {
-    if (ws) {
-      ws.close();
-      ws = null;
-    }
-    if (reconnectTimeout !== null) {
-      clearTimeout(reconnectTimeout);
-      reconnectTimeout = null;
-    }
-  };
+/**
+ * Check WebSocket connection status
+ */
+export async function getWebSocketStatus(): Promise<boolean> {
+  return invoke('websocket_status');
 }
 
 // ============================================================================

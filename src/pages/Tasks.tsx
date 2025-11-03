@@ -2,7 +2,7 @@
  * Tasks page - Monitor and manage background tasks
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTasks } from '@/hooks/useTasks';
 import { Button } from '@/components/ui/button';
@@ -43,18 +43,12 @@ import type { Task } from '@/lib/kopia/types';
 
 export function Tasks() {
   const { t } = useTranslation();
-  const { tasks, summary, isLoading, error, cancelTask, refreshAll } = useTasks({
-    autoRefresh: true,
-    refreshInterval: 5000,
-  });
+  const { tasks, summary, isLoading, error, isWebSocketConnected, cancelTask, refreshAll } =
+    useTasks();
 
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
-
-  useEffect(() => {
-    void refreshAll();
-  }, [refreshAll]);
 
   const handleRefresh = async () => {
     await refreshAll();
@@ -120,13 +114,26 @@ export function Tasks() {
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight">{t('tasks.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('tasks.subtitle')}</p>
+          <p className="text-sm text-muted-foreground">
+            {t('tasks.subtitle')}
+            {isWebSocketConnected && (
+              <span className="ml-2 inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                <Activity className="h-3 w-3 animate-pulse" />
+                Real-time updates
+              </span>
+            )}
+          </p>
         </div>
         <Button
           variant="outline"
           size="sm"
           onClick={() => void handleRefresh()}
           disabled={isLoading}
+          title={
+            isWebSocketConnected
+              ? 'Manual refresh (real-time updates active)'
+              : 'Refresh tasks (polling mode)'
+          }
         >
           <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
           {t('common.refresh')}
@@ -195,8 +202,8 @@ export function Tasks() {
 
       {/* Tasks Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>{t('tasks.allTasks')}</CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">{t('tasks.allTasks')}</CardTitle>
           <CardDescription>{t('tasks.tasksFound', { count: tasks.length })}</CardDescription>
         </CardHeader>
         <CardContent>
@@ -207,7 +214,7 @@ export function Tasks() {
           ) : tasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <ListChecks className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">{t('tasks.noTasksRunning')}</h3>
+              <h3 className="text-lg font-medium mb-2">{t('tasks.noTasksRunning')}</h3>
               <p className="text-sm text-muted-foreground">{t('tasks.noTasksDescription')}</p>
             </div>
           ) : (

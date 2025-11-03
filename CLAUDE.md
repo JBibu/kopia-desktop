@@ -19,9 +19,10 @@ A React + Tauri application providing a user-friendly interface for managing Kop
 - ✅ Theme system (light/dark/system) with Zustand
 - ✅ i18n/translations (English + Spanish) with react-i18next
 - ✅ Error handling system with `KopiaError` class
-- ✅ 6 custom hooks for data fetching with polling
+- ✅ Global Kopia state store with Zustand (centralized polling for server, repository, snapshots, policies, tasks)
+- ✅ 8 custom hooks (6 Kopia-specific: useKopiaServer, useRepository, useSnapshots, usePolicies, useTasks, useProviderConfig)
 - ✅ Native file/folder pickers via Tauri dialog plugin
-- ✅ 22 shadcn/ui components (Button, Input, Table, Dialog, etc.)
+- ✅ 19 shadcn/ui components (Accordion, Alert, Badge, Button, Card, Collapsible, Dialog, Input, Label, Progress, Select, Separator, Sheet, Sonner, Spinner, Switch, Table, Tabs, Textarea)
 
 **Not Yet Implemented:**
 
@@ -57,7 +58,7 @@ pnpm validate     # Run all checks (typecheck, lint, format, test)
 - Vite 7.1 (bundling + HMR)
 - Tailwind CSS 4.1 + shadcn/ui (Radix UI)
 - React Router v7.9
-- Zustand 5.0 (theme + language management)
+- Zustand 5.0 (theme + language + global Kopia state management)
 - i18next 25.6 + react-i18next 16.2 (internationalization)
 - Sonner (toast notifications)
 - Lucide React (icons)
@@ -103,7 +104,7 @@ pnpm validate     # Run all checks (typecheck, lint, format, test)
 
 1. Tauri **bundles `kopia` binary** (platform-specific)
 2. Backend process **spawns `kopia server`** on app launch
-3. React UI communicates via **REST API + WebSocket**
+3. React UI communicates via **REST API** (WebSocket code exists but not yet integrated)
 4. Server **shuts down gracefully** with app
 
 ### Server Launch
@@ -141,7 +142,7 @@ let kopia_process = Command::new(kopia_binary_path)
 
 ```
 React UI (Frontend)
-    ↓ HTTP/REST + WebSocket
+    ↓ HTTP/REST API
 Tauri Backend (Rust)
     ↓ spawns
 Kopia Server (localhost:random-port)
@@ -154,11 +155,65 @@ Repositories / Snapshots / Storage
 - Localhost-only (no remote access)
 - TLS with self-signed cert
 - Random password per session
-- WebSocket for real-time progress
+- Centralized polling via Zustand store (30s server/repository, 5s tasks)
 
 ---
 
 ## Architecture
+
+### State Management Architecture (Recent Refactor)
+
+**Centralized Zustand Store** - All Kopia data is managed in a single global store:
+
+**Key Benefits:**
+
+- ✅ Eliminates redundant API calls (components share same state)
+- ✅ Single polling loop instead of per-component polling
+- ✅ Consistent state across entire application
+- ✅ Simplified hooks (thin wrappers around store selectors)
+
+**Implementation:**
+
+```typescript
+// src/stores/kopia.ts (548 lines)
+export const useKopiaStore = create<KopiaStore>((set, get) => ({
+  // State
+  serverStatus, serverInfo, repositoryStatus, snapshots, policies, tasks, etc.
+
+  // Polling configuration
+  startPolling() {
+    // Server & repository: every 30 seconds
+    // Tasks: every 5 seconds (only when tasks active)
+  },
+
+  // Actions
+  refreshServer, refreshRepository, refreshSnapshots, refreshPolicies, refreshTasks
+}));
+```
+
+**Hooks Delegate to Store:**
+
+- `useKopiaServer()` → selects server state from store
+- `useRepository()` → selects repository state from store
+- `useSnapshots()` → selects snapshots state from store
+- `usePolicies()` → selects policies state from store
+- `useTasks()` → selects tasks state from store
+
+**Before Refactor (Old Pattern):**
+
+- Each hook maintained its own state
+- Each hook had its own polling interval
+- Multiple simultaneous API calls for same data
+- State inconsistencies between components
+
+**After Refactor (Current):**
+
+- Single source of truth
+- Coordinated polling
+- Minimal API calls
+- Always consistent state
+
+---
 
 ### Tauri Process Model
 
@@ -381,7 +436,7 @@ pnpm package:all
 kopia-desktop/
 ├── src/                                  # React frontend
 │   ├── components/
-│   │   ├── ui/                           # shadcn/ui components (22 total)
+│   │   ├── ui/                           # shadcn/ui components (19 total)
 │   │   ├── layout/                       # AppLayout, AppSidebar, Titlebar
 │   │   └── kopia/
 │   │       ├── RepositoryCreateForm.tsx
@@ -395,18 +450,19 @@ kopia-desktop/
 │   │   ├── kopia/
 │   │   │   ├── client.ts                 # Tauri command wrappers
 │   │   │   ├── types.ts                  # TypeScript types
-│   │   │   ├── errors.ts                 # KopiaError class
-│   │   │   └── polling.ts                # Polling utilities
+│   │   │   └── errors.ts                 # KopiaError class
 │   │   └── utils/                        # Utilities (cn, error handling)
 │   ├── pages/                            # 7 route pages
 │   │   ├── Overview.tsx, Repository.tsx, Snapshots.tsx
 │   │   ├── Policies.tsx, Tasks.tsx, Preferences.tsx, Setup.tsx
-│   ├── hooks/                            # 9 hooks (6 Kopia-specific)
+│   ├── hooks/                            # 8 hooks (6 Kopia-specific)
 │   │   ├── useKopiaServer.ts, useRepository.ts, useSnapshots.ts
-│   │   ├── usePolicies.ts, useTasks.ts, usePolling.ts
+│   │   ├── usePolicies.ts, useTasks.ts, useProviderConfig.ts
 │   │   ├── useIsMobile.ts, use-toast.ts (utilities)
 │   ├── stores/
-│   │   └── theme.ts                      # Zustand theme store
+│   │   ├── kopia.ts                      # Global Kopia state (548 lines)
+│   │   ├── theme.ts                      # Theme store (light/dark/system)
+│   │   └── language.ts                   # Language/i18n store
 │   └── App.tsx                           # Root component
 │
 ├── src-tauri/                            # Rust backend
@@ -449,21 +505,39 @@ import { BrowserRouter, useNavigate, Link } from 'react-router';
 // 3. Component (hooks → effects → handlers → render)
 ```
 
-**Hooks Pattern:**
-All data-fetching hooks use `usePolling` for auto-refresh:
+**State Management Pattern:**
+All Kopia data is managed through a centralized Zustand store with automatic polling:
 
 ```typescript
+// Global store handles all data fetching and polling
+// src/stores/kopia.ts
+export const useKopiaStore = create<KopiaStore>((set, get) => ({
+  // Server state (polls every 30s)
+  serverStatus: 'unknown',
+  serverInfo: null,
+
+  // Repository state (polls every 30s)
+  repositoryStatus: null,
+  isConnected: false,
+
+  // Snapshots, policies, tasks state
+  snapshots: [],
+  policies: [],
+  tasks: [],
+
+  // Actions to fetch and update state
+  refreshAll: async () => {
+    /* ... */
+  },
+}));
+
+// Hooks are thin wrappers around the store
 export function useSnapshots() {
-  const [data, setData] = useState<Snapshot[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const snapshots = useKopiaStore((state) => state.snapshots);
+  const isLoading = useKopiaStore((state) => state.snapshotsLoading);
+  const error = useKopiaStore((state) => state.snapshotsError);
 
-  usePolling(async () => {
-    const result = await listSnapshots(...);
-    setData(result.snapshots);
-  }, { interval: 30000 });
-
-  return { data, isLoading, error };
+  return { snapshots, isLoading, error };
 }
 ```
 
@@ -558,7 +632,7 @@ Kopia server exposes REST API endpoints (accessed via Tauri commands above):
 **Performance:**
 
 - Lazy load large data sets
-- Use polling hooks for auto-refresh (30s interval)
+- Centralized polling via Zustand store (30s server/repository, 5s tasks)
 - Clean up listeners/timers on unmount
 - Consider virtual scrolling for large lists
 
