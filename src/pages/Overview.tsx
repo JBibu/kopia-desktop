@@ -9,6 +9,7 @@ import { useKopiaServer } from '@/hooks/useKopiaServer';
 import { useRepository } from '@/hooks/useRepository';
 import { useSnapshots } from '@/hooks/useSnapshots';
 import { useTasks } from '@/hooks/useTasks';
+import { useLanguageStore } from '@/stores/language';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -55,6 +56,7 @@ const CHART_COLORS = {
 
 export function Overview() {
   const { t } = useTranslation();
+  const { language } = useLanguageStore();
   const navigate = useNavigate();
   const { serverStatus, isLoading: serverLoading, startServer } = useKopiaServer();
   const { status: repoStatus, isLoading: repoLoading } = useRepository();
@@ -97,7 +99,7 @@ export function Overview() {
       const totalSize = daySnapshots.reduce((sum, s) => sum + (s.summary?.totalFileSize || 0), 0);
 
       return {
-        date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        date: date.toLocaleDateString(language, { month: 'short', day: 'numeric' }),
         count: daySnapshots.length,
         size: totalSize,
         sizeFormatted: formatBytes(totalSize),
@@ -117,7 +119,7 @@ export function Overview() {
       complete: snapshots.length - incompleteCount,
       byDay: snapshotsByDay,
     };
-  }, [snapshots]);
+  }, [snapshots, language]);
 
   // Task status distribution
   const taskStatusData = useMemo(() => {
@@ -273,7 +275,7 @@ export function Overview() {
                 </p>
               </div>
             ) : (
-              <div className="text-2xl font-bold">0 B</div>
+              <div className="text-2xl font-bold">0 {t('common.units.bytes')}</div>
             )}
           </CardContent>
         </Card>

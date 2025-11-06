@@ -70,7 +70,7 @@ export function SnapshotHistory() {
 
   const fetchSnapshots = async () => {
     if (!userName || !host || !path) {
-      setError('Missing source parameters');
+      setError(t('snapshots.missingSourceParameters'));
       setIsLoading(false);
       return;
     }
@@ -168,9 +168,15 @@ export function SnapshotHistory() {
   };
 
   const formatSize = (bytes: number) => {
-    if (bytes === 0) return '0 B';
+    if (bytes === 0) return `0 ${t('common.units.bytes')}`;
     const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const sizes = [
+      t('common.units.bytes'),
+      t('common.units.kilobytes'),
+      t('common.units.megabytes'),
+      t('common.units.gigabytes'),
+      t('common.units.terabytes'),
+    ];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
   };

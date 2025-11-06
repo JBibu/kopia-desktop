@@ -92,11 +92,12 @@ export function Tasks() {
   };
 
   const formatDuration = (seconds: number) => {
-    if (seconds < 60) return `${seconds}s`;
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+    if (seconds < 60) return `${seconds}${t('common.units.seconds')}`;
+    if (seconds < 3600)
+      return `${Math.floor(seconds / 60)}${t('common.units.minutes')} ${seconds % 60}${t('common.units.seconds')}`;
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
-    return `${hours}h ${minutes}m`;
+    return `${hours}${t('common.units.hours')} ${minutes}${t('common.units.minutes')}`;
   };
 
   const formatDate = (timestamp: string) => {
@@ -119,7 +120,7 @@ export function Tasks() {
             {isWebSocketConnected && (
               <span className="ml-2 inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
                 <Activity className="h-3 w-3 animate-pulse" />
-                Real-time updates
+                {t('tasks.realTimeUpdates')}
               </span>
             )}
           </p>
@@ -130,9 +131,7 @@ export function Tasks() {
           onClick={() => void handleRefresh()}
           disabled={isLoading}
           title={
-            isWebSocketConnected
-              ? 'Manual refresh (real-time updates active)'
-              : 'Refresh tasks (polling mode)'
+            isWebSocketConnected ? t('tasks.manualRefreshActive') : t('tasks.refreshTasksPolling')
           }
         >
           <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />

@@ -36,12 +36,12 @@ export function Preferences() {
   const handleTestNotification = async () => {
     try {
       await sendDesktopNotification({
-        title: 'Test Notification',
-        body: 'This is a test notification from Kopia Desktop. If you see this, native notifications are working!',
+        title: t('preferences.testNotificationTitle'),
+        body: t('preferences.testNotificationBody'),
       });
-      toast.success('Test notification sent');
+      toast.success(t('preferences.testNotificationSent'));
     } catch (error) {
-      toast.error('Failed to send test notification');
+      toast.error(t('preferences.testNotificationFailed'));
       console.error('Notification error:', error);
     }
   };
@@ -177,7 +177,7 @@ export function Preferences() {
           </div>
           <div className="pt-2">
             <Button variant="outline" size="sm" onClick={() => void handleTestNotification()}>
-              Test Desktop Notification
+              {t('preferences.testNotification')}
             </Button>
           </div>
         </CardContent>
@@ -188,7 +188,7 @@ export function Preferences() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Mail className="h-4 w-4" />
-            Kopia Notification Profiles
+            {t('preferences.kopiaNotificationProfiles')}
           </CardTitle>
         </CardHeader>
         <CardContent>

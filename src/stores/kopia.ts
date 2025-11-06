@@ -49,7 +49,7 @@ import type {
   TasksSummary,
   WebSocketEvent,
 } from '@/lib/kopia/types';
-import { getErrorMessage } from '@/lib/kopia/errors';
+import { getErrorMessage, parseKopiaError, KopiaErrorCode } from '@/lib/kopia/errors';
 import { notifyTaskComplete } from '@/lib/notifications';
 
 interface KopiaStore {
@@ -282,15 +282,18 @@ export const useKopiaStore = create<KopiaStore>()(
         }
         // Don't call set() at all if nothing changed
       } catch (error) {
+        const kopiaError = parseKopiaError(error);
         const message = getErrorMessage(error);
         const currentError = get().repositoryError;
         const currentStatus = get().repositoryStatus;
 
         // Only update if something changed
-        const shouldUpdateError =
-          !message.includes('not running') &&
-          !message.includes('not connected') &&
-          currentError !== message;
+        // Ignore expected "not running" and "not connected" errors to reduce noise
+        const isExpectedError =
+          kopiaError.is(KopiaErrorCode.SERVER_NOT_RUNNING) ||
+          kopiaError.is(KopiaErrorCode.REPOSITORY_NOT_CONNECTED);
+
+        const shouldUpdateError = !isExpectedError && currentError !== message;
         const shouldUpdateStatus = currentStatus?.connected !== false;
 
         if (shouldUpdateError || shouldUpdateStatus) {
@@ -632,17 +635,16 @@ export const useKopiaStore = create<KopiaStore>()(
       const { isWebSocketConnected, serverStatus, serverInfo } = get();
 
       if (isWebSocketConnected) {
-        console.log('WebSocket already connected');
         return;
       }
 
       if (!serverStatus?.running || !serverStatus.serverUrl) {
-        console.error('Cannot connect WebSocket: server not running');
+        // Server not ready yet - this is expected during startup
         return;
       }
 
       if (!serverInfo?.password) {
-        console.error('Cannot connect WebSocket: server password not available');
+        // Server password not available yet - this is expected during startup
         return;
       }
 
@@ -657,7 +659,6 @@ export const useKopiaStore = create<KopiaStore>()(
         // Set up event listeners
         wsEventUnlisten = await listen<WebSocketEvent>('kopia-ws-event', (event) => {
           const wsEvent = event.payload;
-          console.log('WebSocket event received:', wsEvent.type);
 
           // Handle different event types
           if (wsEvent.type === 'task-progress') {
@@ -671,18 +672,15 @@ export const useKopiaStore = create<KopiaStore>()(
         });
 
         wsDisconnectUnlisten = await listen('kopia-ws-disconnected', () => {
-          console.log('WebSocket disconnected');
           set({ isWebSocketConnected: false });
 
           // Fall back to polling if WebSocket disconnects
           if (get().useWebSocket && !get().isPolling) {
-            console.log('Falling back to polling after WebSocket disconnect');
             get().startPolling();
           }
         });
 
         set({ isWebSocketConnected: true });
-        console.log('WebSocket connected successfully');
 
         // Stop task polling since WebSocket will handle real-time updates
         if (tasksPollingTimer) {
@@ -695,7 +693,6 @@ export const useKopiaStore = create<KopiaStore>()(
 
         // Fall back to polling
         if (get().useWebSocket && !get().isPolling) {
-          console.log('Falling back to polling after WebSocket error');
           get().startPolling();
         }
       }
@@ -722,7 +719,6 @@ export const useKopiaStore = create<KopiaStore>()(
         // Disconnect WebSocket
         await disconnectWebSocket();
         set({ isWebSocketConnected: false });
-        console.log('WebSocket disconnected');
       } catch (error) {
         console.error('Failed to disconnect WebSocket:', error);
       }

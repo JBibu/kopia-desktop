@@ -1,3 +1,4 @@
+use crate::error::{KopiaError, Result};
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 
@@ -10,7 +11,7 @@ pub struct SystemInfo {
 
 /// Get system information
 #[tauri::command]
-pub async fn get_system_info() -> Result<SystemInfo, String> {
+pub async fn get_system_info() -> Result<SystemInfo> {
     Ok(SystemInfo {
         os: std::env::consts::OS.to_string(),
         arch: std::env::consts::ARCH.to_string(),
@@ -20,13 +21,15 @@ pub async fn get_system_info() -> Result<SystemInfo, String> {
 
 /// Get current username and hostname
 #[tauri::command]
-pub async fn get_current_user() -> Result<(String, String), String> {
+pub async fn get_current_user() -> Result<(String, String)> {
     let username = std::env::var("USER")
         .or_else(|_| std::env::var("USERNAME"))
         .unwrap_or_else(|_| "unknown".into());
 
     let hostname = hostname::get()
-        .map_err(|e| format!("Failed to get hostname: {}", e))?
+        .map_err(|e| KopiaError::EnvironmentError {
+            message: format!("Failed to get hostname: {}", e),
+        })?
         .to_string_lossy()
         .into_owned();
 
@@ -38,7 +41,7 @@ pub async fn get_current_user() -> Result<(String, String), String> {
 pub async fn select_folder(
     app: AppHandle,
     default_path: Option<String>,
-) -> Result<Option<String>, String> {
+) -> Result<Option<String>> {
     use tauri_plugin_dialog::DialogExt;
 
     let dialog = configure_dialog(app.dialog().file(), default_path);
@@ -50,7 +53,7 @@ pub async fn select_folder(
 pub async fn select_file(
     app: AppHandle,
     default_path: Option<String>,
-) -> Result<Option<String>, String> {
+) -> Result<Option<String>> {
     use tauri_plugin_dialog::DialogExt;
 
     let dialog = configure_dialog(app.dialog().file(), default_path);

@@ -44,12 +44,14 @@ export function Policies() {
 
   // Helper to get target string
   const getTargetString = (p: PolicyResponse): string => {
-    const t = p.target;
-    if (!t.userName && !t.host && !t.path) return '*/*/*';
-    if (!t.userName && t.host && !t.path) return `@${t.host}/*/*`;
-    if (t.userName && t.host && !t.path) return `${t.userName}@${t.host}/*`;
-    if (t.userName && t.host && t.path) return `${t.userName}@${t.host}:${t.path}`;
-    return 'unknown';
+    const target = p.target;
+    if (!target.userName && !target.host && !target.path) return '*/*/*';
+    if (!target.userName && target.host && !target.path) return `@${target.host}/*/*`;
+    if (target.userName && target.host && !target.path)
+      return `${target.userName}@${target.host}/*`;
+    if (target.userName && target.host && target.path)
+      return `${target.userName}@${target.host}:${target.path}`;
+    return t('tasks.unknown');
   };
 
   // Group policies by level according to Kopia's 4-level hierarchy:

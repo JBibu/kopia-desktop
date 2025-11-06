@@ -1,3 +1,4 @@
+use crate::error::{KopiaError, Result};
 use serde::{Deserialize, Serialize};
 use std::io::Write;
 use std::process::{Child, Command, Stdio};
@@ -64,9 +65,11 @@ impl KopiaServer {
     /// - Localhost-only binding (127.0.0.1)
     /// - HTTP Basic Auth with random session password
     /// - CSRF protection disabled (acceptable for localhost-only server)
-    pub fn start(&mut self, config_dir: &str) -> Result<KopiaServerInfo, String> {
+    pub fn start(&mut self, config_dir: &str) -> Result<KopiaServerInfo> {
         if self.is_running() {
-            return Err("Kopia server is already running".into());
+            return Err(KopiaError::ServerAlreadyRunning {
+                port: self.info.as_ref().map(|i| i.port).unwrap_or(DEFAULT_PORT),
+            });
         }
 
         let binary_path = self.get_kopia_binary_path()?;
@@ -104,18 +107,20 @@ impl KopiaServer {
             cmd.creation_flags(CREATE_NO_WINDOW);
         }
 
-        let mut child = cmd
-            .spawn()
-            .map_err(|e| format!("Failed to spawn Kopia server: {}", e))?;
+        let mut child = cmd.spawn().map_err(|e| KopiaError::BinaryExecutionFailed {
+            message: format!("Failed to spawn Kopia server: {}", e),
+            exit_code: None,
+            stderr: None,
+        })?;
 
         // Quick check that process didn't immediately crash
         std::thread::sleep(Duration::from_millis(STARTUP_CHECK_DELAY_MS));
         if let Ok(Some(status)) = child.try_wait() {
             let stderr = self.read_stderr(&mut child);
-            return Err(format!(
-                "Kopia server exited with status {}: {}",
-                status, stderr
-            ));
+            return Err(KopiaError::ServerStartFailed {
+                message: format!("Server process exited immediately with status: {}", status),
+                details: Some(stderr),
+            });
         }
 
         let info = KopiaServerInfo {
@@ -158,12 +163,12 @@ impl KopiaServer {
     /// Get a future to wait for server readiness (can be called outside mutex lock)
     pub fn get_ready_waiter(
         &self,
-    ) -> Result<impl std::future::Future<Output = Result<(), String>>, String> {
-        let http_client = self.http_client.clone().ok_or("Server not started")?;
+    ) -> Result<impl std::future::Future<Output = Result<()>>> {
+        let http_client = self.http_client.clone().ok_or(KopiaError::ServerNotRunning)?;
         let server_url = self
             .info
             .as_ref()
-            .ok_or("Server info not available")?
+            .ok_or(KopiaError::ServerNotRunning)?
             .server_url
             .clone();
 
@@ -171,8 +176,8 @@ impl KopiaServer {
     }
 
     /// Stop the Kopia server process gracefully
-    pub fn stop(&mut self) -> Result<(), String> {
-        let mut process = self.process.take().ok_or("Kopia server is not running")?;
+    pub fn stop(&mut self) -> Result<()> {
+        let mut process = self.process.take().ok_or(KopiaError::ServerNotRunning)?;
 
         // Try graceful shutdown via stdin
         if self.try_graceful_shutdown(&mut process)? {
@@ -182,18 +187,20 @@ impl KopiaServer {
 
         // Force kill if graceful shutdown failed
         log::warn!("Graceful shutdown timed out, forcing kill");
-        process
-            .kill()
-            .map_err(|e| format!("Failed to kill server: {}", e))?;
-        process
-            .wait()
-            .map_err(|e| format!("Failed to wait for server: {}", e))?;
+        process.kill().map_err(|e| KopiaError::ServerStopFailed {
+            message: format!("Failed to kill server process: {}", e),
+            details: None,
+        })?;
+        process.wait().map_err(|e| KopiaError::ServerStopFailed {
+            message: format!("Failed to wait for server termination: {}", e),
+            details: None,
+        })?;
         self.cleanup();
         Ok(())
     }
 
     /// Try to gracefully shutdown the process via stdin
-    fn try_graceful_shutdown(&self, process: &mut Child) -> Result<bool, String> {
+    fn try_graceful_shutdown(&self, process: &mut Child) -> Result<bool> {
         let Some(mut stdin) = process.stdin.take() else {
             return Ok(false);
         };
@@ -269,7 +276,7 @@ impl KopiaServer {
     }
 
     /// Get the path to the Kopia binary
-    fn get_kopia_binary_path(&self) -> Result<String, String> {
+    fn get_kopia_binary_path(&self) -> Result<String> {
         // Check for custom path via environment variable
         if let Ok(custom_path) = std::env::var("KOPIA_PATH") {
             return Ok(custom_path);
@@ -279,26 +286,32 @@ impl KopiaServer {
         let exe_dir = std::env::current_exe()
             .ok()
             .and_then(|p| p.parent().map(std::path::PathBuf::from))
-            .ok_or("Failed to get executable directory")?;
+            .ok_or(KopiaError::BinaryNotFound {
+                message: "Failed to determine executable directory".to_string(),
+                searched_paths: vec![],
+            })?;
 
         // Search paths in priority order
-        [
+        let search_paths = vec![
             exe_dir.join("../../../bin").join(binary_name), // Dev: target/debug
             exe_dir.join("../../bin").join(binary_name),    // Dev: alternative
             exe_dir.join("_up_/bin").join(binary_name),     // Production: Windows
             exe_dir.join("resources/bin").join(binary_name), // Production: macOS/Linux
             std::path::PathBuf::from("./bin").join(binary_name), // Current dir fallback
-        ]
-        .iter()
-        .find(|path| path.exists())
-        .and_then(|p| p.to_str())
-        .map(String::from)
-        .ok_or_else(|| {
-            format!(
-                "Kopia binary '{}' not found in standard locations",
-                binary_name
-            )
-        })
+        ];
+
+        search_paths
+            .iter()
+            .find(|path| path.exists())
+            .and_then(|p| p.to_str())
+            .map(String::from)
+            .ok_or_else(|| KopiaError::BinaryNotFound {
+                message: format!("Kopia binary '{}' not found", binary_name),
+                searched_paths: search_paths
+                    .iter()
+                    .filter_map(|p| p.to_str().map(String::from))
+                    .collect(),
+            })
     }
 
     /// Get platform-specific binary name
@@ -314,14 +327,17 @@ impl KopiaServer {
     }
 
     /// Find an available port starting from the given port
-    fn find_available_port(&self, start_port: u16) -> Result<u16, String> {
+    fn find_available_port(&self, start_port: u16) -> Result<u16> {
         use std::net::TcpListener;
 
         let end_port = start_port.saturating_add(PORT_SEARCH_RANGE);
 
         (start_port..=end_port)
             .find(|&port| TcpListener::bind(("127.0.0.1", port)).is_ok())
-            .ok_or_else(|| format!("No available ports in range {}-{}", start_port, end_port))
+            .ok_or_else(|| KopiaError::ServerStartFailed {
+                message: format!("No available ports in range {}-{}", start_port, end_port),
+                details: None,
+            })
     }
 
     /// Create HTTP client with Basic Auth credentials
@@ -329,11 +345,7 @@ impl KopiaServer {
     /// # Security Note
     /// Accepts self-signed certificates since we control the Kopia server
     /// and it's bound to localhost only. This is safe for local communication.
-    fn create_http_client(
-        &self,
-        username: &str,
-        password: &str,
-    ) -> Result<reqwest::Client, String> {
+    fn create_http_client(&self, username: &str, password: &str) -> Result<reqwest::Client> {
         use base64::Engine;
 
         let auth = format!("{}:{}", username, password);
@@ -349,8 +361,12 @@ impl KopiaServer {
         );
         headers.insert(
             reqwest::header::AUTHORIZATION,
-            reqwest::header::HeaderValue::from_str(&auth_header)
-                .map_err(|e| format!("Failed to create auth header: {}", e))?,
+            reqwest::header::HeaderValue::from_str(&auth_header).map_err(|e| {
+                KopiaError::InternalError {
+                    message: format!("Failed to create auth header: {}", e),
+                    details: None,
+                }
+            })?,
         );
 
         reqwest::Client::builder()
@@ -359,7 +375,10 @@ impl KopiaServer {
             .connect_timeout(Duration::from_secs(HTTP_CONNECT_TIMEOUT_SECS))
             .danger_accept_invalid_certs(true) // Accept self-signed certificates (localhost only)
             .build()
-            .map_err(|e| format!("Failed to create HTTP client: {}", e))
+            .map_err(|e| KopiaError::InternalError {
+                message: format!("Failed to create HTTP client: {}", e),
+                details: None,
+            })
     }
 
     /// Get the HTTP client for making API requests
@@ -377,19 +396,24 @@ pub fn create_server_state() -> KopiaServerState {
 }
 
 /// Wait for server to become ready (standalone async function)
-async fn wait_for_server_ready(
-    http_client: reqwest::Client,
-    server_url: String,
-) -> Result<(), String> {
+async fn wait_for_server_ready(http_client: reqwest::Client, server_url: String) -> Result<()> {
+    let mut last_error = None;
+
     for _ in 0..HEALTH_CHECK_RETRIES {
-        if let Ok(response) = http_client
+        match http_client
             .get(format!("{}/api/v1/repo/status", &server_url))
             .send()
             .await
         {
-            // Any non-5xx response means server is ready
-            if response.status().as_u16() < 500 {
-                return Ok(());
+            Ok(response) => {
+                // Any non-5xx response means server is ready
+                if response.status().as_u16() < 500 {
+                    return Ok(());
+                }
+                last_error = Some(format!("Server returned status: {}", response.status()));
+            }
+            Err(e) => {
+                last_error = Some(e.to_string());
             }
         }
 
@@ -397,8 +421,8 @@ async fn wait_for_server_ready(
     }
 
     let timeout_secs = (HEALTH_CHECK_RETRIES as u64 * HEALTH_CHECK_INTERVAL_MS) / 1000;
-    Err(format!(
-        "Server failed to respond within {} seconds",
-        timeout_secs
-    ))
+    Err(KopiaError::ServerNotReady {
+        message: last_error.unwrap_or_else(|| "Unknown error".to_string()),
+        timeout_seconds: timeout_secs,
+    })
 }

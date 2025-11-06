@@ -9,6 +9,7 @@
 //! - Graceful connection/disconnection handling
 //! - TLS support (required for Kopia server)
 
+use crate::error::{KopiaError, Result};
 use base64::Engine;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
@@ -102,11 +103,11 @@ impl KopiaWebSocket {
         username: &str,
         password: &str,
         app_handle: AppHandle,
-    ) -> Result<(), String> {
+    ) -> Result<()> {
         // Check if already connected
         let mut conn_guard = self.connection.lock().await;
         if conn_guard.is_some() {
-            return Err("WebSocket already connected".to_string());
+            return Err(KopiaError::WebSocketAlreadyConnected);
         }
 
         // Build WebSocket URL from HTTPS server URL
@@ -131,11 +132,15 @@ impl KopiaWebSocket {
             .header("Connection", "Upgrade")
             .header("Upgrade", "websocket")
             .body(())
-            .map_err(|e| format!("Failed to build WebSocket request: {}", e))?;
+            .map_err(|e| KopiaError::WebSocketConnectionFailed {
+                message: format!("Failed to build WebSocket request: {}", e),
+            })?;
 
         let (ws_stream, _) = connect_async(request)
             .await
-            .map_err(|e| format!("Failed to connect to WebSocket: {}", e))?;
+            .map_err(|e| KopiaError::WebSocketConnectionFailed {
+                message: format!("Failed to connect to WebSocket: {}", e),
+            })?;
 
         log::info!("WebSocket connected successfully");
 
@@ -196,7 +201,7 @@ impl KopiaWebSocket {
     }
 
     /// Disconnect from WebSocket
-    pub async fn disconnect(&self) -> Result<(), String> {
+    pub async fn disconnect(&self) -> Result<()> {
         let mut conn_guard = self.connection.lock().await;
 
         if let Some(conn) = conn_guard.take() {
@@ -204,7 +209,7 @@ impl KopiaWebSocket {
             conn.handle.abort();
             Ok(())
         } else {
-            Err("WebSocket not connected".to_string())
+            Err(KopiaError::WebSocketNotConnected)
         }
     }
 

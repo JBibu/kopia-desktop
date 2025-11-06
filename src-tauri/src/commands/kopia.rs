@@ -1,3 +1,4 @@
+use crate::error::{HttpResultExt, IoResultExt, JsonResultExt, KopiaError, Result};
 use crate::kopia_server::{KopiaServerInfo, KopiaServerState, KopiaServerStatus};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -15,9 +16,7 @@ macro_rules! lock_server {
 
 /// Start the Kopia server
 #[tauri::command]
-pub async fn kopia_server_start(
-    server: State<'_, KopiaServerState>,
-) -> Result<KopiaServerInfo, String> {
+pub async fn kopia_server_start(server: State<'_, KopiaServerState>) -> Result<KopiaServerInfo> {
     let config_dir = get_default_config_dir()?;
 
     let (info, ready_waiter) = {
@@ -33,7 +32,7 @@ pub async fn kopia_server_start(
 
 /// Stop the Kopia server
 #[tauri::command]
-pub async fn kopia_server_stop(server: State<'_, KopiaServerState>) -> Result<(), String> {
+pub async fn kopia_server_stop(server: State<'_, KopiaServerState>) -> Result<()> {
     lock_server!(server).stop()
 }
 
@@ -41,15 +40,17 @@ pub async fn kopia_server_stop(server: State<'_, KopiaServerState>) -> Result<()
 #[tauri::command]
 pub async fn kopia_server_status(
     server: State<'_, KopiaServerState>,
-) -> Result<KopiaServerStatus, String> {
+) -> Result<KopiaServerStatus> {
     Ok(lock_server!(server).status())
 }
 
 /// Get the default Kopia configuration directory
-pub fn get_default_config_dir() -> Result<String, String> {
+pub fn get_default_config_dir() -> Result<String> {
     let home_dir = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
-        .map_err(|_| "Cannot determine home directory".to_string())?;
+        .map_err(|_| KopiaError::EnvironmentError {
+            message: "Cannot determine home directory (HOME or USERPROFILE not set)".to_string(),
+        })?;
 
     #[cfg(target_os = "windows")]
     let config_dir = format!("{}\\AppData\\Roaming\\kopia", home_dir);
@@ -58,8 +59,7 @@ pub fn get_default_config_dir() -> Result<String, String> {
     let config_dir = format!("{}/.config/kopia", home_dir);
 
     // Ensure directory exists
-    std::fs::create_dir_all(&config_dir)
-        .map_err(|e| format!("Failed to create config directory: {}", e))?;
+    std::fs::create_dir_all(&config_dir).map_io_error(&config_dir)?;
 
     Ok(config_dir)
 }
@@ -105,16 +105,14 @@ pub struct RepositoryStatus {
 
 /// Get repository status
 #[tauri::command]
-pub async fn repository_status(
-    server: State<'_, KopiaServerState>,
-) -> Result<RepositoryStatus, String> {
+pub async fn repository_status(server: State<'_, KopiaServerState>) -> Result<RepositoryStatus> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
         .get(format!("{}/api/v1/repo/status", server_url))
         .send()
         .await
-        .map_err(|e| format!("Failed to get repository status: {}", e))?;
+        .map_http_error("Get repository status")?;
 
     handle_response(response, "Get repository status").await
 }
@@ -140,7 +138,7 @@ pub struct RepositoryConnectRequest {
 pub async fn repository_connect(
     server: State<'_, KopiaServerState>,
     config: RepositoryConnectRequest,
-) -> Result<RepositoryStatus, String> {
+) -> Result<RepositoryStatus> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
@@ -148,14 +146,19 @@ pub async fn repository_connect(
         .json(&config)
         .send()
         .await
-        .map_err(|e| format!("Failed to connect to repository: {}", e))?;
+        .map_http_error("Failed to connect to repository")?;
 
     if !response.status().is_success() {
+        let status = response.status();
         let error_text = response
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(format!("Failed to connect: {}", error_text));
+        return Err(KopiaError::from_api_response(
+            status.as_u16(),
+            &error_text,
+            "Connect to repository",
+        ));
     }
 
     // Return updated status
@@ -164,14 +167,14 @@ pub async fn repository_connect(
 
 /// Disconnect from repository
 #[tauri::command]
-pub async fn repository_disconnect(server: State<'_, KopiaServerState>) -> Result<(), String> {
+pub async fn repository_disconnect(server: State<'_, KopiaServerState>) -> Result<()> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
         .post(format!("{}/api/v1/repo/disconnect", server_url))
         .send()
         .await
-        .map_err(|e| format!("Failed to disconnect: {}", e))?;
+        .map_http_error("Failed to disconnect")?;
 
     handle_empty_response(response, "Disconnect from repository").await
 }
@@ -181,7 +184,7 @@ pub async fn repository_disconnect(server: State<'_, KopiaServerState>) -> Resul
 pub async fn repository_create(
     server: State<'_, KopiaServerState>,
     config: crate::types::RepositoryCreateRequest,
-) -> Result<String, String> {
+) -> Result<String> {
     let (server_url, client) = get_server_client(&server)?;
 
     #[derive(Deserialize)]
@@ -195,7 +198,7 @@ pub async fn repository_create(
         .json(&config)
         .send()
         .await
-        .map_err(|e| format!("Failed to create repository: {}", e))?;
+        .map_http_error("Failed to create repository")?;
 
     let result: CreateResponse = handle_response(response, "Create repository").await?;
     Ok(result.init_task_id)
@@ -210,7 +213,7 @@ pub async fn repository_create(
 pub async fn repository_exists(
     server: State<'_, KopiaServerState>,
     storage: StorageConfig,
-) -> Result<bool, String> {
+) -> Result<bool> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
@@ -218,7 +221,7 @@ pub async fn repository_exists(
         .json(&serde_json::json!({ "storage": storage }))
         .send()
         .await
-        .map_err(|e| format!("Failed to check repository: {}", e))?;
+        .map_http_error("Failed to check repository")?;
 
     if !response.status().is_success() {
         let error_text = response
@@ -239,10 +242,16 @@ pub async fn repository_exists(
                 return Ok(false);
             }
             // Return the detailed error message
-            return Err(err.error.unwrap_or(error_text));
+            return Err(KopiaError::RepositoryOperationFailed {
+                operation: "Check repository exists".to_string(),
+                message: err.error.unwrap_or(error_text),
+            });
         }
 
-        return Err(format!("Failed to check repository: {}", error_text));
+        return Err(KopiaError::RepositoryOperationFailed {
+            operation: "Check repository exists".to_string(),
+            message: error_text,
+        });
     }
 
     // Success response is just an empty object {}, which means repository exists
@@ -253,14 +262,14 @@ pub async fn repository_exists(
 #[tauri::command]
 pub async fn repository_get_algorithms(
     server: State<'_, KopiaServerState>,
-) -> Result<crate::types::AlgorithmsResponse, String> {
+) -> Result<crate::types::AlgorithmsResponse> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
         .get(format!("{}/api/v1/repo/algorithms", server_url))
         .send()
         .await
-        .map_err(|e| format!("Failed to get algorithms: {}", e))?;
+        .map_http_error("Failed to get algorithms")?;
 
     handle_response(response, "Get algorithms").await
 }
@@ -270,7 +279,7 @@ pub async fn repository_get_algorithms(
 pub async fn repository_update_description(
     server: State<'_, KopiaServerState>,
     description: String,
-) -> Result<(), String> {
+) -> Result<()> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
@@ -278,7 +287,7 @@ pub async fn repository_update_description(
         .json(&serde_json::json!({ "description": description }))
         .send()
         .await
-        .map_err(|e| format!("Failed to update description: {}", e))?;
+        .map_http_error("Failed to update description")?;
 
     handle_empty_response(response, "Update description").await
 }
@@ -291,14 +300,14 @@ pub async fn repository_update_description(
 #[tauri::command]
 pub async fn sources_list(
     server: State<'_, KopiaServerState>,
-) -> Result<crate::types::SourcesResponse, String> {
+) -> Result<crate::types::SourcesResponse> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
         .get(format!("{}/api/v1/sources", server_url))
         .send()
         .await
-        .map_err(|e| format!("Failed to list sources: {}", e))?;
+        .map_http_error("Failed to list sources")?;
 
     handle_response(response, "List sources").await
 }
@@ -310,7 +319,7 @@ pub async fn snapshot_create(
     path: String,
     user_name: Option<String>,
     host: Option<String>,
-) -> Result<crate::types::SourceInfo, String> {
+) -> Result<crate::types::SourceInfo> {
     let (server_url, client) = get_server_client(&server)?;
 
     // First, resolve the path to get source info (userName@host)
@@ -321,7 +330,7 @@ pub async fn snapshot_create(
             .json(&serde_json::json!({ "path": path }))
             .send()
             .await
-            .map_err(|e| format!("Failed to resolve path: {}", e))?;
+            .map_http_error("Failed to resolve path")?;
 
         let status = resolve_response.status();
         log::info!("Resolve response status: {}", status);
@@ -332,7 +341,10 @@ pub async fn snapshot_create(
                 .await
                 .unwrap_or_else(|_| "Unknown error".to_string());
             log::error!("Failed to resolve path: {}", error_text);
-            return Err(format!("Failed to resolve path: {}", error_text));
+            return Err(KopiaError::PathResolutionFailed {
+                path: path.clone(),
+                message: error_text,
+            });
         }
 
         #[derive(Deserialize)]
@@ -344,7 +356,7 @@ pub async fn snapshot_create(
         let resolve_result: ResolveResponse = resolve_response
             .json()
             .await
-            .map_err(|e| format!("Failed to parse resolve response: {}", e))?;
+            .map_http_error("Failed to parse resolve response")?;
 
         resolve_result.source
     };
@@ -381,7 +393,7 @@ pub async fn snapshot_create(
         .json(&payload)
         .send()
         .await
-        .map_err(|e| format!("Failed to create snapshot: {}", e))?;
+        .map_http_error("Failed to create snapshot")?;
 
     let status = response.status();
     log::info!("Create snapshot response status: {}", status);
@@ -392,7 +404,10 @@ pub async fn snapshot_create(
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
         log::error!("Failed to create snapshot: {}", error_text);
-        return Err(format!("Failed to create snapshot: {}", error_text));
+        return Err(KopiaError::SnapshotCreationFailed {
+            message: error_text,
+            path: Some(path.clone()),
+        });
     }
 
     // API returns {"snapshotted": bool}
@@ -405,10 +420,13 @@ pub async fn snapshot_create(
     let result: CreateResponse = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_http_error("Failed to parse response")?;
 
     if !result.snapshotted {
-        return Err("Snapshot was not started".to_string());
+        return Err(KopiaError::SnapshotCreationFailed {
+            message: "Snapshot was not started by server".to_string(),
+            path: Some(path),
+        });
     }
 
     Ok(source_info)
@@ -421,7 +439,7 @@ pub async fn snapshot_cancel(
     user_name: String,
     host: String,
     path: String,
-) -> Result<(), String> {
+) -> Result<()> {
     let (server_url, client) = get_server_client(&server)?;
 
     let query_params = format!(
@@ -438,10 +456,10 @@ pub async fn snapshot_cancel(
         ))
         .send()
         .await
-        .map_err(|e| format!("Failed to cancel snapshot: {}", e))?;
+        .map_http_error("Failed to cancel snapshot")?;
 
     if !response.status().is_success() {
-        return Err(format!("Failed to cancel snapshot: {}", response.status()));
+        return Err(KopiaError::HttpRequestFailed { message: "Failed to cancel snapshot".to_string(), status_code: Some(response.status().as_u16()), url: None });
     }
 
     Ok(())
@@ -459,7 +477,7 @@ pub async fn snapshots_list(
     host: String,
     path: String,
     all: bool,
-) -> Result<crate::types::SnapshotsResponse, String> {
+) -> Result<crate::types::SnapshotsResponse> {
     let (server_url, client) = get_server_client(&server)?;
 
     let query_params = format!(
@@ -474,16 +492,16 @@ pub async fn snapshots_list(
         .get(format!("{}/api/v1/snapshots{}", server_url, query_params))
         .send()
         .await
-        .map_err(|e| format!("Failed to list snapshots: {}", e))?;
+        .map_http_error("Failed to list snapshots")?;
 
     if !response.status().is_success() {
-        return Err(format!("Failed to list snapshots: {}", response.status()));
+        return Err(KopiaError::HttpRequestFailed { message: "Failed to list snapshots".to_string(), status_code: Some(response.status().as_u16()), url: None });
     }
 
     let result = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_http_error("Failed to parse response")?;
 
     Ok(result)
 }
@@ -493,7 +511,7 @@ pub async fn snapshots_list(
 pub async fn snapshot_edit(
     server: State<'_, KopiaServerState>,
     request: crate::types::SnapshotEditRequest,
-) -> Result<(), String> {
+) -> Result<()> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
@@ -501,14 +519,19 @@ pub async fn snapshot_edit(
         .json(&request)
         .send()
         .await
-        .map_err(|e| format!("Failed to edit snapshot: {}", e))?;
+        .map_http_error("Failed to edit snapshot")?;
 
     if !response.status().is_success() {
+        let status = response.status();
         let error_text = response
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(format!("Failed to edit snapshot: {}", error_text));
+        return Err(KopiaError::from_api_response(
+            status.as_u16(),
+            &error_text,
+            "Edit snapshot",
+        ));
     }
 
     Ok(())
@@ -519,7 +542,7 @@ pub async fn snapshot_edit(
 pub async fn snapshot_delete(
     server: State<'_, KopiaServerState>,
     manifest_ids: Vec<String>,
-) -> Result<i64, String> {
+) -> Result<i64> {
     let (server_url, client) = get_server_client(&server)?;
 
     // The API expects "snapshotManifestIds" (not "manifestIDs")
@@ -528,14 +551,19 @@ pub async fn snapshot_delete(
         .json(&serde_json::json!({ "snapshotManifestIds": manifest_ids }))
         .send()
         .await
-        .map_err(|e| format!("Failed to delete snapshots: {}", e))?;
+        .map_http_error("Failed to delete snapshots")?;
 
     if !response.status().is_success() {
+        let status = response.status();
         let error_text = response
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(format!("Failed to delete snapshots: {}", error_text));
+        return Err(KopiaError::from_api_response(
+            status.as_u16(),
+            &error_text,
+            "Delete snapshots",
+        ));
     }
 
     #[derive(Deserialize)]
@@ -546,7 +574,7 @@ pub async fn snapshot_delete(
     let result: DeleteResponse = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_http_error("Failed to parse response")?;
 
     Ok(result.deleted)
 }
@@ -560,23 +588,23 @@ pub async fn snapshot_delete(
 pub async fn object_browse(
     server: State<'_, KopiaServerState>,
     object_id: String,
-) -> Result<crate::types::DirectoryObject, String> {
+) -> Result<crate::types::DirectoryObject> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
         .get(format!("{}/api/v1/objects/{}", server_url, object_id))
         .send()
         .await
-        .map_err(|e| format!("Failed to browse object: {}", e))?;
+        .map_http_error("Failed to browse object")?;
 
     if !response.status().is_success() {
-        return Err(format!("Failed to browse object: {}", response.status()));
+        return Err(KopiaError::HttpRequestFailed { message: "Failed to browse object".to_string(), status_code: Some(response.status().as_u16()), url: None });
     }
 
     let result = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_http_error("Failed to parse response")?;
 
     Ok(result)
 }
@@ -588,7 +616,7 @@ pub async fn object_download(
     object_id: String,
     filename: String,
     target_path: String,
-) -> Result<(), String> {
+) -> Result<()> {
     let (server_url, client) = get_server_client(&server)?;
 
     let query_params = format!("?fname={}", urlencoding::encode(&filename));
@@ -600,20 +628,20 @@ pub async fn object_download(
         ))
         .send()
         .await
-        .map_err(|e| format!("Failed to download object: {}", e))?;
+        .map_http_error("Failed to download object")?;
 
     if !response.status().is_success() {
-        return Err(format!("Failed to download object: {}", response.status()));
+        return Err(KopiaError::HttpRequestFailed { message: "Failed to download object".to_string(), status_code: Some(response.status().as_u16()), url: None });
     }
 
     // Get the file content
     let bytes = response
         .bytes()
         .await
-        .map_err(|e| format!("Failed to read response: {}", e))?;
+        .map_http_error("Failed to read response")?;
 
     // Write to target path
-    std::fs::write(&target_path, bytes).map_err(|e| format!("Failed to write file: {}", e))?;
+    std::fs::write(&target_path, bytes).map_io_error(&target_path)?;
 
     Ok(())
 }
@@ -623,7 +651,7 @@ pub async fn object_download(
 pub async fn restore_start(
     server: State<'_, KopiaServerState>,
     request: crate::types::RestoreRequest,
-) -> Result<String, String> {
+) -> Result<String> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
@@ -631,14 +659,15 @@ pub async fn restore_start(
         .json(&request)
         .send()
         .await
-        .map_err(|e| format!("Failed to start restore: {}", e))?;
+        .map_http_error("Failed to start restore")?;
 
-    if !response.status().is_success() {
+    let status = response.status();
+    if !status.is_success() {
         let error_text = response
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(format!("Failed to start restore: {}", error_text));
+        return Err(KopiaError::HttpRequestFailed { message: format!("Failed to start restore: {}", error_text), status_code: Some(status.as_u16()), url: None });
     }
 
     #[derive(Deserialize)]
@@ -649,7 +678,7 @@ pub async fn restore_start(
     let result: RestoreResponse = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_http_error("Failed to parse response")?;
 
     Ok(result.id)
 }
@@ -659,7 +688,7 @@ pub async fn restore_start(
 pub async fn mount_snapshot(
     server: State<'_, KopiaServerState>,
     root: String,
-) -> Result<String, String> {
+) -> Result<String> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
@@ -667,20 +696,21 @@ pub async fn mount_snapshot(
         .json(&serde_json::json!({ "root": root }))
         .send()
         .await
-        .map_err(|e| format!("Failed to mount snapshot: {}", e))?;
+        .map_http_error("Failed to mount snapshot")?;
 
-    if !response.status().is_success() {
+    let status = response.status();
+    if !status.is_success() {
         let error_text = response
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(format!("Failed to mount snapshot: {}", error_text));
+        return Err(KopiaError::HttpRequestFailed { message: format!("Failed to mount snapshot: {}", error_text), status_code: Some(status.as_u16()), url: None });
     }
 
     let result: crate::types::MountResponse = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_http_error("Failed to parse response")?;
 
     Ok(result.path)
 }
@@ -689,23 +719,23 @@ pub async fn mount_snapshot(
 #[tauri::command]
 pub async fn mounts_list(
     server: State<'_, KopiaServerState>,
-) -> Result<crate::types::MountsResponse, String> {
+) -> Result<crate::types::MountsResponse> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
         .get(format!("{}/api/v1/mounts", server_url))
         .send()
         .await
-        .map_err(|e| format!("Failed to list mounts: {}", e))?;
+        .map_http_error("Failed to list mounts")?;
 
     if !response.status().is_success() {
-        return Err(format!("Failed to list mounts: {}", response.status()));
+        return Err(KopiaError::HttpRequestFailed { message: "Failed to list mounts".to_string(), status_code: Some(response.status().as_u16()), url: None });
     }
 
     let result = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_http_error("Failed to parse response")?;
 
     Ok(result)
 }
@@ -715,17 +745,17 @@ pub async fn mounts_list(
 pub async fn mount_unmount(
     server: State<'_, KopiaServerState>,
     object_id: String,
-) -> Result<(), String> {
+) -> Result<()> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
         .delete(format!("{}/api/v1/mounts/{}", server_url, object_id))
         .send()
         .await
-        .map_err(|e| format!("Failed to unmount snapshot: {}", e))?;
+        .map_http_error("Failed to unmount snapshot")?;
 
     if !response.status().is_success() {
-        return Err(format!("Failed to unmount snapshot: {}", response.status()));
+        return Err(KopiaError::HttpRequestFailed { message: "Failed to unmount snapshot".to_string(), status_code: Some(response.status().as_u16()), url: None });
     }
 
     Ok(())
@@ -739,25 +769,29 @@ pub async fn mount_unmount(
 #[tauri::command]
 pub async fn policies_list(
     server: State<'_, KopiaServerState>,
-) -> Result<crate::types::PoliciesResponse, String> {
+) -> Result<crate::types::PoliciesResponse> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
         .get(format!("{}/api/v1/policies", server_url))
         .send()
         .await
-        .map_err(|e| format!("Failed to list policies: {}", e))?;
+        .map_http_error("Failed to list policies")?;
 
     if !response.status().is_success() {
         let status = response.status();
         let body = response.text().await.unwrap_or_default();
-        return Err(format!("Failed to list policies: {} - {}", status, body));
+        return Err(KopiaError::from_api_response(
+            status.as_u16(),
+            &body,
+            "List policies",
+        ));
     }
 
     let result = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse policies response: {}", e))?;
+        .map_http_error("Failed to parse policies response")?;
 
     Ok(result)
 }
@@ -769,7 +803,7 @@ pub async fn policy_get(
     user_name: Option<String>,
     host: Option<String>,
     path: Option<String>,
-) -> Result<crate::types::PolicyWithTarget, String> {
+) -> Result<crate::types::PolicyWithTarget> {
     let (server_url, client) = get_server_client(&server)?;
 
     let mut query_parts = Vec::new();
@@ -793,16 +827,16 @@ pub async fn policy_get(
         .get(format!("{}/api/v1/policy{}", server_url, query_string))
         .send()
         .await
-        .map_err(|e| format!("Failed to get policy: {}", e))?;
+        .map_http_error("Failed to get policy")?;
 
     if !response.status().is_success() {
-        return Err(format!("Failed to get policy: {}", response.status()));
+        return Err(KopiaError::HttpRequestFailed { message: "Failed to get policy".to_string(), status_code: Some(response.status().as_u16()), url: None });
     }
 
     let result = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_http_error("Failed to parse response")?;
 
     Ok(result)
 }
@@ -815,7 +849,7 @@ pub async fn policy_resolve(
     host: Option<String>,
     path: Option<String>,
     updates: Option<crate::types::PolicyDefinition>,
-) -> Result<crate::types::ResolvedPolicyResponse, String> {
+) -> Result<crate::types::ResolvedPolicyResponse> {
     let (server_url, client) = get_server_client(&server)?;
 
     let mut query_parts = Vec::new();
@@ -838,7 +872,7 @@ pub async fn policy_resolve(
     let mut payload = serde_json::Map::new();
     if let Some(upd) = updates {
         let value = serde_json::to_value(upd)
-            .map_err(|e| format!("Failed to serialize policy updates: {}", e))?;
+            .map_json_error("Failed to serialize policy updates")?;
         payload.insert("updates".to_string(), value);
     }
 
@@ -850,20 +884,21 @@ pub async fn policy_resolve(
         .json(&payload)
         .send()
         .await
-        .map_err(|e| format!("Failed to resolve policy: {}", e))?;
+        .map_http_error("Failed to resolve policy")?;
 
-    if !response.status().is_success() {
+    let status = response.status();
+    if !status.is_success() {
         let error_text = response
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(format!("Failed to resolve policy: {}", error_text));
+        return Err(KopiaError::HttpRequestFailed { message: format!("Failed to resolve policy: {}", error_text), status_code: Some(status.as_u16()), url: None });
     }
 
     let result = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_http_error("Failed to parse response")?;
 
     Ok(result)
 }
@@ -876,7 +911,7 @@ pub async fn policy_set(
     host: Option<String>,
     path: Option<String>,
     policy: crate::types::PolicyDefinition,
-) -> Result<(), String> {
+) -> Result<()> {
     let (server_url, client) = get_server_client(&server)?;
 
     let mut query_parts = Vec::new();
@@ -901,14 +936,15 @@ pub async fn policy_set(
         .json(&serde_json::json!({ "policy": policy }))
         .send()
         .await
-        .map_err(|e| format!("Failed to set policy: {}", e))?;
+        .map_http_error("Failed to set policy")?;
 
-    if !response.status().is_success() {
+    let status = response.status();
+    if !status.is_success() {
         let error_text = response
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(format!("Failed to set policy: {}", error_text));
+        return Err(KopiaError::HttpRequestFailed { message: format!("Failed to set policy: {}", error_text), status_code: Some(status.as_u16()), url: None });
     }
 
     Ok(())
@@ -921,7 +957,7 @@ pub async fn policy_delete(
     user_name: Option<String>,
     host: Option<String>,
     path: Option<String>,
-) -> Result<(), String> {
+) -> Result<()> {
     let (server_url, client) = get_server_client(&server)?;
 
     let mut query_parts = Vec::new();
@@ -945,10 +981,10 @@ pub async fn policy_delete(
         .delete(format!("{}/api/v1/policy{}", server_url, query_string))
         .send()
         .await
-        .map_err(|e| format!("Failed to delete policy: {}", e))?;
+        .map_http_error("Failed to delete policy")?;
 
     if !response.status().is_success() {
-        return Err(format!("Failed to delete policy: {}", response.status()));
+        return Err(KopiaError::HttpRequestFailed { message: "Failed to delete policy".to_string(), status_code: Some(response.status().as_u16()), url: None });
     }
 
     Ok(())
@@ -962,23 +998,23 @@ pub async fn policy_delete(
 #[tauri::command]
 pub async fn tasks_list(
     server: State<'_, KopiaServerState>,
-) -> Result<crate::types::TasksResponse, String> {
+) -> Result<crate::types::TasksResponse> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
         .get(format!("{}/api/v1/tasks", server_url))
         .send()
         .await
-        .map_err(|e| format!("Failed to list tasks: {}", e))?;
+        .map_http_error("Failed to list tasks")?;
 
     if !response.status().is_success() {
-        return Err(format!("Failed to list tasks: {}", response.status()));
+        return Err(KopiaError::HttpRequestFailed { message: "Failed to list tasks".to_string(), status_code: Some(response.status().as_u16()), url: None });
     }
 
     let result = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_http_error("Failed to parse response")?;
 
     Ok(result)
 }
@@ -988,23 +1024,23 @@ pub async fn tasks_list(
 pub async fn task_get(
     server: State<'_, KopiaServerState>,
     task_id: String,
-) -> Result<crate::types::TaskDetail, String> {
+) -> Result<crate::types::TaskDetail> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
         .get(format!("{}/api/v1/tasks/{}", server_url, task_id))
         .send()
         .await
-        .map_err(|e| format!("Failed to get task: {}", e))?;
+        .map_http_error("Failed to get task")?;
 
     if !response.status().is_success() {
-        return Err(format!("Failed to get task: {}", response.status()));
+        return Err(KopiaError::HttpRequestFailed { message: "Failed to get task".to_string(), status_code: Some(response.status().as_u16()), url: None });
     }
 
     let result: crate::types::TaskDetail = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_http_error("Failed to parse response")?;
 
     Ok(result)
 }
@@ -1014,17 +1050,17 @@ pub async fn task_get(
 pub async fn task_logs(
     server: State<'_, KopiaServerState>,
     task_id: String,
-) -> Result<Vec<String>, String> {
+) -> Result<Vec<String>> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
         .get(format!("{}/api/v1/tasks/{}/logs", server_url, task_id))
         .send()
         .await
-        .map_err(|e| format!("Failed to get task logs: {}", e))?;
+        .map_http_error("Failed to get task logs")?;
 
     if !response.status().is_success() {
-        return Err(format!("Failed to get task logs: {}", response.status()));
+        return Err(KopiaError::HttpRequestFailed { message: "Failed to get task logs".to_string(), status_code: Some(response.status().as_u16()), url: None });
     }
 
     #[derive(Deserialize)]
@@ -1035,7 +1071,7 @@ pub async fn task_logs(
     let result: LogsResponse = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_http_error("Failed to parse response")?;
 
     Ok(result.logs)
 }
@@ -1045,17 +1081,17 @@ pub async fn task_logs(
 pub async fn task_cancel(
     server: State<'_, KopiaServerState>,
     task_id: String,
-) -> Result<(), String> {
+) -> Result<()> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
         .post(format!("{}/api/v1/tasks/{}/cancel", server_url, task_id))
         .send()
         .await
-        .map_err(|e| format!("Failed to cancel task: {}", e))?;
+        .map_http_error("Failed to cancel task")?;
 
     if !response.status().is_success() {
-        return Err(format!("Failed to cancel task: {}", response.status()));
+        return Err(KopiaError::HttpRequestFailed { message: "Failed to cancel task".to_string(), status_code: Some(response.status().as_u16()), url: None });
     }
 
     Ok(())
@@ -1065,26 +1101,28 @@ pub async fn task_cancel(
 #[tauri::command]
 pub async fn tasks_summary(
     server: State<'_, KopiaServerState>,
-) -> Result<crate::types::TasksSummary, String> {
+) -> Result<crate::types::TasksSummary> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
         .get(format!("{}/api/v1/tasks-summary", server_url))
         .send()
         .await
-        .map_err(|e| format!("Failed to get tasks summary: {}", e))?;
+        .map_http_error("Failed to get tasks summary")?;
 
     if !response.status().is_success() {
-        return Err(format!(
-            "Failed to get tasks summary: {}",
-            response.status()
-        ));
+        let status = response.status();
+        return Err(KopiaError::HttpRequestFailed {
+            message: "Failed to get tasks summary".to_string(),
+            status_code: Some(status.as_u16()),
+            url: None,
+        });
     }
 
     let result = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_http_error("Failed to parse response")?;
 
     Ok(result)
 }
@@ -1097,26 +1135,23 @@ pub async fn tasks_summary(
 #[tauri::command]
 pub async fn maintenance_info(
     server: State<'_, KopiaServerState>,
-) -> Result<crate::types::MaintenanceInfo, String> {
+) -> Result<crate::types::MaintenanceInfo> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
         .get(format!("{}/api/v1/repo/maintenance/info", server_url))
         .send()
         .await
-        .map_err(|e| format!("Failed to get maintenance info: {}", e))?;
+        .map_http_error("Failed to get maintenance info")?;
 
     if !response.status().is_success() {
-        return Err(format!(
-            "Failed to get maintenance info: {}",
-            response.status()
-        ));
+        return Err(KopiaError::HttpRequestFailed { message: "Failed to get maintenance info".to_string(), status_code: Some(response.status().as_u16()), url: None });
     }
 
     let result = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_http_error("Failed to parse response")?;
 
     Ok(result)
 }
@@ -1127,7 +1162,7 @@ pub async fn maintenance_run(
     server: State<'_, KopiaServerState>,
     full: bool,
     safety: Option<String>,
-) -> Result<String, String> {
+) -> Result<String> {
     let (server_url, client) = get_server_client(&server)?;
 
     let mut payload = serde_json::Map::new();
@@ -1141,14 +1176,15 @@ pub async fn maintenance_run(
         .json(&payload)
         .send()
         .await
-        .map_err(|e| format!("Failed to run maintenance: {}", e))?;
+        .map_http_error("Failed to run maintenance")?;
 
-    if !response.status().is_success() {
+    let status = response.status();
+    if !status.is_success() {
         let error_text = response
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(format!("Failed to run maintenance: {}", error_text));
+        return Err(KopiaError::HttpRequestFailed { message: format!("Failed to run maintenance: {}", error_text), status_code: Some(status.as_u16()), url: None });
     }
 
     #[derive(Deserialize)]
@@ -1159,7 +1195,7 @@ pub async fn maintenance_run(
     let result: MaintenanceResponse = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_http_error("Failed to parse response")?;
 
     Ok(result.id)
 }
@@ -1172,23 +1208,23 @@ pub async fn maintenance_run(
 #[tauri::command]
 pub async fn current_user_get(
     server: State<'_, KopiaServerState>,
-) -> Result<crate::types::CurrentUserResponse, String> {
+) -> Result<crate::types::CurrentUserResponse> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
         .get(format!("{}/api/v1/current-user", server_url))
         .send()
         .await
-        .map_err(|e| format!("Failed to get current user: {}", e))?;
+        .map_http_error("Failed to get current user")?;
 
     if !response.status().is_success() {
-        return Err(format!("Failed to get current user: {}", response.status()));
+        return Err(KopiaError::HttpRequestFailed { message: "Failed to get current user".to_string(), status_code: Some(response.status().as_u16()), url: None });
     }
 
     let result = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_http_error("Failed to parse response")?;
 
     Ok(result)
 }
@@ -1198,7 +1234,7 @@ pub async fn current_user_get(
 pub async fn path_resolve(
     server: State<'_, KopiaServerState>,
     path: String,
-) -> Result<crate::types::SourceInfo, String> {
+) -> Result<crate::types::SourceInfo> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
@@ -1206,14 +1242,15 @@ pub async fn path_resolve(
         .json(&serde_json::json!({ "path": path }))
         .send()
         .await
-        .map_err(|e| format!("Failed to resolve path: {}", e))?;
+        .map_http_error("Failed to resolve path")?;
 
-    if !response.status().is_success() {
+    let status = response.status();
+    if !status.is_success() {
         let error_text = response
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(format!("Failed to resolve path: {}", error_text));
+        return Err(KopiaError::HttpRequestFailed { message: format!("Failed to resolve path: {}", error_text), status_code: Some(status.as_u16()), url: None });
     }
 
     #[derive(Deserialize)]
@@ -1225,7 +1262,7 @@ pub async fn path_resolve(
     let result: PathResolveResponse = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_http_error("Failed to parse response")?;
 
     Ok(result.source)
 }
@@ -1247,7 +1284,7 @@ pub async fn estimate_snapshot(
     server: State<'_, KopiaServerState>,
     path: String,
     max_examples_per_bucket: Option<i64>,
-) -> Result<crate::types::EstimateResponse, String> {
+) -> Result<crate::types::EstimateResponse> {
     let (server_url, client) = get_server_client(&server)?;
 
     // Step 1: Resolve the path to get the absolute path
@@ -1257,7 +1294,7 @@ pub async fn estimate_snapshot(
             .json(&serde_json::json!({ "path": path }))
             .send()
             .await
-            .map_err(|e| format!("Failed to resolve path: {}", e))?;
+            .map_http_error("Failed to resolve path")?;
 
         let status = resolve_response.status();
         if !status.is_success() {
@@ -1265,7 +1302,7 @@ pub async fn estimate_snapshot(
                 .text()
                 .await
                 .unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(format!("Failed to resolve path: {}", error_text));
+            return Err(KopiaError::HttpRequestFailed { message: format!("Failed to resolve path: {}", error_text), status_code: Some(status.as_u16()), url: None });
         }
 
         #[derive(Deserialize)]
@@ -1277,7 +1314,7 @@ pub async fn estimate_snapshot(
         let resolve_result: ResolveResponse = resolve_response
             .json()
             .await
-            .map_err(|e| format!("Failed to parse resolve response: {}", e))?;
+            .map_http_error("Failed to parse resolve response")?;
 
         resolve_result.source.path
     };
@@ -1293,7 +1330,7 @@ pub async fn estimate_snapshot(
         .json(&estimate_req)
         .send()
         .await
-        .map_err(|e| format!("Failed to estimate snapshot: {}", e))?;
+        .map_http_error("Failed to estimate snapshot")?;
 
     let status = response.status();
     if !status.is_success() {
@@ -1301,13 +1338,13 @@ pub async fn estimate_snapshot(
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(format!("Failed to estimate snapshot: {}", error_text));
+        return Err(KopiaError::HttpRequestFailed { message: format!("Failed to estimate snapshot: {}", error_text), status_code: Some(status.as_u16()), url: None });
     }
 
     let result: crate::types::EstimateResponse = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse estimate response: {}", e))?;
+        .map_http_error("Failed to parse estimate response")?;
 
     Ok(result)
 }
@@ -1316,26 +1353,23 @@ pub async fn estimate_snapshot(
 #[tauri::command]
 pub async fn ui_preferences_get(
     server: State<'_, KopiaServerState>,
-) -> Result<crate::types::UIPreferences, String> {
+) -> Result<crate::types::UIPreferences> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
         .get(format!("{}/api/v1/ui-preferences", server_url))
         .send()
         .await
-        .map_err(|e| format!("Failed to get UI preferences: {}", e))?;
+        .map_http_error("Failed to get UI preferences")?;
 
     if !response.status().is_success() {
-        return Err(format!(
-            "Failed to get UI preferences: {}",
-            response.status()
-        ));
+        return Err(KopiaError::HttpRequestFailed { message: "Failed to get UI preferences".to_string(), status_code: Some(response.status().as_u16()), url: None });
     }
 
     let result = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+        .map_http_error("Failed to parse response")?;
 
     Ok(result)
 }
@@ -1345,7 +1379,7 @@ pub async fn ui_preferences_get(
 pub async fn ui_preferences_set(
     server: State<'_, KopiaServerState>,
     preferences: crate::types::UIPreferences,
-) -> Result<(), String> {
+) -> Result<()> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
@@ -1353,14 +1387,15 @@ pub async fn ui_preferences_set(
         .json(&preferences)
         .send()
         .await
-        .map_err(|e| format!("Failed to set UI preferences: {}", e))?;
+        .map_http_error("Failed to set UI preferences")?;
 
-    if !response.status().is_success() {
+    let status = response.status();
+    if !status.is_success() {
         let error_text = response
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(format!("Failed to set UI preferences: {}", error_text));
+        return Err(KopiaError::HttpRequestFailed { message: format!("Failed to set UI preferences: {}", error_text), status_code: Some(status.as_u16()), url: None });
     }
 
     Ok(())
@@ -1374,24 +1409,21 @@ pub async fn ui_preferences_set(
 #[tauri::command]
 pub async fn notification_profiles_list(
     server: State<'_, KopiaServerState>,
-) -> Result<Vec<crate::types::NotificationProfile>, String> {
+) -> Result<Vec<crate::types::NotificationProfile>> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
         .get(format!("{}/api/v1/notificationProfiles", server_url))
         .send()
         .await
-        .map_err(|e| format!("Failed to list notification profiles: {}", e))?;
+        .map_http_error("Failed to list notification profiles")?;
 
     if !response.status().is_success() {
         // If 404 or no profiles, return empty array
         if response.status().as_u16() == 404 {
             return Ok(vec![]);
         }
-        return Err(format!(
-            "Failed to list notification profiles: {}",
-            response.status()
-        ));
+        return Err(KopiaError::HttpRequestFailed { message: "Failed to list notification profiles".to_string(), status_code: Some(response.status().as_u16()), url: None });
     }
 
     let result: Vec<crate::types::NotificationProfile> =
@@ -1405,7 +1437,7 @@ pub async fn notification_profiles_list(
 pub async fn notification_profile_create(
     server: State<'_, KopiaServerState>,
     profile: crate::types::NotificationProfile,
-) -> Result<(), String> {
+) -> Result<()> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
@@ -1413,17 +1445,19 @@ pub async fn notification_profile_create(
         .json(&profile)
         .send()
         .await
-        .map_err(|e| format!("Failed to create notification profile: {}", e))?;
+        .map_http_error("Failed to create notification profile")?;
 
-    if !response.status().is_success() {
+    let status = response.status();
+    if !status.is_success() {
         let error_text = response
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(format!(
-            "Failed to create notification profile: {}",
-            error_text
-        ));
+        return Err(KopiaError::HttpRequestFailed {
+            message: format!("Failed to create notification profile: {}", error_text),
+            status_code: Some(status.as_u16()),
+            url: None,
+        });
     }
 
     Ok(())
@@ -1434,7 +1468,7 @@ pub async fn notification_profile_create(
 pub async fn notification_profile_delete(
     server: State<'_, KopiaServerState>,
     profile_name: String,
-) -> Result<(), String> {
+) -> Result<()> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
@@ -1444,13 +1478,10 @@ pub async fn notification_profile_delete(
         ))
         .send()
         .await
-        .map_err(|e| format!("Failed to delete notification profile: {}", e))?;
+        .map_http_error("Failed to delete notification profile")?;
 
     if !response.status().is_success() {
-        return Err(format!(
-            "Failed to delete notification profile: {}",
-            response.status()
-        ));
+        return Err(KopiaError::HttpRequestFailed { message: "Failed to delete notification profile".to_string(), status_code: Some(response.status().as_u16()), url: None });
     }
 
     Ok(())
@@ -1461,7 +1492,7 @@ pub async fn notification_profile_delete(
 pub async fn notification_profile_test(
     server: State<'_, KopiaServerState>,
     profile: crate::types::NotificationProfile,
-) -> Result<(), String> {
+) -> Result<()> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
@@ -1469,17 +1500,19 @@ pub async fn notification_profile_test(
         .json(&profile)
         .send()
         .await
-        .map_err(|e| format!("Failed to test notification profile: {}", e))?;
+        .map_http_error("Failed to test notification profile")?;
 
-    if !response.status().is_success() {
+    let status = response.status();
+    if !status.is_success() {
         let error_text = response
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(format!(
-            "Failed to test notification profile: {}",
-            error_text
-        ));
+        return Err(KopiaError::HttpRequestFailed {
+            message: format!("Failed to test notification profile: {}", error_text),
+            status_code: Some(status.as_u16()),
+            url: None,
+        });
     }
 
     Ok(())
@@ -1490,20 +1523,18 @@ pub async fn notification_profile_test(
 // ============================================================================
 
 /// Get server URL and HTTP client
-fn get_server_client(
-    server: &State<'_, KopiaServerState>,
-) -> Result<(String, reqwest::Client), String> {
+fn get_server_client(server: &State<'_, KopiaServerState>) -> Result<(String, reqwest::Client)> {
     let server_guard = lock_server!(server);
     let status = server_guard.status();
 
     if !status.running {
-        return Err("Kopia server is not running".into());
+        return Err(KopiaError::ServerNotRunning);
     }
 
-    let server_url = status.server_url.ok_or("Server URL not available")?;
+    let server_url = status.server_url.ok_or(KopiaError::ServerNotRunning)?;
     let client = server_guard
         .get_http_client()
-        .ok_or("HTTP client not available")?;
+        .ok_or(KopiaError::ServerNotRunning)?;
 
     Ok((server_url, client))
 }
@@ -1512,29 +1543,41 @@ fn get_server_client(
 async fn handle_response<T: DeserializeOwned>(
     response: reqwest::Response,
     operation: &str,
-) -> Result<T, String> {
-    if !response.status().is_success() {
+) -> Result<T> {
+    let status = response.status();
+
+    if !status.is_success() {
         let error_text = response
             .text()
             .await
-            .unwrap_or_else(|_| "Unknown error".into());
-        return Err(format!("{}: {}", operation, error_text));
+            .unwrap_or_else(|_| "Unknown error".to_string());
+        return Err(KopiaError::from_api_response(
+            status.as_u16(),
+            &error_text,
+            operation,
+        ));
     }
 
-    response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse response: {}", e))
+    response.json().await.map_err(|e| KopiaError::ResponseParseError {
+        message: e.to_string(),
+        expected_type: std::any::type_name::<T>().to_string(),
+    })
 }
 
 /// Handle API response that returns empty/unit result
-async fn handle_empty_response(response: reqwest::Response, operation: &str) -> Result<(), String> {
-    if !response.status().is_success() {
+async fn handle_empty_response(response: reqwest::Response, operation: &str) -> Result<()> {
+    let status = response.status();
+
+    if !status.is_success() {
         let error_text = response
             .text()
             .await
-            .unwrap_or_else(|_| "Unknown error".into());
-        return Err(format!("{}: {}", operation, error_text));
+            .unwrap_or_else(|_| "Unknown error".to_string());
+        return Err(KopiaError::from_api_response(
+            status.as_u16(),
+            &error_text,
+            operation,
+        ));
     }
     Ok(())
 }

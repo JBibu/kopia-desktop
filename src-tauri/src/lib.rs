@@ -3,6 +3,7 @@
 
 // Module declarations
 mod commands;
+mod error;
 mod kopia_server;
 mod kopia_websocket;
 mod types;
@@ -26,7 +27,7 @@ pub fn create_websocket_state() -> KopiaWebSocketState {
 }
 
 /// Auto-start the Kopia server on app launch
-async fn auto_start_server(state: KopiaServerState) -> Result<(), String> {
+async fn auto_start_server(state: KopiaServerState) -> error::Result<()> {
     let config_dir = commands::kopia::get_default_config_dir().unwrap_or_else(|e| {
         log::warn!(
             "Failed to get config directory: {}, using current directory",

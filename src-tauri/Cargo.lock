@@ -2075,6 +2075,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-notification",
  "tauri-plugin-shell",
+ "thiserror 1.0.69",
  "tokio",
  "tokio-tungstenite",
  "urlencoding",
