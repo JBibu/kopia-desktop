@@ -282,7 +282,12 @@ export function parseKopiaError(error: unknown): KopiaError {
     return new KopiaError(error.message);
   }
 
-  // Tauri error format: { type: "ERROR_CODE", data: {...} } or string
+  // String error (common from Tauri)
+  if (typeof error === 'string') {
+    return new KopiaError(error);
+  }
+
+  // Tauri error format: { type: "ERROR_CODE", data: {...} } or object
   if (typeof error === 'object' && error !== null) {
     type TauriError = {
       type?: string;
@@ -323,11 +328,6 @@ export function parseKopiaError(error: unknown): KopiaError {
     const details = err.data;
 
     return new KopiaError(message, code, statusCode, details);
-  }
-
-  // Fallback for string errors
-  if (typeof error === 'string') {
-    return new KopiaError(error);
   }
 
   // Complete fallback

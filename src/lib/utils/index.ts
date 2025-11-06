@@ -36,3 +36,28 @@ export function formatDistanceToNow(date: Date): string {
     return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
   }
 }
+
+/**
+ * Format date/time to localized string
+ * Respects user's locale from language store
+ */
+export function formatDateTime(date: Date | string, locale = 'en-US'): string {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  return dateObj.toLocaleString(locale);
+}
+
+/**
+ * Format date only (no time) to localized string
+ */
+export function formatDate(date: Date | string, locale = 'en-US'): string {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  return dateObj.toLocaleDateString(locale);
+}
+
+/**
+ * Format date with short month and day (e.g., "Jan 15")
+ */
+export function formatShortDate(date: Date | string, locale = 'en-US'): string {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  return dateObj.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+}

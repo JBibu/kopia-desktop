@@ -20,7 +20,9 @@ export interface SourceInfo {
 }
 
 /**
- * Repository status information
+ * Repository status information (matches serverapi.StatusResponse)
+ * Combines StatusResponse + embedded repo.ClientOptions
+ * See: internal/serverapi/serverapi.go:22-40, repo/local_config.go
  */
 export interface RepositoryStatus {
   connected: boolean;
@@ -29,19 +31,25 @@ export interface RepositoryStatus {
   hash?: string;
   encryption?: string;
   splitter?: string;
-  formatVersion?: number; // Changed from string to number to match API
-  username?: string;
-  hostname?: string;
-  readonly?: boolean;
+  formatVersion?: number; // format.Version
+  username?: string; // From ClientOptions
+  hostname?: string; // From ClientOptions
+  readonly?: boolean; // From ClientOptions
   apiServerURL?: string;
   initTaskID?: string;
-  description?: string;
+  description?: string; // From ClientOptions
   ecc?: string;
   eccOverheadPercent?: number;
   supportsContentCompression?: boolean;
   maxPackSize?: number;
-  enableActions?: boolean;
-  formatBlobCacheDuration?: number;
+  enableActions?: boolean; // From ClientOptions
+  formatBlobCacheDuration?: number; // From ClientOptions (time.Duration as number)
+  permissiveCacheLoading?: boolean; // From ClientOptions - advanced feature
+  throttlingLimits?: {
+    // From ClientOptions (throttling.Limits) - advanced feature
+    uploadBytesPerSecond?: number;
+    downloadBytesPerSecond?: number;
+  };
 }
 
 /**
@@ -76,16 +84,26 @@ export interface RepositoryCreateRequest {
 }
 
 /**
+ * Algorithm option from Kopia API
+ */
+export interface AlgorithmOption {
+  id: string;
+  deprecated?: boolean;
+}
+
+/**
  * Available algorithms for repository creation
  */
 export interface AlgorithmsResponse {
-  defaultHashAlgorithm: string;
-  defaultEncryptionAlgorithm: string;
-  defaultSplitterAlgorithm: string;
-  hashAlgorithms: string[];
-  encryptionAlgorithms: string[];
-  splitterAlgorithms: string[];
-  eccAlgorithms: string[];
+  defaultHash: string;
+  defaultEncryption: string;
+  defaultSplitter: string;
+  defaultEcc?: string;
+  hash: AlgorithmOption[];
+  encryption: AlgorithmOption[];
+  splitter: AlgorithmOption[];
+  ecc?: AlgorithmOption[];
+  compression?: AlgorithmOption[];
 }
 
 // ============================================================================
@@ -93,14 +111,23 @@ export interface AlgorithmsResponse {
 // ============================================================================
 
 /**
- * Directory summary statistics
+ * Directory summary statistics (matches fs.DirectorySummary)
+ * See: fs/entry.go
  */
 export interface DirectorySummary {
-  size: number;
-  files: number;
-  dirs: number;
-  errors?: number;
-  maxTime?: string;
+  size: number; // TotalFileSize
+  files: number; // TotalFileCount
+  dirs: number; // TotalDirCount
+  symlinks?: number; // TotalSymlinkCount
+  maxTime?: string; // MaxModTime (RFC3339Nano format)
+  incomplete?: string; // IncompleteReason - empty if complete
+  numFailed?: number; // FatalErrorCount
+  numIgnoredErrors?: number; // IgnoredErrorCount
+  errors?: Array<{
+    // FailedEntries
+    path: string;
+    error: string;
+  }>;
 }
 
 /**
@@ -112,19 +139,41 @@ export interface RootEntry {
 }
 
 /**
- * Snapshot metadata
+ * Snapshot metadata - represents BOTH serverapi.Snapshot AND snapshot.Manifest
+ *
+ * **IMPORTANT:** Different API endpoints return different field sets:
+ *
+ * 1. `/api/v1/snapshots` returns **serverapi.Snapshot**:
+ *    - Has: `rootID` (string object ID), `summary`, `retention`, `pins`
+ *    - Missing: `rootEntry`, `stats`, `source`, `tags`, `storageStats`
+ *
+ * 2. `SourceStatus.lastSnapshot` returns **snapshot.Manifest**:
+ *    - Has: `rootEntry` (DirEntry object), `stats`, `source`, `tags`, `storageStats`, `pins`
+ *    - Missing: `rootID` (uses rootEntry.obj instead), `summary`
+ *    - Note: `retention` field has `json:"-"` tag in Go (not serialized in Manifest)
+ *
+ * This hybrid type safely handles both responses by making distinct fields optional.
+ *
+ * See: internal/serverapi/serverapi.go:167-178, snapshot/manifest.go:18-40
  */
 export interface Snapshot {
   id: string;
-  rootID?: string;
-  startTime: string;
-  endTime?: string;
+  // serverapi.Snapshot fields (from /api/v1/snapshots)
+  rootID?: string; // Note: JSON field is "rootID" (capital ID), not camelCase
+  summary?: SnapshotSummary; // fs.DirectorySummary
+  retention?: string[]; // Only in serverapi.Snapshot (Manifest has `json:"-"` tag)
+  // snapshot.Manifest fields (from SourceStatus.lastSnapshot)
+  rootEntry?: RootEntry; // DirEntry object with obj and summ
+  stats?: SnapshotStats; // snapshot.Stats
+  source?: SourceInfo; // user@host:path
+  tags?: Record<string, string>; // Custom tags
+  storageStats?: StorageStats; // Storage usage statistics
+  // Common fields (present in both)
+  startTime: string; // RFC3339Nano format
+  endTime?: string; // RFC3339Nano format
   description?: string;
-  pins?: string[];
-  retention?: string[];
-  incomplete?: boolean;
-  summary?: SnapshotSummary;
-  rootEntry?: RootEntry;
+  pins?: string[]; // Pin labels for retention
+  incomplete?: string; // IncompleteReason - empty if complete, otherwise reason like "canceled"
 }
 
 /**
@@ -146,32 +195,84 @@ export interface SnapshotSummary {
 }
 
 /**
- * Snapshot source with status
+ * Snapshot statistics (matches snapshot.Stats)
+ * See: snapshot/stats.go:10-37
+ */
+export interface SnapshotStats {
+  totalSize: number;
+  excludedTotalSize: number;
+  fileCount: number;
+  cachedFiles: number;
+  nonCachedFiles: number;
+  dirCount: number;
+  excludedFileCount: number;
+  excludedDirCount: number;
+  ignoredErrorCount: number;
+  errorCount: number;
+}
+
+/**
+ * Storage statistics (matches snapshot.StorageStats)
+ * See: snapshot/manifest.go:186-192
+ */
+export interface StorageStats {
+  newData: StorageUsageDetails;
+  runningTotal: StorageUsageDetails;
+}
+
+/**
+ * Storage usage details (matches snapshot.StorageUsageDetails)
+ * See: snapshot/manifest.go:194-219
+ */
+export interface StorageUsageDetails {
+  objectBytes: number;
+  originalContentBytes: number;
+  packedContentBytes: number;
+  fileObjects: number;
+  dirObjects: number;
+  contents: number;
+}
+
+/**
+ * Upload counters (matches upload.Counters from Kopia)
+ * See: snapshot/upload/upload_progress.go:169-201
+ */
+export interface UploadCounters {
+  cachedBytes: number;
+  hashedBytes: number;
+  uploadedBytes: number;
+  estimatedBytes: number;
+  cachedFiles: number;
+  hashedFiles: number;
+  excludedFiles: number;
+  excludedDirs: number;
+  errors: number;
+  ignoredErrors: number;
+  estimatedFiles: number;
+  directory: string;
+  lastErrorPath: string;
+  lastError: string;
+}
+
+/**
+ * Snapshot source with status (matches serverapi.SourceStatus)
+ * See: internal/serverapi/serverapi.go:54-62
  */
 export interface SnapshotSource {
   source: SourceInfo;
   status: 'IDLE' | 'PENDING' | 'UPLOADING' | 'PAUSED' | 'FAILED';
-  upload?: {
-    hashedFiles: number;
-    hashedBytes: number;
-    cachedFiles: number;
-    cachedBytes: number;
-    estimatedBytes?: number;
-    directory?: string;
-    uploadStartTime?: string;
+  schedule: {
+    // SchedulingPolicy fields
+    intervalSeconds?: number;
+    timeOfDay?: string[];
+    noParentTimeOfDay?: boolean;
+    manual?: boolean;
+    cron?: string[];
+    runMissed?: boolean;
   };
-  lastSnapshot?: {
-    startTime: string;
-    endTime?: string;
-    stats: {
-      totalSize: number;
-      totalFileCount: number;
-      totalDirCount: number;
-      errors?: number;
-    };
-    rootEntry?: string;
-  };
+  lastSnapshot?: Snapshot; // Full snapshot.Manifest
   nextSnapshotTime?: string;
+  upload?: UploadCounters; // Matches upload.Counters
   currentTask?: string;
 }
 
@@ -238,8 +339,8 @@ export interface EstimateResponse {
 export interface DirectoryEntry {
   name: string;
   type: 'f' | 'd' | 's' | 'c' | 'b' | 'p';
-  mode: number;
-  size: number;
+  mode: string; // Octal string like "0755" or "0644"
+  size?: number; // Optional because some entries (e.g., directories) may not have size
   mtime: string;
   obj: string;
   summ?: {
@@ -256,7 +357,7 @@ export interface DirectoryEntry {
  * Directory object response
  */
 export interface DirectoryObject {
-  stream: 'kopia:directory';
+  stream?: 'kopia:directory';
   entries: DirectoryEntry[];
 }
 
@@ -319,6 +420,7 @@ export interface ActionDefinition {
  * Policy definition (complete specification)
  */
 export interface PolicyDefinition {
+  noParent?: boolean; // Prevents inheriting policy from parent
   retention?: {
     keepLatest?: number;
     keepHourly?: number;
@@ -326,17 +428,24 @@ export interface PolicyDefinition {
     keepWeekly?: number;
     keepMonthly?: number;
     keepAnnual?: number;
+    ignoreIdenticalSnapshots?: boolean;
   };
   scheduling?: {
-    interval?: number;
-    timesOfDay?: string[];
+    intervalSeconds?: number;
+    timeOfDay?: string[];
+    noParentTimeOfDay?: boolean;
     manual?: boolean;
+    cron?: string[];
+    runMissed?: boolean;
   };
   files?: {
     ignore?: string[];
     dotIgnoreFiles?: string[];
-    scanOneFilesystem?: boolean;
+    oneFileSystem?: boolean;
     noParentIgnore?: boolean;
+    noParentDotFiles?: boolean;
+    ignoreCacheDirs?: boolean;
+    maxFileSize?: number;
   };
   compression?: {
     compressorName?: string;
@@ -345,19 +454,36 @@ export interface PolicyDefinition {
     onlyCompress?: string[];
     neverCompress?: string[];
   };
+  metadataCompression?: {
+    compressorName?: string;
+    minSize?: number;
+    maxSize?: number;
+    onlyCompress?: string[];
+    neverCompress?: string[];
+  };
+  splitter?: {
+    algorithm?: string;
+  };
   actions?: {
     beforeSnapshotRoot?: ActionDefinition;
     afterSnapshotRoot?: ActionDefinition;
     beforeFolder?: ActionDefinition;
     afterFolder?: ActionDefinition;
   };
+  osSnapshots?: {
+    volumeShadowCopy?: {
+      enable?: number;
+    };
+  };
   errorHandling?: {
     ignoreFileErrors?: boolean;
     ignoreDirectoryErrors?: boolean;
+    ignoreUnknownTypes?: boolean;
   };
   upload?: {
     maxParallelSnapshots?: number;
     maxParallelFileReads?: number;
+    parallelUploadAboveSize?: number;
   };
   logging?: {
     directories?: {
@@ -400,10 +526,13 @@ export interface PoliciesResponse {
 
 /**
  * Resolved policy response
+ *
+ * Note: 'definition' contains SourceInfo objects showing WHERE each field was defined,
+ * not the actual policy values. We don't use it in the UI, so it's typed as any.
  */
 export interface ResolvedPolicyResponse {
   effective: PolicyDefinition;
-  definition?: PolicyDefinition;
+  definition?: unknown; // Contains SourceInfo objects, not policy values
   defined?: PolicyDefinition;
   upcomingSnapshotTimes: string[];
   schedulingError?: string;
@@ -414,32 +543,42 @@ export interface ResolvedPolicyResponse {
 // ============================================================================
 
 /**
- * Task status
+ * Task status (matches uitask.Status)
+ * See: internal/uitask/uitask.go:22-28
  */
-export type TaskStatus = 'RUNNING' | 'SUCCESS' | 'FAILED' | 'CANCELED';
+export type TaskStatus = 'RUNNING' | 'CANCELING' | 'CANCELED' | 'SUCCESS' | 'FAILED';
 
 /**
- * Task information
+ * Task information (matches uitask.Info)
+ * See: internal/uitask/uitask.go:52-66
+ * Note: progressInfo and counters can be empty/null in practice
  */
 export interface Task {
   id: string;
+  startTime: string;
+  endTime?: string;
   kind: string;
   description: string;
   status: TaskStatus;
-  startTime: string;
-  endTime?: string;
-  progress?: {
-    current: number;
-    total: number;
-    percentage: number;
-  };
+  progressInfo?: string; // Can be empty
+  errorMessage?: string;
+  counters?: Record<string, CounterValue>; // Can be null when map is nil in Go
 }
 
 /**
- * Task detail with counters and logs
+ * CounterValue describes the counter value reported by task with optional units for presentation.
+ * See: internal/uitask/uitask_counter.go:4-10
+ */
+export interface CounterValue {
+  value: number;
+  units?: string;
+  level?: string; // "", "notice", "warning" or "error"
+}
+
+/**
+ * Task detail with logs
  */
 export interface TaskDetail extends Task {
-  counters?: Record<string, number>;
   logs?: string[];
 }
 
@@ -497,26 +636,10 @@ export interface MaintenanceRunRequest {
 // ============================================================================
 
 /**
- * Current user response
- */
-export interface CurrentUserResponse {
-  username: string;
-  hostname: string;
-}
-
-/**
  * Path resolve request
  */
 export interface PathResolveRequest {
   path: string;
-}
-
-/**
- * Estimate request
- */
-export interface EstimateRequest {
-  root: string;
-  maxExamplesPerBucket?: number;
 }
 
 /**

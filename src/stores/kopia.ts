@@ -35,6 +35,7 @@ import {
   cancelTask as apiCancelTask,
   connectWebSocket,
   disconnectWebSocket,
+  getMaintenanceInfo,
   type KopiaServerStatus,
   type KopiaServerInfo,
   type RepositoryStatus,
@@ -42,14 +43,15 @@ import {
 } from '@/lib/kopia/client';
 import type {
   Snapshot,
-  SnapshotSource,
+  SourcesResponse,
   PolicyDefinition,
   PolicyResponse,
   Task,
   TasksSummary,
   WebSocketEvent,
+  MaintenanceInfo,
 } from '@/lib/kopia/types';
-import { getErrorMessage, parseKopiaError, KopiaErrorCode } from '@/lib/kopia/errors';
+import { getErrorMessage } from '@/lib/kopia/errors';
 import { notifyTaskComplete } from '@/lib/notifications';
 
 interface KopiaStore {
@@ -66,7 +68,7 @@ interface KopiaStore {
 
   // Snapshots state
   snapshots: Snapshot[];
-  sources: SnapshotSource[];
+  sourcesResponse: SourcesResponse | null;
   snapshotsError: string | null;
   isSnapshotsLoading: boolean;
 
@@ -80,6 +82,11 @@ interface KopiaStore {
   tasksSummary: TasksSummary | null;
   tasksError: string | null;
   isTasksLoading: boolean;
+
+  // Maintenance state
+  maintenanceInfo: MaintenanceInfo | null;
+  maintenanceError: string | null;
+  isMaintenanceLoading: boolean;
 
   // Polling state
   isPolling: boolean;
@@ -108,11 +115,22 @@ interface KopiaStore {
   refreshSnapshots: () => Promise<void>;
   refreshSources: () => Promise<void>;
   createSnapshot: (path: string) => Promise<void>;
-  deleteSnapshots: (manifestIDs: string[]) => Promise<void>;
+  deleteSnapshots: (
+    userName: string,
+    host: string,
+    path: string,
+    manifestIDs: string[]
+  ) => Promise<void>;
+  fetchSnapshotsForSource: (
+    userName: string,
+    host: string,
+    path: string,
+    all?: boolean
+  ) => Promise<Snapshot[]>;
 
   // Policies actions
   refreshPolicies: () => Promise<void>;
-  getPolicy: (userName?: string, host?: string, path?: string) => Promise<PolicyResponse | null>;
+  getPolicy: (userName?: string, host?: string, path?: string) => Promise<PolicyDefinition | null>;
   setPolicy: (
     policy: PolicyDefinition,
     userName?: string,
@@ -126,6 +144,9 @@ interface KopiaStore {
   refreshTasksSummary: () => Promise<void>;
   getTask: (taskId: string) => Promise<Task | null>;
   cancelTask: (taskId: string) => Promise<void>;
+
+  // Maintenance actions
+  refreshMaintenanceInfo: () => Promise<void>;
 
   // Polling control
   startPolling: () => void;
@@ -170,7 +191,7 @@ export const useKopiaStore = create<KopiaStore>()(
 
     // Snapshots
     snapshots: [],
-    sources: [],
+    sourcesResponse: null,
     snapshotsError: null,
     isSnapshotsLoading: false,
 
@@ -184,6 +205,11 @@ export const useKopiaStore = create<KopiaStore>()(
     tasksSummary: null,
     tasksError: null,
     isTasksLoading: false,
+
+    // Maintenance
+    maintenanceInfo: null,
+    maintenanceError: null,
+    isMaintenanceLoading: false,
 
     // Polling
     isPolling: false,
@@ -282,18 +308,15 @@ export const useKopiaStore = create<KopiaStore>()(
         }
         // Don't call set() at all if nothing changed
       } catch (error) {
-        const kopiaError = parseKopiaError(error);
         const message = getErrorMessage(error);
         const currentError = get().repositoryError;
         const currentStatus = get().repositoryStatus;
 
         // Only update if something changed
-        // Ignore expected "not running" and "not connected" errors to reduce noise
-        const isExpectedError =
-          kopiaError.is(KopiaErrorCode.SERVER_NOT_RUNNING) ||
-          kopiaError.is(KopiaErrorCode.REPOSITORY_NOT_CONNECTED);
-
-        const shouldUpdateError = !isExpectedError && currentError !== message;
+        const shouldUpdateError =
+          !message.includes('not running') &&
+          !message.includes('not connected') &&
+          currentError !== message;
         const shouldUpdateStatus = currentStatus?.connected !== false;
 
         if (shouldUpdateError || shouldUpdateStatus) {
@@ -378,7 +401,7 @@ export const useKopiaStore = create<KopiaStore>()(
       set({ isSnapshotsLoading: true, snapshotsError: null });
       try {
         const response = await listSources();
-        set({ sources: response.sources || [], isSnapshotsLoading: false });
+        set({ sourcesResponse: response, isSnapshotsLoading: false });
       } catch (error) {
         const message = getErrorMessage(error);
         set({ snapshotsError: message, isSnapshotsLoading: false });
@@ -389,7 +412,8 @@ export const useKopiaStore = create<KopiaStore>()(
       set({ isSnapshotsLoading: true, snapshotsError: null });
       try {
         await apiCreateSnapshot(path);
-        await get().refreshSnapshots();
+        // Refresh both snapshots and sources to update UI
+        await Promise.all([get().refreshSnapshots(), get().refreshSources()]);
         set({ isSnapshotsLoading: false });
       } catch (error) {
         const message = getErrorMessage(error);
@@ -398,12 +422,44 @@ export const useKopiaStore = create<KopiaStore>()(
       }
     },
 
-    deleteSnapshots: async (manifestIDs: string[]) => {
+    deleteSnapshots: async (
+      userName: string,
+      host: string,
+      path: string,
+      manifestIDs: string[]
+    ) => {
       set({ isSnapshotsLoading: true, snapshotsError: null });
       try {
-        await apiDeleteSnapshots(manifestIDs);
-        await get().refreshSnapshots();
+        await apiDeleteSnapshots(userName, host, path, manifestIDs);
+        // Refresh both snapshots and sources to update UI
+        await Promise.all([get().refreshSnapshots(), get().refreshSources()]);
         set({ isSnapshotsLoading: false });
+      } catch (error) {
+        const message = getErrorMessage(error);
+        set({ snapshotsError: message, isSnapshotsLoading: false });
+        throw error;
+      }
+    },
+
+    /**
+     * Fetch snapshots for a specific source (used by SnapshotHistory page)
+     * @param userName - User name (e.g., "javi")
+     * @param host - Hostname (e.g., "laptop")
+     * @param path - Path (e.g., "/home/javi/documents")
+     * @param all - Include hidden snapshots (default: false)
+     * @returns Array of snapshots for the specified source
+     */
+    fetchSnapshotsForSource: async (
+      userName: string,
+      host: string,
+      path: string,
+      all = false
+    ): Promise<Snapshot[]> => {
+      set({ isSnapshotsLoading: true, snapshotsError: null });
+      try {
+        const response = await listSnapshots(userName, host, path, all);
+        set({ isSnapshotsLoading: false });
+        return response.snapshots || [];
       } catch (error) {
         const message = getErrorMessage(error);
         set({ snapshotsError: message, isSnapshotsLoading: false });
@@ -560,6 +616,37 @@ export const useKopiaStore = create<KopiaStore>()(
     },
 
     // ========================================================================
+    // Maintenance Actions
+    // ========================================================================
+
+    refreshMaintenanceInfo: async () => {
+      const { isRepoConnected } = get();
+
+      // Only fetch maintenance info if repository is connected
+      if (!isRepoConnected) {
+        return;
+      }
+
+      try {
+        const info = await getMaintenanceInfo();
+        const currentInfo = get().maintenanceInfo;
+
+        // Only update if info actually changed
+        if (JSON.stringify(currentInfo) !== JSON.stringify(info)) {
+          set({ maintenanceInfo: info, maintenanceError: null });
+        }
+      } catch (error) {
+        const message = getErrorMessage(error);
+        const currentError = get().maintenanceError;
+
+        // Only update if error changed
+        if (currentError !== message) {
+          set({ maintenanceError: message });
+        }
+      }
+    },
+
+    // ========================================================================
     // Polling Control
     // ========================================================================
 
@@ -576,19 +663,23 @@ export const useKopiaStore = create<KopiaStore>()(
         void get().startWebSocket();
       }
 
-      // Server/Repo polling (30s)
+      // Server/Repo/Maintenance/Snapshots polling (30s)
       serverPollingTimer = setInterval(() => {
         void get().refreshServerStatus();
         void get().refreshRepositoryStatus();
+        void get().refreshMaintenanceInfo();
+        void get().refreshSnapshots();
       }, serverPollingInterval);
 
-      // Tasks polling (5s for real-time updates) - only if WebSocket is disabled
-      if (!useWebSocket) {
-        tasksPollingTimer = setInterval(() => {
-          void get().refreshTasks();
-          void get().refreshTasksSummary();
-        }, tasksPollingInterval);
-      }
+      // Tasks polling (5s for real-time updates)
+      // Always poll tasks as fallback even if WebSocket is enabled
+      // WebSocket events will trigger additional refreshes for better real-time updates
+      // Also poll sources to update snapshot status on the Snapshots page
+      tasksPollingTimer = setInterval(() => {
+        void get().refreshTasks();
+        void get().refreshTasksSummary();
+        void get().refreshSources();
+      }, tasksPollingInterval);
 
       set({ isPolling: true });
     },
@@ -635,16 +726,21 @@ export const useKopiaStore = create<KopiaStore>()(
       const { isWebSocketConnected, serverStatus, serverInfo } = get();
 
       if (isWebSocketConnected) {
+        if (import.meta.env.DEV) {
+          console.log('WebSocket already connected');
+        }
         return;
       }
 
       if (!serverStatus?.running || !serverStatus.serverUrl) {
-        // Server not ready yet - this is expected during startup
+        if (import.meta.env.DEV) {
+          console.debug('Cannot connect WebSocket: server not running');
+        }
         return;
       }
 
       if (!serverInfo?.password) {
-        // Server password not available yet - this is expected during startup
+        console.error('Cannot connect WebSocket: server password not available');
         return;
       }
 
@@ -659,6 +755,9 @@ export const useKopiaStore = create<KopiaStore>()(
         // Set up event listeners
         wsEventUnlisten = await listen<WebSocketEvent>('kopia-ws-event', (event) => {
           const wsEvent = event.payload;
+          if (import.meta.env.DEV) {
+            console.log('WebSocket event received:', wsEvent.type);
+          }
 
           // Handle different event types
           if (wsEvent.type === 'task-progress') {
@@ -672,27 +771,36 @@ export const useKopiaStore = create<KopiaStore>()(
         });
 
         wsDisconnectUnlisten = await listen('kopia-ws-disconnected', () => {
+          if (import.meta.env.DEV) {
+            console.log('WebSocket disconnected');
+          }
           set({ isWebSocketConnected: false });
 
           // Fall back to polling if WebSocket disconnects
           if (get().useWebSocket && !get().isPolling) {
+            if (import.meta.env.DEV) {
+              console.log('Falling back to polling after WebSocket disconnect');
+            }
             get().startPolling();
           }
         });
 
         set({ isWebSocketConnected: true });
-
-        // Stop task polling since WebSocket will handle real-time updates
-        if (tasksPollingTimer) {
-          clearInterval(tasksPollingTimer);
-          tasksPollingTimer = null;
+        if (import.meta.env.DEV) {
+          console.log('WebSocket connected successfully');
         }
+
+        // Keep task polling running as fallback
+        // WebSocket provides real-time updates, polling ensures we don't miss updates
       } catch (error) {
         console.error('Failed to connect WebSocket:', error);
         set({ isWebSocketConnected: false });
 
         // Fall back to polling
         if (get().useWebSocket && !get().isPolling) {
+          if (import.meta.env.DEV) {
+            console.log('Falling back to polling after WebSocket error');
+          }
           get().startPolling();
         }
       }
@@ -719,6 +827,9 @@ export const useKopiaStore = create<KopiaStore>()(
         // Disconnect WebSocket
         await disconnectWebSocket();
         set({ isWebSocketConnected: false });
+        if (import.meta.env.DEV) {
+          console.log('WebSocket disconnected');
+        }
       } catch (error) {
         console.error('Failed to disconnect WebSocket:', error);
       }
@@ -773,6 +884,7 @@ export const useKopiaStore = create<KopiaStore>()(
         get().refreshPolicies(),
         get().refreshTasks(),
         get().refreshTasksSummary(),
+        get().refreshMaintenanceInfo(),
       ]);
     },
 
@@ -788,7 +900,7 @@ export const useKopiaStore = create<KopiaStore>()(
         repositoryError: null,
         isRepositoryLoading: false,
         snapshots: [],
-        sources: [],
+        sourcesResponse: null,
         snapshotsError: null,
         isSnapshotsLoading: false,
         policies: [],
@@ -798,6 +910,9 @@ export const useKopiaStore = create<KopiaStore>()(
         tasksSummary: null,
         tasksError: null,
         isTasksLoading: false,
+        maintenanceInfo: null,
+        maintenanceError: null,
+        isMaintenanceLoading: false,
         isWebSocketConnected: false,
       });
     },

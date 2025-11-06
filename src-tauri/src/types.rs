@@ -1,5 +1,32 @@
-use serde::{Deserialize, Serialize};
+//! Type definitions for Kopia API
+//!
+//! This module contains Rust types that mirror the Kopia server REST API.
+//! Types are organized by functional area: Repository, Snapshots, Policies, Tasks, etc.
+//!
+//! # JSON Serialization
+//!
+//! All types use `#[serde(rename_all = "camelCase")]` to match Go's JSON naming conventions.
+//! Some fields use custom deserialization (`deserialize_null_default`) to handle Go's
+//! nil maps/slices that serialize as JSON `null` instead of empty arrays/objects.
+//!
+//! # API Compatibility
+//!
+//! These types are based on Kopia's Go source code and should remain compatible
+//! with the Kopia server API. Many types include comments linking to the original
+//! Go definitions for reference.
+
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
+
+// Helper function to deserialize null as default value
+fn deserialize_null_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    T: Default + Deserialize<'de>,
+    D: Deserializer<'de>,
+{
+    let opt = Option::deserialize(deserializer)?;
+    Ok(opt.unwrap_or_default())
+}
 
 // ============================================================================
 // Core Types
@@ -17,22 +44,101 @@ pub struct SourceInfo {
 // Repository Types
 // ============================================================================
 
+/// RepositoryStatus matches serverapi.StatusResponse
+/// Combines StatusResponse + embedded repo.ClientOptions
+/// See: internal/serverapi/serverapi.go:22-40, repo/local_config.go
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryStatus {
+    pub connected: bool,
+    #[serde(rename = "configFile")]
+    pub config_file: Option<String>,
+    #[serde(rename = "formatVersion")]
+    pub format_version: Option<i32>,
+    pub hash: Option<String>,
+    pub encryption: Option<String>,
+    pub ecc: Option<String>,
+    #[serde(rename = "eccOverheadPercent")]
+    pub ecc_overhead_percent: Option<i32>,
+    pub splitter: Option<String>,
+    #[serde(rename = "maxPackSize")]
+    pub max_pack_size: Option<i32>,
+    pub storage: Option<String>,
+    #[serde(rename = "apiServerURL")]
+    pub api_server_url: Option<String>,
+    #[serde(rename = "supportsContentCompression")]
+    pub supports_content_compression: Option<bool>,
+    // ClientOptions fields (embedded in Go via struct embedding)
+    pub description: Option<String>,
+    pub username: Option<String>,
+    pub hostname: Option<String>,
+    pub readonly: Option<bool>,
+    #[serde(rename = "enableActions")]
+    pub enable_actions: Option<bool>,
+    #[serde(rename = "formatBlobCacheDuration")]
+    pub format_blob_cache_duration: Option<i64>,
+    #[serde(rename = "permissiveCacheLoading")]
+    pub permissive_cache_loading: Option<bool>, // Advanced feature
+    #[serde(rename = "throttlingLimits")]
+    pub throttling_limits: Option<ThrottlingLimits>, // Advanced feature
+    // Repository initialization task ID
+    #[serde(rename = "initTaskID")]
+    pub init_task_id: Option<String>,
+}
+
+/// ThrottlingLimits matches throttling.Limits from official Kopia
+/// See: internal/throttling/throttling.go
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThrottlingLimits {
+    pub upload_bytes_per_second: Option<f64>,
+    pub download_bytes_per_second: Option<f64>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AlgorithmsResponse {
-    pub default_hash_algorithm: String,
-    pub default_encryption_algorithm: String,
-    pub default_splitter_algorithm: String,
-    pub hash_algorithms: Vec<String>,
-    pub encryption_algorithms: Vec<String>,
-    pub splitter_algorithms: Vec<String>,
-    pub ecc_algorithms: Vec<String>,
+    #[serde(rename = "defaultHash")]
+    pub default_hash: String,
+    #[serde(rename = "defaultEncryption")]
+    pub default_encryption: String,
+    #[serde(rename = "defaultSplitter")]
+    pub default_splitter: String,
+    #[serde(rename = "defaultEcc")]
+    pub default_ecc: Option<String>,
+    pub hash: Vec<AlgorithmOption>,
+    pub encryption: Vec<AlgorithmOption>,
+    pub splitter: Vec<AlgorithmOption>,
+    pub ecc: Option<Vec<AlgorithmOption>>,
+    pub compression: Option<Vec<AlgorithmOption>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AlgorithmOption {
+    pub id: String,
+    pub deprecated: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StorageConfig {
+    #[serde(rename = "type")]
+    pub storage_type: String,
+    pub config: serde_json::Value, // Storage-type specific config (e.g., {"path": "..."} for filesystem)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepositoryConnectRequest {
+    pub storage: StorageConfig,
+    pub password: String,
+    pub token: Option<String>,
+    pub client_options: Option<ClientOptions>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RepositoryCreateRequest {
-    pub storage: super::commands::kopia::StorageConfig,
+    pub storage: StorageConfig,
     pub password: String,
     pub options: Option<RepositoryCreateOptions>,
     pub client_options: Option<ClientOptions>,
@@ -88,45 +194,85 @@ pub struct SourcesResponse {
     pub sources: Vec<SnapshotSource>,
 }
 
+// SourceStatus matches serverapi.SourceStatus
+// Official API field: `json:"schedule"` maps to SchedulingPolicy
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotSource {
     pub source: SourceInfo,
     pub status: String,
-    pub upload: Option<UploadInfo>,
-    pub last_snapshot: Option<LastSnapshotInfo>,
+    #[serde(rename = "schedule")]
+    pub scheduling_policy: SchedulingPolicy,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_snapshot: Option<Snapshot>, // Full snapshot.Manifest, not simplified
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub next_snapshot_time: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub upload: Option<UploadCounters>, // Matches upload.Counters
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub current_task: Option<String>,
 }
 
+// UploadCounters matches upload.Counters from official Kopia
+// See: snapshot/upload/upload_progress.go:169-201
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct UploadInfo {
-    pub hashed_files: i64,
-    pub hashed_bytes: i64,
-    pub cached_files: i64,
+pub struct UploadCounters {
     pub cached_bytes: i64,
-    pub estimated_bytes: Option<i64>,
-    pub directory: Option<String>,
-    pub upload_start_time: Option<String>,
+    pub hashed_bytes: i64,
+    pub uploaded_bytes: i64,
+    pub estimated_bytes: i64,
+    pub cached_files: i32,
+    pub hashed_files: i32,
+    pub excluded_files: i32,
+    pub excluded_dirs: i32,
+    pub errors: i32,
+    pub ignored_errors: i32,
+    pub estimated_files: i64,
+    pub directory: String,
+    pub last_error_path: String,
+    pub last_error: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LastSnapshotInfo {
-    pub start_time: String,
-    pub end_time: Option<String>,
-    pub stats: SnapshotStats,
-    pub root_entry: Option<RootEntry>,
-}
-
+// SnapshotStats matches snapshot.Stats from official Kopia
+// See: snapshot/stats.go:10-37
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotStats {
-    pub total_size: Option<i64>,
-    pub total_file_count: Option<i64>,
-    pub total_dir_count: Option<i64>,
-    pub errors: Option<i64>,
+    pub total_size: i64,          // JSON: "totalSize"
+    pub excluded_total_size: i64, // JSON: "excludedTotalSize"
+    pub file_count: i32,          // JSON: "fileCount"
+    pub cached_files: i32,        // JSON: "cachedFiles"
+    pub non_cached_files: i32,    // JSON: "nonCachedFiles"
+    pub dir_count: i32,           // JSON: "dirCount"
+    pub excluded_file_count: i32, // JSON: "excludedFileCount"
+    pub excluded_dir_count: i32,  // JSON: "excludedDirCount"
+    pub ignored_error_count: i32, // JSON: "ignoredErrorCount"
+    pub error_count: i32,         // JSON: "errorCount"
+}
+
+// StorageStats matches snapshot.StorageStats
+// See: snapshot/manifest.go:186-192
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageStats {
+    pub new_data: StorageUsageDetails,
+    pub running_total: StorageUsageDetails,
+}
+
+// StorageUsageDetails matches snapshot.StorageUsageDetails
+// See: snapshot/manifest.go:194-219
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageUsageDetails {
+    pub object_bytes: i64,
+    pub original_content_bytes: i64,
+    pub packed_content_bytes: i64,
+    #[serde(rename = "fileObjects")]
+    pub file_object_count: i32,
+    #[serde(rename = "dirObjects")]
+    pub dir_object_count: i32,
+    pub contents: i32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -137,19 +283,36 @@ pub struct SnapshotsResponse {
     pub unique_count: i64,
 }
 
+// Snapshot represents both serverapi.Snapshot and snapshot.Manifest
+// The API returns different fields depending on endpoint:
+// - /api/v1/snapshots returns serverapi.Snapshot (rootID string, summary)
+// - SourceStatus.lastSnapshot returns snapshot.Manifest (rootEntry object, stats, source)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
     pub id: String,
+    // serverapi.Snapshot has this field
+    #[serde(rename = "rootID")] // API uses capital "ID", not camelCase
     pub root_id: Option<String>,
     pub start_time: String,
     pub end_time: Option<String>,
     pub description: Option<String>,
     pub pins: Option<Vec<String>>,
     pub retention: Option<Vec<String>>,
-    pub incomplete: Option<bool>,
+    // incompleteReason field (JSON tag "incomplete") - empty if complete, otherwise reason like "canceled"
+    pub incomplete: Option<String>,
+    // serverapi.Snapshot uses "summary" (fs.DirectorySummary)
     pub summary: Option<SnapshotSummary>,
+    // snapshot.Manifest uses "rootEntry" (DirEntry object)
     pub root_entry: Option<RootEntry>,
+    // snapshot.Manifest uses "stats" instead of "summary"
+    pub stats: Option<SnapshotStats>,
+    // snapshot.Manifest includes source
+    pub source: Option<SourceInfo>,
+    // snapshot.Manifest includes tags
+    pub tags: Option<std::collections::HashMap<String, String>>,
+    // snapshot.Manifest includes storage stats
+    pub storage_stats: Option<StorageStats>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -178,6 +341,15 @@ pub struct SnapshotEditRequest {
     pub remove_pins: Option<Vec<String>>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SnapshotDeleteRequest {
+    pub source: SourceInfo,
+    #[serde(rename = "snapshotManifestIds")]
+    pub snapshot_manifest_ids: Vec<String>,
+    pub delete_source_and_policy: Option<bool>,
+}
+
 // ============================================================================
 // Directory & File Browsing Types
 // ============================================================================
@@ -185,7 +357,7 @@ pub struct SnapshotEditRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DirectoryObject {
-    pub stream: String,
+    pub stream: Option<String>,
     pub entries: Vec<DirectoryEntry>,
 }
 
@@ -195,22 +367,36 @@ pub struct DirectoryEntry {
     pub name: String,
     #[serde(rename = "type")]
     pub entry_type: String,
-    pub mode: i64,
-    pub size: i64,
+    pub mode: String,      // Octal string like "0755" or "0644"
+    pub size: Option<i64>, // Optional because some entries (e.g., directories) may not have size
     pub mtime: String,
     pub obj: String,
     pub summ: Option<DirectorySummary>,
     pub link_target: Option<String>,
 }
 
+/// DirectorySummary matches fs.DirectorySummary from official Kopia
+/// See: fs/entry.go
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DirectorySummary {
-    pub size: i64,
-    pub files: i64,
-    pub dirs: i64,
-    pub errors: Option<i64>,
-    pub max_time: Option<String>,
+    pub size: i64,                        // TotalFileSize
+    pub files: i64,                       // TotalFileCount
+    pub dirs: i64,                        // TotalDirCount
+    pub symlinks: Option<i64>,            // TotalSymlinkCount
+    pub max_time: Option<String>,         // MaxModTime (RFC3339Nano format)
+    pub incomplete: Option<String>,       // IncompleteReason - empty if complete
+    pub num_failed: Option<i32>,          // FatalErrorCount
+    pub num_ignored_errors: Option<i32>,  // IgnoredErrorCount
+    pub errors: Option<Vec<FailedEntry>>, // FailedEntries
+}
+
+/// Failed entry information (matches fs.EntryWithError)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FailedEntry {
+    pub path: String,
+    pub error: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -301,6 +487,8 @@ pub struct PolicyTarget {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PolicyDefinition {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub no_parent: Option<bool>,
     pub retention: Option<RetentionPolicy>,
     pub scheduling: Option<SchedulingPolicy>,
     pub files: Option<FilesPolicy>,
@@ -329,9 +517,11 @@ pub struct RetentionPolicy {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SchedulingPolicy {
-    pub interval: Option<i64>,
-    pub times_of_day: Option<Vec<String>>,
+    pub interval_seconds: Option<i64>,
+    pub time_of_day: Option<Vec<String>>,
+    pub no_parent_time_of_day: Option<bool>,
     pub manual: Option<bool>,
+    pub cron: Option<Vec<String>>,
     pub run_missed: Option<bool>,
 }
 
@@ -340,8 +530,11 @@ pub struct SchedulingPolicy {
 pub struct FilesPolicy {
     pub ignore: Option<Vec<String>>,
     pub ignore_dot_files: Option<Vec<String>>,
-    pub scan_one_filesystem: Option<bool>,
+    pub one_file_system: Option<bool>,
     pub no_parent_ignore: Option<bool>,
+    pub no_parent_dot_files: Option<bool>,
+    pub ignore_cache_dirs: Option<bool>,
+    pub max_file_size: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -461,14 +654,18 @@ pub struct VolumeShadowCopyPolicy {
 #[serde(rename_all = "camelCase")]
 pub struct ResolvedPolicyResponse {
     pub effective: PolicyDefinition,
-    pub definition: Option<PolicyDefinition>,
+    // 'definition' contains SourceInfo objects showing WHERE each field was defined,
+    // not the actual policy values. We don't use it in the UI, so we use serde_json::Value
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub definition: Option<serde_json::Value>,
     pub defined: Option<PolicyDefinition>,
     pub upcoming_snapshot_times: Vec<String>,
     pub scheduling_error: Option<String>,
 }
 
 // ============================================================================
-// Task Types
+// Task Types (matches uitask.Info)
+// See: internal/uitask/uitask.go:52-66
 // ============================================================================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -477,24 +674,24 @@ pub struct TasksResponse {
     pub tasks: Vec<Task>,
 }
 
+// Task matches uitask.Info
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Task {
     pub id: String,
+    pub start_time: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_time: Option<String>,
     pub kind: String,
     pub description: String,
     pub status: String,
-    pub start_time: String,
-    pub end_time: Option<String>,
-    pub progress: Option<TaskProgress>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TaskProgress {
-    pub current: i64,
-    pub total: i64,
-    pub percentage: f64,
+    #[serde(default, deserialize_with = "deserialize_null_default")]
+    pub progress_info: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_message: Option<String>,
+    // Counters can be null when the map is empty/nil in Go
+    #[serde(default, deserialize_with = "deserialize_null_default")]
+    pub counters: HashMap<String, CounterValue>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -506,29 +703,15 @@ pub struct TaskDetail {
     pub logs: Option<Vec<String>>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-#[serde(untagged)]
-pub enum CounterValue {
-    Simple(i64),
-    Detailed { value: i64 },
-}
-
-impl CounterValue {
-    pub fn value(&self) -> i64 {
-        match self {
-            CounterValue::Simple(n) => *n,
-            CounterValue::Detailed { value } => *value,
-        }
-    }
-}
-
-impl serde::Serialize for CounterValue {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_i64(self.value())
-    }
+/// CounterValue describes the counter value reported by task with optional units for presentation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CounterValue {
+    pub value: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub units: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub level: Option<String>, // "", "notice", "warning" or "error"
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -573,35 +756,10 @@ pub struct MaintenanceStats {
     pub total_blob_size: i64,
 }
 
-// Note: These request types are defined for completeness but currently unused.
-// The commands accept simple parameters instead of request objects.
-#[allow(dead_code)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MaintenanceRunRequest {
-    pub full: Option<bool>,
-    pub safety: Option<String>,
-}
-
 // ============================================================================
 // Utility Types
 // ============================================================================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CurrentUserResponse {
-    pub username: String,
-    pub hostname: String,
-}
-
-#[allow(dead_code)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PathResolveRequest {
-    pub path: String,
-}
-
-#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EstimateRequest {
@@ -644,7 +802,7 @@ pub struct NotificationMethod {
     pub config: serde_json::Value, // Method-specific configuration
 }
 
-// Email notification config (helper type for documentation)
+/// Email notification config (helper type for documentation)
 #[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -660,7 +818,7 @@ pub struct EmailNotificationConfig {
     pub format: String, // "txt" or "html"
 }
 
-// Pushover notification config (helper type for documentation)
+/// Pushover notification config (helper type for documentation)
 #[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -670,7 +828,7 @@ pub struct PushoverNotificationConfig {
     pub format: String, // "txt" or "html"
 }
 
-// Webhook notification config (helper type for documentation)
+/// Webhook notification config (helper type for documentation)
 #[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

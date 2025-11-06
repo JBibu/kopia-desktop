@@ -10,8 +10,7 @@
 //! - TLS support (required for Kopia server)
 
 use crate::error::{KopiaError, Result};
-use base64::Engine;
-use futures_util::StreamExt;
+use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
@@ -26,6 +25,7 @@ pub struct KopiaWebSocket {
 struct WebSocketConnection {
     url: String,
     handle: tokio::task::JoinHandle<()>,
+    shutdown_tx: tokio::sync::mpsc::Sender<()>,
 }
 
 /// WebSocket event types that mirror the frontend types
@@ -117,8 +117,8 @@ impl KopiaWebSocket {
         let ws_url = format!("{}/api/v1/ws", ws_url);
 
         // Create Basic Auth header
-        let auth = base64::engine::general_purpose::STANDARD
-            .encode(format!("{}:{}", username, password));
+        use base64::Engine;
+        let auth = base64::prelude::BASE64_STANDARD.encode(format!("{}:{}", username, password));
         let auth_header = format!("Basic {}", auth);
 
         log::info!("Connecting to Kopia WebSocket: {}", ws_url);
@@ -128,7 +128,10 @@ impl KopiaWebSocket {
             .uri(&ws_url)
             .header("Authorization", auth_header)
             .header("Sec-WebSocket-Version", "13")
-            .header("Sec-WebSocket-Key", tokio_tungstenite::tungstenite::handshake::client::generate_key())
+            .header(
+                "Sec-WebSocket-Key",
+                tokio_tungstenite::tungstenite::handshake::client::generate_key(),
+            )
             .header("Connection", "Upgrade")
             .header("Upgrade", "websocket")
             .body(())
@@ -144,43 +147,65 @@ impl KopiaWebSocket {
 
         log::info!("WebSocket connected successfully");
 
-        let (_write, mut read) = ws_stream.split();
+        let (mut write, mut read) = ws_stream.split();
+
+        // Create shutdown channel
+        let (shutdown_tx, mut shutdown_rx) = tokio::sync::mpsc::channel::<()>(1);
 
         // Spawn task to handle incoming messages
         let app_handle_clone = app_handle.clone();
         let handle = tokio::spawn(async move {
-            while let Some(message) = read.next().await {
-                match message {
-                    Ok(Message::Text(text)) => {
-                        log::debug!("WebSocket message received: {}", text);
+            loop {
+                tokio::select! {
+                    // Handle incoming messages
+                    message = read.next() => {
+                        let Some(message) = message else {
+                            log::info!("WebSocket stream ended");
+                            break;
+                        };
 
-                        // Parse and emit event to frontend
-                        match serde_json::from_str::<WebSocketEvent>(&text) {
-                            Ok(event) => {
-                                // Emit event to frontend via Tauri
-                                if let Err(e) = app_handle_clone.emit("kopia-ws-event", &event) {
-                                    log::error!("Failed to emit WebSocket event: {}", e);
+                        match message {
+                            Ok(Message::Text(text)) => {
+                                log::debug!("WebSocket message received: {}", text);
+
+                                // Parse and emit event to frontend
+                                match serde_json::from_str::<WebSocketEvent>(&text) {
+                                    Ok(event) => {
+                                        // Emit event to frontend via Tauri
+                                        if let Err(e) = app_handle_clone.emit("kopia-ws-event", &event) {
+                                            log::error!("Failed to emit WebSocket event: {}", e);
+                                        }
+                                    }
+                                    Err(e) => {
+                                        log::warn!("Failed to parse WebSocket message: {}", e);
+                                        log::debug!("Raw message: {}", text);
+                                    }
                                 }
                             }
+                            Ok(Message::Close(_)) => {
+                                log::info!("WebSocket connection closed by server");
+                                break;
+                            }
+                            Ok(Message::Ping(_data)) => {
+                                log::debug!("Received ping, sending pong");
+                                // Pongs are handled automatically by tungstenite
+                            }
+                            Ok(_) => {
+                                // Ignore binary, pong, and frame messages
+                            }
                             Err(e) => {
-                                log::warn!("Failed to parse WebSocket message: {}", e);
-                                log::debug!("Raw message: {}", text);
+                                log::error!("WebSocket error: {}", e);
+                                break;
                             }
                         }
                     }
-                    Ok(Message::Close(_)) => {
-                        log::info!("WebSocket connection closed by server");
-                        break;
-                    }
-                    Ok(Message::Ping(_data)) => {
-                        log::debug!("Received ping, sending pong");
-                        // Pongs are handled automatically by tungstenite
-                    }
-                    Ok(_) => {
-                        // Ignore binary, pong, and frame messages
-                    }
-                    Err(e) => {
-                        log::error!("WebSocket error: {}", e);
+                    // Handle shutdown signal
+                    _ = shutdown_rx.recv() => {
+                        log::info!("Received shutdown signal, closing WebSocket gracefully");
+                        // Send close frame
+                        if let Err(e) = write.close().await {
+                            log::error!("Failed to send close frame: {}", e);
+                        }
                         break;
                     }
                 }
@@ -195,21 +220,35 @@ impl KopiaWebSocket {
         *conn_guard = Some(WebSocketConnection {
             url: ws_url,
             handle,
+            shutdown_tx,
         });
 
         Ok(())
     }
 
-    /// Disconnect from WebSocket
+    /// Disconnect from WebSocket gracefully
     pub async fn disconnect(&self) -> Result<()> {
         let mut conn_guard = self.connection.lock().await;
 
         if let Some(conn) = conn_guard.take() {
             log::info!("Disconnecting WebSocket: {}", conn.url);
-            conn.handle.abort();
+
+            // Send shutdown signal for graceful close
+            let _ = conn.shutdown_tx.send(()).await;
+
+            // Wait for handler to finish (with timeout)
+            let timeout = tokio::time::Duration::from_secs(5);
+            match tokio::time::timeout(timeout, conn.handle).await {
+                Ok(Ok(())) => log::info!("WebSocket disconnected gracefully"),
+                Ok(Err(e)) => log::warn!("WebSocket handler panicked: {}", e),
+                Err(_) => {
+                    log::warn!("WebSocket disconnect timeout, connection may not be clean");
+                }
+            }
+
             Ok(())
         } else {
-            Err(KopiaError::WebSocketNotConnected)
+            Err(crate::error::KopiaError::WebSocketNotConnected)
         }
     }
 

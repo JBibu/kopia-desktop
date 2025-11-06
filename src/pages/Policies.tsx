@@ -4,6 +4,7 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router';
 import { usePolicies } from '@/hooks/usePolicies';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,11 +31,14 @@ import {
   FolderTree,
   AlertCircle,
   Info,
+  Plus,
+  Edit,
 } from 'lucide-react';
 import type { PolicyResponse } from '@/lib/kopia/types';
 
 export function Policies() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { policies, isLoading, error, fetchPolicies } = usePolicies();
   const [selectedTab, setSelectedTab] = useState('all');
 
@@ -104,6 +108,18 @@ export function Policies() {
     );
   };
 
+  const handleEditPolicy = (policyResponse: PolicyResponse) => {
+    const params = new URLSearchParams();
+    if (policyResponse.target.userName) params.set('userName', policyResponse.target.userName);
+    if (policyResponse.target.host) params.set('host', policyResponse.target.host);
+    if (policyResponse.target.path) params.set('path', policyResponse.target.path);
+    void navigate(`/policies/edit?${params.toString()}`);
+  };
+
+  const handleCreateGlobalPolicy = () => {
+    void navigate('/policies/edit');
+  };
+
   const PolicyCard = ({ policyResponse }: { policyResponse: PolicyResponse }) => {
     const level = getPolicyLevel(policyResponse);
     const policy = policyResponse.policy;
@@ -117,6 +133,10 @@ export function Policies() {
               <CardTitle className="text-base">{targetStr}</CardTitle>
               {getPolicyLevelBadge(level)}
             </div>
+            <Button variant="ghost" size="sm" onClick={() => handleEditPolicy(policyResponse)}>
+              <Edit className="h-4 w-4 mr-2" />
+              {t('common.edit')}
+            </Button>
           </div>
           <CardDescription className="text-xs">
             {policy.retention && (
@@ -179,7 +199,7 @@ export function Policies() {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">{t('policies.interval')}</span>
                       <span className="font-medium">
-                        {policy.scheduling.interval || t('policies.notSet')}
+                        {policy.scheduling.intervalSeconds || t('policies.notSet')}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -256,15 +276,21 @@ export function Policies() {
           <h1 className="text-3xl font-bold tracking-tight">{t('policies.title')}</h1>
           <p className="text-sm text-muted-foreground">{t('policies.subtitle')}</p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => void handleRefresh()}
-          disabled={isLoading}
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          {t('common.refresh')}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void handleRefresh()}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            {t('common.refresh')}
+          </Button>
+          <Button size="sm" onClick={handleCreateGlobalPolicy}>
+            <Plus className="h-4 w-4 mr-2" />
+            {t('policies.createPolicy')}
+          </Button>
+        </div>
       </div>
 
       {/* Error Alert */}

@@ -14,7 +14,7 @@ use std::sync::Arc;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager,
+    Emitter, Manager,
 };
 use tokio::sync::Mutex;
 
@@ -26,20 +26,56 @@ pub fn create_websocket_state() -> KopiaWebSocketState {
     Arc::new(Mutex::new(KopiaWebSocket::new()))
 }
 
+/// Restore and show the main window
+///
+/// Attempts to unminimize, show, and focus the main window.
+/// Logs any errors at debug level for troubleshooting.
+fn restore_main_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        if let Err(e) = window.unminimize() {
+            log::debug!("Failed to unminimize window: {}", e);
+        }
+        if let Err(e) = window.show() {
+            log::debug!("Failed to show window: {}", e);
+        }
+        if let Err(e) = window.set_focus() {
+            log::debug!("Failed to focus window: {}", e);
+        }
+    }
+}
+
+/// Hide the main window
+///
+/// Attempts to hide the main window.
+/// Logs any errors at debug level for troubleshooting.
+fn hide_main_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        if let Err(e) = window.hide() {
+            log::debug!("Failed to hide window: {}", e);
+        }
+    }
+}
+
 /// Auto-start the Kopia server on app launch
 async fn auto_start_server(state: KopiaServerState) -> error::Result<()> {
-    let config_dir = commands::kopia::get_default_config_dir().unwrap_or_else(|e| {
-        log::warn!(
-            "Failed to get config directory: {}, using current directory",
-            e
-        );
-        ".".to_string()
-    });
+    // Get config directory - fail fast if we can't determine it
+    let config_dir = commands::kopia::get_default_config_dir().map_err(|e| {
+        error::KopiaError::InternalError {
+            message: format!("Failed to determine config directory: {}", e),
+            details: None,
+        }
+    })?;
 
     // Start server process and get ready waiter
     let (info, ready_waiter) = {
         let mut server = state.lock().unwrap_or_else(|poisoned| {
-            log::warn!("Mutex poisoned during auto-start, recovering...");
+            log::error!(
+                "CRITICAL: Server mutex poisoned during auto-start. \
+                 A previous thread panicked while holding the lock. \
+                 Attempting to recover by using the poisoned state..."
+            );
+            #[cfg(debug_assertions)]
+            log::debug!("Poison recovery stack trace: {:?}", std::backtrace::Backtrace::capture());
             poisoned.into_inner()
         });
         let info = server.start(&config_dir)?;
@@ -72,27 +108,25 @@ pub fn run() {
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show_i, &hide_i, &quit_i])?;
 
-            // Build system tray
+            // Build system tray with default icon
+            let icon = app
+                .default_window_icon()
+                .ok_or_else(|| {
+                    tauri::Error::InvalidIcon(std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        "Default window icon not found",
+                    ))
+                })?
+                .clone();
+
             let _tray = TrayIconBuilder::new()
-                .icon(app.default_window_icon().unwrap().clone())
+                .icon(icon)
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
-                    "show" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.unminimize();
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
-                    }
-                    "hide" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.hide();
-                        }
-                    }
-                    "quit" => {
-                        app.exit(0);
-                    }
+                    "show" => restore_main_window(app),
+                    "hide" => hide_main_window(app),
+                    "quit" => app.exit(0),
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
@@ -102,22 +136,24 @@ pub fn run() {
                         ..
                     } = event
                     {
-                        let app = tray.app_handle();
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.unminimize();
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
+                        restore_main_window(tray.app_handle());
                     }
                 })
                 .build(app)?;
 
             // Auto-start Kopia server on app launch
             let state = server_state.clone();
+            let app_handle = app.app_handle().clone();
             tauri::async_runtime::spawn(async move {
                 if let Err(e) = auto_start_server(state).await {
                     log::error!("Failed to auto-start Kopia server: {}", e);
                     log::info!("You can start the server manually from the UI");
+
+                    // Notify frontend about auto-start failure
+                    let error_message = e.to_string();
+                    if let Err(emit_err) = app_handle.emit("server-autostart-failed", &error_message) {
+                        log::error!("Failed to emit server-autostart-failed event: {}", emit_err);
+                    }
                 }
             });
             Ok(())
@@ -166,7 +202,6 @@ pub fn run() {
             commands::maintenance_info,
             commands::maintenance_run,
             // Utilities
-            commands::current_user_get,
             commands::path_resolve,
             commands::estimate_snapshot,
             commands::ui_preferences_get,

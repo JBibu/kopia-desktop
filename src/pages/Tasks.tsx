@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Progress } from '@/components/ui/progress';
 import {
   Table,
   TableBody,
@@ -40,11 +39,17 @@ import {
   TrendingDown,
 } from 'lucide-react';
 import type { Task } from '@/lib/kopia/types';
+import { formatDateTime } from '@/lib/utils';
+import { useLanguageStore } from '@/stores/language';
 
 export function Tasks() {
   const { t } = useTranslation();
+  const { language } = useLanguageStore();
   const { tasks, summary, isLoading, error, isWebSocketConnected, cancelTask, refreshAll } =
     useTasks();
+
+  // Map language code to locale
+  const locale = language === 'es' ? 'es-ES' : 'en-US';
 
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -92,21 +97,11 @@ export function Tasks() {
   };
 
   const formatDuration = (seconds: number) => {
-    if (seconds < 60) return `${seconds}${t('common.units.seconds')}`;
-    if (seconds < 3600)
-      return `${Math.floor(seconds / 60)}${t('common.units.minutes')} ${seconds % 60}${t('common.units.seconds')}`;
+    if (seconds < 60) return `${seconds}s`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
-    return `${hours}${t('common.units.hours')} ${minutes}${t('common.units.minutes')}`;
-  };
-
-  const formatDate = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString();
-  };
-
-  const calculateProgress = (task: Task): number => {
-    if (!task.progress) return 0;
-    return task.progress.percentage || 0;
+    return `${hours}h ${minutes}m`;
   };
 
   return (
@@ -120,7 +115,7 @@ export function Tasks() {
             {isWebSocketConnected && (
               <span className="ml-2 inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
                 <Activity className="h-3 w-3 animate-pulse" />
-                {t('tasks.realTimeUpdates')}
+                {t('tasks.realtimeUpdates')}
               </span>
             )}
           </p>
@@ -130,9 +125,7 @@ export function Tasks() {
           size="sm"
           onClick={() => void handleRefresh()}
           disabled={isLoading}
-          title={
-            isWebSocketConnected ? t('tasks.manualRefreshActive') : t('tasks.refreshTasksPolling')
-          }
+          title={isWebSocketConnected ? t('tasks.manualRefresh') : t('tasks.pollingMode')}
         >
           <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
           {t('common.refresh')}
@@ -240,7 +233,7 @@ export function Tasks() {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Clock className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-sm">{formatDate(task.startTime)}</span>
+                        <span className="text-sm">{formatDateTime(task.startTime, locale)}</span>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -257,13 +250,8 @@ export function Tasks() {
                       </span>
                     </TableCell>
                     <TableCell>
-                      {task.status === 'RUNNING' ? (
-                        <div className="space-y-1">
-                          <Progress value={calculateProgress(task)} className="h-2" />
-                          <span className="text-xs text-muted-foreground">
-                            {calculateProgress(task)}%
-                          </span>
-                        </div>
+                      {task.progressInfo ? (
+                        <span className="text-sm text-muted-foreground">{task.progressInfo}</span>
                       ) : (
                         <span className="text-sm text-muted-foreground">-</span>
                       )}
@@ -308,7 +296,7 @@ export function Tasks() {
               </div>
               <div className="text-sm">
                 <span className="font-medium">{t('tasks.started')}:</span>{' '}
-                {formatDate(selectedTask.startTime)}
+                {formatDateTime(selectedTask.startTime, locale)}
               </div>
             </div>
           )}

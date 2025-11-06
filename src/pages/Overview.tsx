@@ -9,7 +9,7 @@ import { useKopiaServer } from '@/hooks/useKopiaServer';
 import { useRepository } from '@/hooks/useRepository';
 import { useSnapshots } from '@/hooks/useSnapshots';
 import { useTasks } from '@/hooks/useTasks';
-import { useLanguageStore } from '@/stores/language';
+import { useKopiaStore } from '@/stores/kopia';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -39,7 +39,8 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { formatBytes, formatDistanceToNow } from '@/lib/utils';
+import { formatBytes, formatDistanceToNow, formatShortDate } from '@/lib/utils';
+import { useLanguageStore } from '@/stores/language';
 
 const CHART_COLORS = {
   primary: 'hsl(var(--primary))',
@@ -56,13 +57,17 @@ const CHART_COLORS = {
 
 export function Overview() {
   const { t } = useTranslation();
-  const { language } = useLanguageStore();
   const navigate = useNavigate();
+  const { language } = useLanguageStore();
   const { serverStatus, isLoading: serverLoading, startServer } = useKopiaServer();
   const { status: repoStatus, isLoading: repoLoading } = useRepository();
   const { snapshots, isLoading: snapshotsLoading } = useSnapshots();
   const { tasks, summary: tasksSummary } = useTasks();
+  const maintenanceInfo = useKopiaStore((state) => state.maintenanceInfo);
   const hasTriedToStart = useRef(false);
+
+  // Map language code to locale
+  const locale = language === 'es' ? 'es-ES' : 'en-US';
 
   const isServerRunning = serverStatus?.running ?? false;
   const isRepoConnected = repoStatus?.connected ?? false;
@@ -96,10 +101,14 @@ export function Overview() {
         return snapshotDate >= date && snapshotDate < nextDay;
       });
 
-      const totalSize = daySnapshots.reduce((sum, s) => sum + (s.summary?.totalFileSize || 0), 0);
+      const totalSize = daySnapshots.reduce((sum, s) => {
+        const snapshotSize =
+          s.summary?.totalFileSize || s.summary?.size || s.rootEntry?.summ?.size || 0;
+        return sum + snapshotSize;
+      }, 0);
 
       return {
-        date: date.toLocaleDateString(language, { month: 'short', day: 'numeric' }),
+        date: formatShortDate(date, locale),
         count: daySnapshots.length,
         size: totalSize,
         sizeFormatted: formatBytes(totalSize),
@@ -107,7 +116,12 @@ export function Overview() {
     });
 
     // Total statistics
-    const totalSize = snapshots.reduce((sum, s) => sum + (s.summary?.totalFileSize || 0), 0);
+    // Try multiple fields for size: totalFileSize, size, or rootEntry size
+    const totalSize = snapshots.reduce((sum, s) => {
+      const snapshotSize =
+        s.summary?.totalFileSize || s.summary?.size || s.rootEntry?.summ?.size || 0;
+      return sum + snapshotSize;
+    }, 0);
     const totalFiles = snapshots.reduce((sum, s) => sum + (s.summary?.files || 0), 0);
     const incompleteCount = snapshots.filter((s) => s.incomplete).length;
 
@@ -119,7 +133,7 @@ export function Overview() {
       complete: snapshots.length - incompleteCount,
       byDay: snapshotsByDay,
     };
-  }, [snapshots, language]);
+  }, [snapshots, locale]);
 
   // Task status distribution
   const taskStatusData = useMemo(() => {
@@ -256,7 +270,7 @@ export function Overview() {
           </CardContent>
         </Card>
 
-        {/* Storage Used */}
+        {/* Storage Used (Deduplicated) */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -265,17 +279,28 @@ export function Overview() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {snapshotsLoading ? (
+            {repoLoading ? (
               <Spinner className="h-4 w-4" />
-            ) : snapshotStats ? (
+            ) : maintenanceInfo?.stats ? (
               <div className="space-y-1">
+                <div className="text-2xl font-bold">
+                  {formatBytes(maintenanceInfo.stats.totalBlobSize)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {maintenanceInfo.stats.blobCount.toLocaleString()} {t('overview.blobs')}
+                  {' • '}
+                  {t('overview.deduplicated')}
+                </p>
+              </div>
+            ) : snapshotStats ? (
+              <div className="space-y-2">
                 <div className="text-2xl font-bold">{formatBytes(snapshotStats.totalSize)}</div>
                 <p className="text-xs text-muted-foreground">
                   {snapshotStats.totalFiles.toLocaleString()} {t('overview.files')}
                 </p>
               </div>
             ) : (
-              <div className="text-2xl font-bold">0 {t('common.units.bytes')}</div>
+              <div className="text-2xl font-bold">0 B</div>
             )}
           </CardContent>
         </Card>
@@ -318,6 +343,7 @@ export function Overview() {
                     fillOpacity={1}
                     fill="url(#colorCount)"
                     name={t('overview.snapshots')}
+                    isAnimationActive={false}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -343,6 +369,7 @@ export function Overview() {
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"
+                      isAnimationActive={false}
                     >
                       {taskStatusData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
@@ -403,10 +430,8 @@ export function Overview() {
                           )}
                         </div>
                       </div>
-                      {task.progress && (
-                        <div className="text-xs text-muted-foreground">
-                          {task.progress.percentage}%
-                        </div>
+                      {task.progressInfo && (
+                        <div className="text-xs text-muted-foreground">{task.progressInfo}</div>
                       )}
                     </div>
                   ))}

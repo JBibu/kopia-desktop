@@ -10,8 +10,11 @@ import { WindowCloseHandler } from './components/WindowCloseHandler';
 import { Overview } from './pages/Overview';
 import { Repository } from './pages/Repository';
 import { Snapshots } from './pages/Snapshots';
+import { SnapshotCreate } from './pages/SnapshotCreate';
 import { SnapshotHistory } from './pages/SnapshotHistory';
+import { SnapshotBrowse } from './pages/SnapshotBrowse';
 import { Policies } from './pages/Policies';
+import { PolicyEdit } from './pages/PolicyEdit';
 import { Tasks } from './pages/Tasks';
 import { Preferences } from './pages/Preferences';
 import { Setup } from './pages/Setup';
@@ -98,6 +101,14 @@ function App(): React.JSX.Element {
               }
             />
             <Route
+              path="snapshots/create"
+              element={
+                <ProtectedRoute>
+                  <SnapshotCreate />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="snapshots/history"
               element={
                 <ProtectedRoute>
@@ -106,10 +117,26 @@ function App(): React.JSX.Element {
               }
             />
             <Route
+              path="snapshots/browse"
+              element={
+                <ProtectedRoute>
+                  <SnapshotBrowse />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="policies"
               element={
                 <ProtectedRoute>
                   <Policies />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="policies/edit"
+              element={
+                <ProtectedRoute>
+                  <PolicyEdit />
                 </ProtectedRoute>
               }
             />

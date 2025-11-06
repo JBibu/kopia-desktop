@@ -120,6 +120,9 @@ export async function selectFolder(defaultPath?: string): Promise<string | null>
 
 /**
  * Open file picker dialog
+ *
+ * @note Currently unused - only folder picker (selectFolder) is used in the UI
+ * File picker may be used for restore/download features in the future
  */
 export async function selectFile(defaultPath?: string): Promise<string | null> {
   return invoke('select_file', { defaultPath });
@@ -150,6 +153,9 @@ export async function getAlgorithms(): Promise<import('./types').AlgorithmsRespo
 
 /**
  * Update repository description
+ *
+ * @note Currently unused - repository description is set during creation/connection
+ * Editing repository description UI is planned for future release
  */
 export async function updateRepositoryDescription(description: string): Promise<void> {
   return invoke('repository_update_description', { description });
@@ -179,6 +185,9 @@ export async function createSnapshot(
 
 /**
  * Cancel an ongoing snapshot
+ *
+ * @note Currently unused - snapshot cancellation UI is handled via task cancellation
+ * This command may be used for dedicated snapshot-specific cancellation in the future
  */
 export async function cancelSnapshot(userName: string, host: string, path: string): Promise<void> {
   return invoke('snapshot_cancel', { userName, host, path });
@@ -202,16 +211,28 @@ export async function listSnapshots(
 
 /**
  * Edit snapshot metadata (pins, description)
+ *
+ * @note Currently unused - planned for future snapshot management features
  */
 export async function editSnapshot(request: import('./types').SnapshotEditRequest): Promise<void> {
   return invoke('snapshot_edit', { request });
 }
 
 /**
- * Delete snapshots
+ * Delete snapshots (requires source information)
  */
-export async function deleteSnapshots(manifestIDs: string[]): Promise<number> {
-  return invoke('snapshot_delete', { manifestIDs });
+export async function deleteSnapshots(
+  userName: string,
+  host: string,
+  path: string,
+  manifestIDs: string[]
+): Promise<number> {
+  return invoke('snapshot_delete', {
+    userName,
+    host,
+    path,
+    manifestIds: manifestIDs,
+  });
 }
 
 // ============================================================================
@@ -227,6 +248,8 @@ export async function browseObject(objectId: string): Promise<import('./types').
 
 /**
  * Download a single file from a snapshot
+ *
+ * @note Currently unused - planned for restore/download features
  */
 export async function downloadObject(
   objectId: string,
@@ -238,6 +261,8 @@ export async function downloadObject(
 
 /**
  * Start a restore operation
+ *
+ * @note Currently unused - restore UI is planned for future release
  */
 export async function restoreStart(request: import('./types').RestoreRequest): Promise<string> {
   return invoke('restore_start', { request });
@@ -245,6 +270,8 @@ export async function restoreStart(request: import('./types').RestoreRequest): P
 
 /**
  * Mount a snapshot
+ *
+ * @note Currently unused - snapshot mounting UI is planned for future release
  */
 export async function mountSnapshot(root: string): Promise<string> {
   return invoke('mount_snapshot', { root });
@@ -252,6 +279,8 @@ export async function mountSnapshot(root: string): Promise<string> {
 
 /**
  * List all mounted snapshots
+ *
+ * @note Currently unused - snapshot mounting UI is planned for future release
  */
 export async function listMounts(): Promise<import('./types').MountsResponse> {
   return invoke('mounts_list');
@@ -259,6 +288,8 @@ export async function listMounts(): Promise<import('./types').MountsResponse> {
 
 /**
  * Unmount a snapshot
+ *
+ * @note Currently unused - snapshot mounting UI is planned for future release
  */
 export async function unmountSnapshot(objectId: string): Promise<void> {
   return invoke('mount_unmount', { objectId });
@@ -282,12 +313,15 @@ export async function getPolicy(
   userName?: string,
   host?: string,
   path?: string
-): Promise<import('./types').PolicyResponse> {
+): Promise<import('./types').PolicyDefinition> {
   return invoke('policy_get', { userName, host, path });
 }
 
 /**
  * Resolve effective policy with inheritance
+ */
+/**
+ * @note Currently unused - planned for advanced policy preview/validation features
  */
 export async function resolvePolicy(
   userName?: string,
@@ -338,6 +372,9 @@ export async function getTask(taskId: string): Promise<import('./types').TaskDet
 /**
  * Get task logs
  */
+/**
+ * @note Currently unused - planned for task details/logs viewer UI
+ */
 export async function getTaskLogs(taskId: string): Promise<string[]> {
   return invoke('task_logs', { taskId });
 }
@@ -369,6 +406,8 @@ export async function getMaintenanceInfo(): Promise<import('./types').Maintenanc
 
 /**
  * Run maintenance
+ * @note The Kopia server does not expose a maintenance run endpoint in the API.
+ * This function exists but will fail with 404. Maintenance must be scheduled via policies.
  */
 export async function runMaintenance(full = false, safety?: 'none' | 'full'): Promise<string> {
   return invoke('maintenance_run', { full, safety });
@@ -377,13 +416,6 @@ export async function runMaintenance(full = false, safety?: 'none' | 'full'): Pr
 // ============================================================================
 // Utilities
 // ============================================================================
-
-/**
- * Get current user and hostname
- */
-export async function getCurrentUserInfo(): Promise<import('./types').CurrentUserResponse> {
-  return invoke('current_user_get');
-}
 
 /**
  * Resolve path to source
@@ -419,6 +451,9 @@ export async function estimateSnapshot(
 
 /**
  * Get UI preferences
+ *
+ * @note Currently unused - preferences are managed via Zustand stores (theme, language, fontSize)
+ * This command is for syncing with Kopia's server-side preferences if needed in the future
  */
 export async function getUIPreferences(): Promise<import('./types').UIPreferences> {
   return invoke('ui_preferences_get');
@@ -426,6 +461,9 @@ export async function getUIPreferences(): Promise<import('./types').UIPreference
 
 /**
  * Save UI preferences
+ *
+ * @note Currently unused - preferences are managed via Zustand stores (theme, language, fontSize)
+ * This command is for syncing with Kopia's server-side preferences if needed in the future
  */
 export async function saveUIPreferences(
   preferences: import('./types').UIPreferences
@@ -495,6 +533,9 @@ export async function disconnectWebSocket(): Promise<void> {
 
 /**
  * Check WebSocket connection status
+ *
+ * @note Currently unused - WebSocket status is managed in Zustand store (isWebSocketConnected)
+ * This command is available for debugging or manual status checks
  */
 export async function getWebSocketStatus(): Promise<boolean> {
   return invoke('websocket_status');

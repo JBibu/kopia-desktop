@@ -22,148 +22,38 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import {
   FolderArchive,
   RefreshCw,
-  Plus,
   Search,
   Calendar,
   HardDrive,
   AlertCircle,
-  FolderOpen,
   ChevronRight,
+  XCircle,
+  Plus,
 } from 'lucide-react';
-import type { SnapshotSource, TaskDetail } from '@/lib/kopia/types';
-import { selectFolder, estimateSnapshot, getTask } from '@/lib/kopia/client';
+import type { SnapshotSource } from '@/lib/kopia/types';
+import { cancelSnapshot } from '@/lib/kopia/client';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia/errors';
-import { useEffect, useRef } from 'react';
+import { formatBytes, formatDateTime } from '@/lib/utils';
+import { useLanguageStore } from '@/stores/language';
 
 export function Snapshots() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { sources, isLoading, error, createSnapshot, refreshAll } = useSnapshots();
+  const { language } = useLanguageStore();
+  const { sources, isLoading, error, refreshAll } = useSnapshots();
+
+  // Map language code to locale
+  const locale = language === 'es' ? 'es-ES' : 'en-US';
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [createPath, setCreatePath] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
-  const [isEstimating, setIsEstimating] = useState(false);
-  const [estimateTask, setEstimateTask] = useState<TaskDetail | null>(null);
-  const estimatePollInterval = useRef<NodeJS.Timeout | null>(null);
 
   const handleRefresh = async () => {
     await refreshAll();
-  };
-
-  const handleBrowseFolder = async () => {
-    try {
-      const folder = await selectFolder();
-      if (folder) {
-        setCreatePath(folder);
-        // Clear estimate when path changes
-        setEstimateTask(null);
-        if (estimatePollInterval.current) {
-          clearInterval(estimatePollInterval.current);
-          estimatePollInterval.current = null;
-        }
-      }
-    } catch (err) {
-      toast.error(getErrorMessage(err));
-    }
-  };
-
-  const pollEstimateTask = async (taskId: string) => {
-    try {
-      const task = await getTask(taskId);
-      setEstimateTask(task);
-
-      // Stop polling if task is done
-      if (task.endTime) {
-        if (estimatePollInterval.current) {
-          clearInterval(estimatePollInterval.current);
-          estimatePollInterval.current = null;
-        }
-        setIsEstimating(false);
-      }
-    } catch (err) {
-      console.error('Failed to poll estimate task:', err);
-      if (estimatePollInterval.current) {
-        clearInterval(estimatePollInterval.current);
-        estimatePollInterval.current = null;
-      }
-      setIsEstimating(false);
-    }
-  };
-
-  const handleEstimate = async () => {
-    if (!createPath.trim()) return;
-
-    setIsEstimating(true);
-    setEstimateTask(null);
-
-    // Clear any existing polling
-    if (estimatePollInterval.current) {
-      clearInterval(estimatePollInterval.current);
-      estimatePollInterval.current = null;
-    }
-
-    try {
-      const result = await estimateSnapshot(createPath.trim());
-
-      // Start polling the task for results
-      await pollEstimateTask(result.id);
-      estimatePollInterval.current = setInterval(() => {
-        void pollEstimateTask(result.id);
-      }, 500); // Poll every 500ms like HTML UI
-    } catch (err) {
-      toast.error(getErrorMessage(err));
-      setIsEstimating(false);
-    }
-  };
-
-  // Cleanup polling on unmount
-  useEffect(() => {
-    return () => {
-      if (estimatePollInterval.current) {
-        clearInterval(estimatePollInterval.current);
-      }
-    };
-  }, []);
-
-  const handleCreateSnapshot = async () => {
-    if (!createPath.trim()) return;
-
-    setIsCreating(true);
-    try {
-      await createSnapshot(createPath.trim());
-      toast.success(t('snapshots.snapshotCreated'), {
-        description: t('snapshots.snapshotCreatedDescription'),
-      });
-      setShowCreateDialog(false);
-      setCreatePath('');
-      setEstimateTask(null);
-
-      // Clear polling
-      if (estimatePollInterval.current) {
-        clearInterval(estimatePollInterval.current);
-        estimatePollInterval.current = null;
-      }
-    } catch (err) {
-      toast.error(getErrorMessage(err));
-    } finally {
-      setIsCreating(false);
-    }
   };
 
   const handleViewSource = (source: SnapshotSource) => {
@@ -175,6 +65,21 @@ export function Snapshots() {
     void navigate(`/snapshots/history?${params.toString()}`);
   };
 
+  const handleCancelSnapshot = async (source: SnapshotSource, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent row click
+
+    try {
+      await cancelSnapshot(source.source.userName, source.source.host, source.source.path);
+      toast.success(t('snapshots.snapshotCancelled'), {
+        description: t('snapshots.snapshotCancelledDescription'),
+      });
+      // Refresh sources to show updated status
+      await refreshAll();
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  };
+
   const filteredSources = sources.filter((source) => {
     const sourceString = `${source.source.userName}@${source.source.host}:${source.source.path}`;
     return (
@@ -184,24 +89,6 @@ export function Snapshots() {
     );
   });
 
-  const formatDate = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString();
-  };
-
-  const formatSize = (bytes: number) => {
-    if (bytes === 0) return `0 ${t('common.units.bytes')}`;
-    const k = 1024;
-    const sizes = [
-      t('common.units.bytes'),
-      t('common.units.kilobytes'),
-      t('common.units.megabytes'),
-      t('common.units.gigabytes'),
-      t('common.units.terabytes'),
-    ];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -210,7 +97,11 @@ export function Snapshots() {
           <h1 className="text-3xl font-bold tracking-tight">{t('snapshots.title')}</h1>
           <p className="text-sm text-muted-foreground">{t('snapshots.subtitle')}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex gap-2">
+          <Button size="sm" onClick={() => void navigate('/snapshots/create')}>
+            <Plus className="h-4 w-4 mr-2" />
+            {t('snapshots.createSnapshot')}
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -219,10 +110,6 @@ export function Snapshots() {
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             {t('common.refresh')}
-          </Button>
-          <Button size="sm" onClick={() => setShowCreateDialog(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            {t('snapshots.createSnapshot')}
           </Button>
         </div>
       </div>
@@ -271,12 +158,6 @@ export function Snapshots() {
               <p className="text-sm text-muted-foreground mb-4">
                 {searchQuery ? t('snapshots.noSourcesMatch') : t('snapshots.createFirst')}
               </p>
-              {!searchQuery && (
-                <Button onClick={() => setShowCreateDialog(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  {t('snapshots.createSnapshot')}
-                </Button>
-              )}
             </div>
           ) : (
             <Table>
@@ -328,7 +209,7 @@ export function Snapshots() {
                         <div className="flex items-center gap-2">
                           <Calendar className="h-3 w-3 text-muted-foreground" />
                           <span className="text-sm">
-                            {formatDate(source.lastSnapshot.startTime)}
+                            {formatDateTime(source.lastSnapshot.startTime, locale)}
                           </span>
                         </div>
                       ) : (
@@ -338,11 +219,11 @@ export function Snapshots() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {source.lastSnapshot?.stats.totalSize ? (
+                      {source.lastSnapshot?.summary?.totalFileSize ? (
                         <div className="flex items-center justify-end gap-2">
                           <HardDrive className="h-3 w-3 text-muted-foreground" />
                           <span className="text-sm">
-                            {formatSize(source.lastSnapshot.stats.totalSize)}
+                            {formatBytes(source.lastSnapshot.summary.totalFileSize)}
                           </span>
                         </div>
                       ) : (
@@ -350,16 +231,28 @@ export function Snapshots() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleViewSource(source);
-                        }}
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        {source.status === 'UPLOADING' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => void handleCancelSnapshot(source, e)}
+                            title={t('snapshots.cancelSnapshot')}
+                          >
+                            <XCircle className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewSource(source);
+                          }}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -368,143 +261,6 @@ export function Snapshots() {
           )}
         </CardContent>
       </Card>
-
-      {/* Create Snapshot Dialog */}
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('snapshots.createSnapshot')}</DialogTitle>
-            <DialogDescription>{t('snapshots.createDialogDescription')}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="path">{t('snapshots.pathToBackup')}</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="path"
-                  placeholder={t('snapshots.pathPlaceholder')}
-                  value={createPath}
-                  onChange={(e) => {
-                    setCreatePath(e.target.value);
-                    setEstimateTask(null);
-                    if (estimatePollInterval.current) {
-                      clearInterval(estimatePollInterval.current);
-                      estimatePollInterval.current = null;
-                    }
-                  }}
-                  disabled={isCreating}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => void handleBrowseFolder()}
-                  disabled={isCreating}
-                >
-                  <FolderOpen className="h-4 w-4" />
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">{t('snapshots.pathDescription')}</p>
-            </div>
-
-            {/* Estimate Button */}
-            <div className="flex justify-center">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => void handleEstimate()}
-                disabled={isEstimating || isCreating || !createPath.trim()}
-              >
-                {isEstimating ? (
-                  <>
-                    <Spinner className="h-4 w-4 mr-2" />
-                    {t('snapshots.estimating')}
-                  </>
-                ) : (
-                  t('snapshots.estimateSize')
-                )}
-              </Button>
-            </div>
-
-            {/* Estimation Results */}
-            {estimateTask && estimateTask.counters && (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-sm">
-                  <div className="font-medium mb-1">
-                    {estimateTask.status === 'RUNNING'
-                      ? t('snapshots.estimating')
-                      : t('snapshots.estimationComplete')}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
-                    <div>
-                      <span className="text-muted-foreground">{t('snapshots.totalSize')}: </span>
-                      <span className="font-medium">
-                        {formatSize(estimateTask.counters['Bytes'] || 0)}
-                      </span>
-                      <span className="text-muted-foreground ml-1">
-                        ({formatSize(estimateTask.counters['Excluded Bytes'] || 0)}{' '}
-                        {t('snapshots.excluded')})
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">{t('snapshots.totalFiles')}: </span>
-                      <span className="font-medium">{estimateTask.counters['Files'] || 0}</span>
-                      <span className="text-muted-foreground ml-1">
-                        ({estimateTask.counters['Excluded Files'] || 0} {t('snapshots.excluded')})
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">
-                        {t('snapshots.totalDirectories')}:{' '}
-                      </span>
-                      <span className="font-medium">
-                        {estimateTask.counters['Directories'] || 0}
-                      </span>
-                      <span className="text-muted-foreground ml-1">
-                        ({estimateTask.counters['Excluded Directories'] || 0}{' '}
-                        {t('snapshots.excluded')})
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">{t('snapshots.totalErrors')}: </span>
-                      <span className="font-medium">{estimateTask.counters['Errors'] || 0}</span>
-                      <span className="text-muted-foreground ml-1">
-                        ({estimateTask.counters['Ignored Errors'] || 0} {t('snapshots.ignored')})
-                      </span>
-                    </div>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowCreateDialog(false)}
-              disabled={isCreating}
-            >
-              {t('common.cancel')}
-            </Button>
-            <Button
-              onClick={() => void handleCreateSnapshot()}
-              disabled={isCreating || !createPath.trim()}
-            >
-              {isCreating ? (
-                <>
-                  <Spinner className="h-4 w-4 mr-2" />
-                  {t('snapshots.creating')}
-                </>
-              ) : (
-                <>
-                  <Plus className="h-4 w-4 mr-2" />
-                  {t('snapshots.createSnapshot')}
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { Link, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Database, FolderArchive, Settings, ListTodo, Home, ListChecks } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+import { StatusIndicator } from './StatusIndicator';
 
 interface NavItem {
   nameKey: string;
@@ -60,6 +61,9 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
           })}
         </ul>
       </nav>
+
+      {/* Status Indicator */}
+      <StatusIndicator />
 
       {/* Footer */}
       <div className="border-t px-3 py-2.5">

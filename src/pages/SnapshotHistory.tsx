@@ -8,6 +8,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router';
+import { listen } from '@tauri-apps/api/event';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -43,24 +44,37 @@ import {
   CheckCircle2,
   XCircle,
   Plus,
+  FolderOpen,
 } from 'lucide-react';
 import type { Snapshot } from '@/lib/kopia/types';
-import { listSnapshots, deleteSnapshots, createSnapshot } from '@/lib/kopia/client';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia/errors';
+import { formatBytes, formatDateTime } from '@/lib/utils';
+import { useLanguageStore } from '@/stores/language';
+import { useKopiaStore } from '@/stores/kopia';
 
 export function SnapshotHistory() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { language } = useLanguageStore();
+
+  // Map language code to locale
+  const locale = language === 'es' ? 'es-ES' : 'en-US';
 
   const userName = searchParams.get('userName') || '';
   const host = searchParams.get('host') || '';
   const path = searchParams.get('path') || '';
 
+  // Use store for snapshot operations
+  const fetchSnapshotsForSource = useKopiaStore((state) => state.fetchSnapshotsForSource);
+  const storeCreateSnapshot = useKopiaStore((state) => state.createSnapshot);
+  const storeDeleteSnapshots = useKopiaStore((state) => state.deleteSnapshots);
+  const isSnapshotsLoading = useKopiaStore((state) => state.isSnapshotsLoading);
+  const snapshotsError = useKopiaStore((state) => state.snapshotsError);
+
+  // Local state for this page
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSnapshots, setSelectedSnapshots] = useState<Set<string>>(new Set());
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -70,20 +84,20 @@ export function SnapshotHistory() {
 
   const fetchSnapshots = async () => {
     if (!userName || !host || !path) {
-      setError(t('snapshots.missingSourceParameters'));
-      setIsLoading(false);
       return;
     }
 
     try {
-      setIsLoading(true);
-      const response = await listSnapshots(userName, host, path, showAllSnapshots);
-      setSnapshots(response.snapshots || []);
-      setError(null);
+      const fetchedSnapshots = await fetchSnapshotsForSource(
+        userName,
+        host,
+        path,
+        showAllSnapshots
+      );
+      setSnapshots(fetchedSnapshots);
     } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setIsLoading(false);
+      // Error is already handled by the store
+      console.error('Failed to fetch snapshots:', err);
     }
   };
 
@@ -91,6 +105,29 @@ export function SnapshotHistory() {
     void fetchSnapshots();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userName, host, path, showAllSnapshots]);
+
+  // Listen for WebSocket events to auto-refresh
+  useEffect(() => {
+    const setupListener = async () => {
+      const unlisten = await listen('kopia-ws-event', (event) => {
+        const data = event.payload as { type?: string };
+
+        // Refresh snapshots when snapshot-related events occur
+        if (data.type === 'snapshot-progress' || data.type === 'task-progress') {
+          void fetchSnapshots();
+        }
+      });
+
+      return unlisten;
+    };
+
+    const listenerPromise = setupListener();
+
+    return () => {
+      void listenerPromise.then((unlisten) => unlisten());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userName, host, path]);
 
   const handleRefresh = async () => {
     await fetchSnapshots();
@@ -115,11 +152,13 @@ export function SnapshotHistory() {
   };
 
   const handleDeleteSnapshots = async () => {
-    if (selectedSnapshots.size === 0) return;
+    if (selectedSnapshots.size === 0 || !userName || !host || !path) return;
+
+    const idsToDelete = Array.from(selectedSnapshots);
 
     setIsDeleting(true);
     try {
-      await deleteSnapshots(Array.from(selectedSnapshots));
+      await storeDeleteSnapshots(userName, host, path, idsToDelete);
       toast.success(
         t('snapshots.snapshotsDeleted', {
           count: selectedSnapshots.size,
@@ -140,7 +179,7 @@ export function SnapshotHistory() {
 
     setIsCreatingSnapshot(true);
     try {
-      await createSnapshot(path, userName, host);
+      await storeCreateSnapshot(path);
       toast.success(t('snapshots.snapshotCreated'), {
         description: t('snapshots.snapshotCreatedDescription'),
       });
@@ -163,24 +202,6 @@ export function SnapshotHistory() {
     );
   });
 
-  const formatDate = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString();
-  };
-
-  const formatSize = (bytes: number) => {
-    if (bytes === 0) return `0 ${t('common.units.bytes')}`;
-    const k = 1024;
-    const sizes = [
-      t('common.units.bytes'),
-      t('common.units.kilobytes'),
-      t('common.units.megabytes'),
-      t('common.units.gigabytes'),
-      t('common.units.terabytes'),
-    ];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
-  };
-
   const sourceLabel = `${userName}@${host}:${path}`;
 
   return (
@@ -201,15 +222,15 @@ export function SnapshotHistory() {
             variant="outline"
             size="sm"
             onClick={() => void handleRefresh()}
-            disabled={isLoading}
+            disabled={isSnapshotsLoading}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 mr-2 ${isSnapshotsLoading ? 'animate-spin' : ''}`} />
             {t('common.refresh')}
           </Button>
           <Button
             size="sm"
             onClick={() => void handleSnapshotNow()}
-            disabled={isCreatingSnapshot || isLoading}
+            disabled={isCreatingSnapshot || isSnapshotsLoading}
           >
             {isCreatingSnapshot ? (
               <>
@@ -233,10 +254,10 @@ export function SnapshotHistory() {
       </div>
 
       {/* Error Alert */}
-      {error && (
+      {snapshotsError && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{snapshotsError}</AlertDescription>
         </Alert>
       )}
 
@@ -275,7 +296,7 @@ export function SnapshotHistory() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading && snapshots.length === 0 ? (
+          {isSnapshotsLoading && snapshots.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <Spinner className="h-8 w-8" />
             </div>
@@ -308,6 +329,7 @@ export function SnapshotHistory() {
                   <TableHead>{t('snapshots.time')}</TableHead>
                   <TableHead className="text-right">{t('snapshots.size')}</TableHead>
                   <TableHead className="text-right">{t('snapshots.files')}</TableHead>
+                  <TableHead className="w-[100px]">{t('snapshots.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -337,17 +359,42 @@ export function SnapshotHistory() {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Calendar className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-sm">{formatDate(snapshot.startTime)}</span>
+                        <span className="text-sm">
+                          {formatDateTime(snapshot.startTime, locale)}
+                        </span>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         <HardDrive className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-sm">{formatSize(snapshot.summary?.size || 0)}</span>
+                        <span className="text-sm">{formatBytes(snapshot.summary?.size || 0)}</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <Badge variant="secondary">{snapshot.summary?.files || 0}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (!snapshot.rootID) {
+                            toast.error(t('snapshots.cannotBrowse'), {
+                              description: t('snapshots.cannotBrowseDesc'),
+                            });
+                            return;
+                          }
+                          void navigate(
+                            `/snapshots/browse?snapshotId=${encodeURIComponent(snapshot.id)}&oid=${encodeURIComponent(snapshot.rootID)}&rootOid=${encodeURIComponent(snapshot.rootID)}&path=/`
+                          );
+                        }}
+                        disabled={!snapshot.rootID}
+                        title={
+                          snapshot.rootID ? t('snapshots.browse') : t('snapshots.cannotBrowse')
+                        }
+                      >
+                        <FolderOpen className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}

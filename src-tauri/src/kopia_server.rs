@@ -1,3 +1,32 @@
+//! Kopia server lifecycle management
+//!
+//! This module manages the embedded Kopia server process that runs alongside
+//! the desktop application. The server provides a REST API for all backup operations.
+//!
+//! # Security Model
+//!
+//! The embedded server is designed for localhost-only access with the following security:
+//!
+//! - **TLS**: Self-signed certificate (safe for localhost communication)
+//! - **Binding**: 127.0.0.1 only (no network exposure)
+//! - **Authentication**: HTTP Basic Auth with cryptographically secure random session password
+//! - **CSRF**: Disabled (acceptable for localhost-only server with no web UI)
+//!
+//! # Architecture
+//!
+//! The server is started as a child process with `--shutdown-on-stdin`, allowing
+//! graceful termination when the app closes. Communication happens via HTTPS on
+//! a randomly selected port to avoid conflicts.
+//!
+//! # Example
+//!
+//! ```no_run
+//! let mut server = KopiaServer::new();
+//! let info = server.start("/path/to/config")?;
+//! // ... use info.server_url and info.http_password for API calls
+//! server.stop()?;
+//! ```
+
 use crate::error::{KopiaError, Result};
 use serde::{Deserialize, Serialize};
 use std::io::Write;
@@ -9,11 +38,20 @@ use std::time::{Duration, SystemTime};
 const SERVER_USERNAME: &str = "kopia-desktop";
 const DEFAULT_PORT: u16 = 51515;
 const PORT_SEARCH_RANGE: u16 = 10;
+/// Delay before checking if server process started successfully (100ms)
 const STARTUP_CHECK_DELAY_MS: u64 = 100;
+/// Number of retries when waiting for server to become ready (20 * 500ms = 10s total)
 const HEALTH_CHECK_RETRIES: u32 = 20;
+/// Interval between health check retries (500ms)
 const HEALTH_CHECK_INTERVAL_MS: u64 = 500;
+/// Maximum time to wait for graceful shutdown before force kill (5 seconds)
 const GRACEFUL_SHUTDOWN_TIMEOUT_MS: u64 = 5000;
-const HTTP_OPERATION_TIMEOUT_SECS: u64 = 300;
+/// Interval between shutdown status checks (500ms)
+const SHUTDOWN_INTERVAL_MS: u64 = 500;
+/// Maximum timeout for HTTP operations (5 minutes)
+/// This is used for error reporting in the error module
+pub const HTTP_OPERATION_TIMEOUT_SECS: u64 = 300;
+/// Timeout for establishing HTTP connections (10 seconds)
 const HTTP_CONNECT_TIMEOUT_SECS: u64 = 10;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -139,14 +177,17 @@ impl KopiaServer {
         Ok(info)
     }
 
-    /// Generate a unique password for the server session
+    /// Generate a cryptographically secure random password for the server session
+    /// Uses 32 bytes of random data (256 bits) encoded as base64
     fn generate_password(&self) -> String {
+        use base64::Engine;
+        use rand::Rng;
+
+        let mut rng = rand::thread_rng();
+        let random_bytes: [u8; 32] = rng.gen();
         format!(
             "kopia-{}",
-            SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap_or(Duration::from_secs(0))
-                .as_millis()
+            base64::prelude::BASE64_STANDARD.encode(&random_bytes)
         )
     }
 
@@ -205,12 +246,16 @@ impl KopiaServer {
             return Ok(false);
         };
 
-        let _ = stdin.write_all(b"\n");
-        let _ = stdin.flush();
+        // Write newline to trigger --shutdown-on-stdin
+        if let Err(e) = stdin.write_all(b"\n") {
+            log::debug!("Failed to write to stdin during shutdown: {}", e);
+        }
+        if let Err(e) = stdin.flush() {
+            log::debug!("Failed to flush stdin during shutdown: {}", e);
+        }
         drop(stdin);
 
         // Wait for graceful shutdown
-        const SHUTDOWN_INTERVAL_MS: u64 = 500;
         let retries = GRACEFUL_SHUTDOWN_TIMEOUT_MS / SHUTDOWN_INTERVAL_MS;
 
         for _ in 0..retries {
@@ -276,6 +321,12 @@ impl KopiaServer {
     }
 
     /// Get the path to the Kopia binary
+    ///
+    /// Searches for the binary in the following locations (in priority order):
+    /// 1. Custom path from KOPIA_PATH environment variable
+    /// 2. Development paths (relative to target/debug or target/release)
+    /// 3. Production paths (bundled with the app)
+    /// 4. Current directory fallback
     fn get_kopia_binary_path(&self) -> Result<String> {
         // Check for custom path via environment variable
         if let Ok(custom_path) = std::env::var("KOPIA_PATH") {
@@ -292,7 +343,7 @@ impl KopiaServer {
             })?;
 
         // Search paths in priority order
-        let search_paths = vec![
+        let search_paths = [
             exe_dir.join("../../../bin").join(binary_name), // Dev: target/debug
             exe_dir.join("../../bin").join(binary_name),    // Dev: alternative
             exe_dir.join("_up_/bin").join(binary_name),     // Production: Windows
@@ -315,18 +366,52 @@ impl KopiaServer {
     }
 
     /// Get platform-specific binary name
+    ///
+    /// Maps the current platform to the expected Kopia binary name.
+    /// Logs warnings for unsupported or unusual platform combinations.
     fn get_platform_binary_name(&self) -> &'static str {
         match (std::env::consts::OS, std::env::consts::ARCH) {
             ("windows", _) => "kopia-windows-x64.exe",
             ("macos", "aarch64") => "kopia-darwin-arm64",
-            ("macos", _) => "kopia-darwin-x64",
+            ("macos", "x86_64") => "kopia-darwin-x64",
+            ("macos", arch) => {
+                log::warn!(
+                    "Unsupported macOS architecture: {}. Falling back to x64 binary, which may not work.",
+                    arch
+                );
+                "kopia-darwin-x64"
+            }
             ("linux", "aarch64") => "kopia-linux-arm64",
-            ("linux", _) => "kopia-linux-x64",
-            _ => "kopia", // Generic fallback
+            ("linux", "x86_64") => "kopia-linux-x64",
+            ("linux", arch) => {
+                log::warn!(
+                    "Unsupported Linux architecture: {}. Falling back to x64 binary, which may not work.",
+                    arch
+                );
+                "kopia-linux-x64"
+            }
+            (os, arch) => {
+                log::warn!(
+                    "Unsupported platform: OS={}, ARCH={}. Using generic binary name 'kopia'.",
+                    os,
+                    arch
+                );
+                "kopia"
+            }
         }
     }
 
     /// Find an available port starting from the given port
+    ///
+    /// # Race Condition Note
+    ///
+    /// This function has a TOCTOU (time-of-check-time-of-use) race condition:
+    /// the port may be taken by another process between checking availability
+    /// and actually binding to it. This is acceptable because:
+    ///
+    /// 1. The Kopia server will fail gracefully if the port is unavailable
+    /// 2. The error will be reported to the user with a clear message
+    /// 3. The application can retry with a different port if needed
     fn find_available_port(&self, start_port: u16) -> Result<u16> {
         use std::net::TcpListener;
 

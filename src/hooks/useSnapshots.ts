@@ -10,12 +10,20 @@ import type { Snapshot, SnapshotSource } from '@/lib/kopia/types';
 interface UseSnapshotsReturn {
   snapshots: Snapshot[];
   sources: SnapshotSource[];
+  localUsername?: string;
+  localHost?: string;
+  multiUser?: boolean;
   isLoading: boolean;
   error: string | null;
   fetchSnapshots: () => Promise<void>;
   fetchSources: () => Promise<void>;
   createSnapshot: (path: string) => Promise<void>;
-  deleteSnapshots: (manifestIDs: string[]) => Promise<void>;
+  deleteSnapshots: (
+    userName: string,
+    host: string,
+    path: string,
+    manifestIDs: string[]
+  ) => Promise<void>;
   refreshAll: () => Promise<void>;
 }
 
@@ -26,7 +34,11 @@ interface UseSnapshotsReturn {
 export function useSnapshots(): UseSnapshotsReturn {
   // Subscribe to global store
   const snapshots = useKopiaStore((state) => state.snapshots);
-  const sources = useKopiaStore((state) => state.sources);
+  const sourcesResponse = useKopiaStore((state) => state.sourcesResponse);
+  const sources = sourcesResponse?.sources || [];
+  const localUsername = sourcesResponse?.localUsername;
+  const localHost = sourcesResponse?.localHost;
+  const multiUser = sourcesResponse?.multiUser;
   const isLoading = useKopiaStore((state) => state.isSnapshotsLoading);
   const error = useKopiaStore((state) => state.snapshotsError);
   const fetchSnapshots = useKopiaStore((state) => state.refreshSnapshots);
@@ -41,6 +53,9 @@ export function useSnapshots(): UseSnapshotsReturn {
   return {
     snapshots,
     sources,
+    localUsername,
+    localHost,
+    multiUser,
     isLoading,
     error,
     fetchSnapshots,
