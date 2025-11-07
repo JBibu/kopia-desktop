@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, Trash2, Copy, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,10 +19,11 @@ import {
   getErrorMessage,
 } from '@/lib/kopia/client';
 import type { NotificationProfile } from '@/lib/kopia/types';
-import { SeverityLabels } from '@/lib/kopia/types';
+import { getSeverityLabel } from '@/lib/kopia/types';
 import { NotificationProfileDialog } from './NotificationProfileDialog';
 
 export function NotificationProfiles() {
+  const { t } = useTranslation();
   const [profiles, setProfiles] = useState<NotificationProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -34,7 +36,7 @@ export function NotificationProfiles() {
       const data = await listNotificationProfiles();
       setProfiles(data);
     } catch (error) {
-      toast.error('Failed to load notification profiles', {
+      toast.error(t('preferences.notificationProfiles.loadFailed'), {
         description: getErrorMessage(error),
       });
     } finally {
@@ -44,6 +46,7 @@ export function NotificationProfiles() {
 
   useEffect(() => {
     void loadProfiles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCreateNew = (methodType: 'email' | 'pushover' | 'webhook') => {
@@ -77,16 +80,16 @@ export function NotificationProfiles() {
   };
 
   const handleDelete = async (profileName: string) => {
-    if (!confirm(`Are you sure you want to delete the profile "${profileName}"?`)) {
+    if (!confirm(t('preferences.notificationProfiles.confirmDelete', { profileName }))) {
       return;
     }
 
     try {
       await deleteNotificationProfile(profileName);
-      toast.success('Notification profile deleted');
+      toast.success(t('preferences.notificationProfiles.deleted'));
       await loadProfiles();
     } catch (error) {
-      toast.error('Failed to delete notification profile', {
+      toast.error(t('preferences.notificationProfiles.deleteFailed'), {
         description: getErrorMessage(error),
       });
     }
@@ -95,11 +98,11 @@ export function NotificationProfiles() {
   const handleTest = async (profile: NotificationProfile) => {
     try {
       await testNotificationProfile(profile);
-      toast.success('Test notification sent', {
-        description: 'Please check your notification destination to verify receipt.',
+      toast.success(t('preferences.notificationProfiles.testSent'), {
+        description: t('preferences.notificationProfiles.testSentDesc'),
       });
     } catch (error) {
-      toast.error('Failed to send test notification', {
+      toast.error(t('preferences.notificationProfiles.testFailed'), {
         description: getErrorMessage(error),
       });
     }
@@ -124,15 +127,19 @@ export function NotificationProfiles() {
 
   const getMethodLabel = (methodType: string): string => {
     const labels: Record<string, string> = {
-      email: 'E-mail',
-      pushover: 'Pushover',
-      webhook: 'Webhook',
+      email: t('preferences.notificationProfiles.methods.email'),
+      pushover: t('preferences.notificationProfiles.methods.pushover'),
+      webhook: t('preferences.notificationProfiles.methods.webhook'),
     };
     return labels[methodType] || methodType;
   };
 
   if (loading) {
-    return <div className="text-sm text-muted-foreground">Loading notification profiles...</div>;
+    return (
+      <div className="text-sm text-muted-foreground">
+        {t('preferences.notificationProfiles.table.loading')}
+      </div>
+    );
   }
 
   return (
@@ -141,22 +148,24 @@ export function NotificationProfiles() {
         {profiles.length === 0 ? (
           <div className="text-center py-8">
             <Badge variant="outline" className="mb-4">
-              Important
+              {t('preferences.notificationProfiles.table.important')}
             </Badge>
             <p className="text-sm text-muted-foreground mb-4">
-              You don't have any notification profiles defined.
+              {t('preferences.notificationProfiles.table.noProfiles')}
               <br />
-              Click the button below to add a new profile to receive notifications from Kopia.
+              {t('preferences.notificationProfiles.table.noProfilesHelp')}
             </p>
           </div>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Profile</TableHead>
-                <TableHead>Method</TableHead>
-                <TableHead>Minimum Severity</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t('preferences.notificationProfiles.table.profile')}</TableHead>
+                <TableHead>{t('preferences.notificationProfiles.table.method')}</TableHead>
+                <TableHead>{t('preferences.notificationProfiles.table.minimumSeverity')}</TableHead>
+                <TableHead className="text-right">
+                  {t('preferences.notificationProfiles.table.actions')}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -164,18 +173,18 @@ export function NotificationProfiles() {
                 <TableRow key={profile.profile}>
                   <TableCell className="font-medium">{profile.profile}</TableCell>
                   <TableCell>{getMethodLabel(profile.method.type)}</TableCell>
-                  <TableCell>{SeverityLabels[profile.minSeverity]}</TableCell>
+                  <TableCell>{getSeverityLabel(profile.minSeverity)}</TableCell>
                   <TableCell className="text-right space-x-2">
                     <Button size="sm" variant="outline" onClick={() => handleEdit(profile)}>
-                      Edit
+                      {t('common.edit')}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => handleDuplicate(profile)}>
                       <Copy className="h-4 w-4 mr-1" />
-                      Duplicate
+                      {t('common.duplicate')}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => void handleTest(profile)}>
                       <Send className="h-4 w-4 mr-1" />
-                      Test
+                      {t('common.test')}
                     </Button>
                     <Button
                       size="sm"
@@ -194,15 +203,15 @@ export function NotificationProfiles() {
         <div className="flex gap-2">
           <Button onClick={() => handleCreateNew('email')}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Email Profile
+            {t('preferences.notificationProfiles.addProfile.email')}
           </Button>
           <Button onClick={() => handleCreateNew('pushover')}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Pushover Profile
+            {t('preferences.notificationProfiles.addProfile.pushover')}
           </Button>
           <Button onClick={() => handleCreateNew('webhook')}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Webhook Profile
+            {t('preferences.notificationProfiles.addProfile.webhook')}
           </Button>
         </div>
       </div>

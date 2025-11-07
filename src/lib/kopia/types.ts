@@ -394,10 +394,10 @@ export interface MountResponse {
 }
 
 /**
- * Mounts list response
+ * Mounts list response (matches serverapi.MountedSnapshots)
  */
 export interface MountsResponse {
-  mounts: Array<{
+  items: Array<{
     root: string;
     path: string;
   }>;
@@ -666,6 +666,8 @@ export const NotificationSeverities = {
   ERROR: 20 as NotificationSeverity,
 } as const;
 
+import i18n from '@/lib/i18n/config';
+
 export const SeverityLabels: Record<NotificationSeverity, string> = {
   [-100]: 'Verbose',
   [-10]: 'Success',
@@ -673,6 +675,14 @@ export const SeverityLabels: Record<NotificationSeverity, string> = {
   [10]: 'Warning',
   [20]: 'Error',
 };
+
+/**
+ * Get translated severity label
+ */
+export function getSeverityLabel(severity: NotificationSeverity): string {
+  const labelKey = SeverityLabels[severity].toLowerCase();
+  return i18n.t(`preferences.notificationProfiles.severity.${labelKey}`);
+}
 
 /**
  * Notification method configuration

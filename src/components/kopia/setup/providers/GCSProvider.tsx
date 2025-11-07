@@ -1,15 +1,17 @@
 import { useState } from 'react';
-import { RequiredField } from '../fields/RequiredField';
-import { OptionalField } from '../fields/OptionalField';
-import { PathPickerField } from '../fields/PathPickerField';
+import { RequiredField } from '@/components/kopia/setup/fields/RequiredField';
+import { OptionalField } from '@/components/kopia/setup/fields/OptionalField';
+import { PathPickerField } from '@/components/kopia/setup/fields/PathPickerField';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import type { ProviderFormProps } from '../types';
+import type { ProviderFormProps } from '@/components/kopia/setup/types';
 import type { GCSStorageConfig } from '@/lib/kopia/types';
 import { useProviderConfig } from '@/hooks/useProviderConfig';
+import { useTranslation } from 'react-i18next';
 
 export function GCSProvider({ config, onChange }: ProviderFormProps) {
+  const { t } = useTranslation();
   const gcsConfig = config as Partial<GCSStorageConfig>;
   const [useFile, setUseFile] = useState(!!gcsConfig.credentialsFile);
   const { handleChange } = useProviderConfig<GCSStorageConfig>(gcsConfig, onChange);
@@ -27,20 +29,20 @@ export function GCSProvider({ config, onChange }: ProviderFormProps) {
   return (
     <div className="space-y-4">
       <RequiredField
-        label="Bucket"
+        label={t('setup.fields.common.bucket')}
         name="bucket"
         value={gcsConfig.bucket || ''}
         onChange={(v) => handleChange('bucket', v)}
         placeholder="my-backup-bucket"
-        helpText="Google Cloud Storage bucket name"
+        helpText={t('setup.fields.gcs.bucketHelp')}
         autoFocus
       />
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label>Service Account Credentials</Label>
+          <Label>{t('setup.fields.gcs.serviceAccount')}</Label>
           <Button type="button" variant="ghost" size="sm" onClick={toggleCredentialsMode}>
-            {useFile ? 'Use JSON directly' : 'Use credentials file'}
+            {useFile ? t('setup.fields.gcs.useJSON') : t('setup.fields.gcs.useFile')}
           </Button>
         </div>
 
@@ -51,7 +53,7 @@ export function GCSProvider({ config, onChange }: ProviderFormProps) {
             value={gcsConfig.credentialsFile || ''}
             onChange={(v) => handleChange('credentialsFile', v)}
             placeholder="/path/to/service-account-key.json"
-            helpText="Path to service account JSON key file"
+            helpText={t('setup.fields.gcs.credentialsFileHelp')}
             required
           />
         ) : (
@@ -65,19 +67,19 @@ export function GCSProvider({ config, onChange }: ProviderFormProps) {
               required
             />
             <p className="text-xs text-muted-foreground">
-              Paste the service account JSON key contents
+              {t('setup.fields.gcs.credentialsFileHelp')}
             </p>
           </div>
         )}
       </div>
 
       <OptionalField
-        label="Prefix"
+        label={t('setup.fields.common.prefix')}
         name="prefix"
         value={gcsConfig.prefix || ''}
         onChange={(v) => handleChange('prefix', v)}
         placeholder="kopia/"
-        helpText="Path prefix within bucket (optional)"
+        helpText={t('setup.fields.gcs.prefixHelp')}
       />
     </div>
   );

@@ -45,6 +45,7 @@ import {
   XCircle,
   Plus,
   FolderOpen,
+  RotateCcw,
 } from 'lucide-react';
 import type { Snapshot } from '@/lib/kopia/types';
 import { toast } from 'sonner';
@@ -97,7 +98,7 @@ export function SnapshotHistory() {
       setSnapshots(fetchedSnapshots);
     } catch (err) {
       // Error is already handled by the store
-      console.error('Failed to fetch snapshots:', err);
+      console.error(t('snapshots.errors.fetchFailed'), err);
     }
   };
 
@@ -374,27 +375,50 @@ export function SnapshotHistory() {
                       <Badge variant="secondary">{snapshot.summary?.files || 0}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          if (!snapshot.rootID) {
-                            toast.error(t('snapshots.cannotBrowse'), {
-                              description: t('snapshots.cannotBrowseDesc'),
-                            });
-                            return;
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (!snapshot.rootID) {
+                              toast.error(t('snapshots.cannotBrowse'), {
+                                description: t('snapshots.cannotBrowseDesc'),
+                              });
+                              return;
+                            }
+                            void navigate(
+                              `/snapshots/browse?snapshotId=${encodeURIComponent(snapshot.id)}&oid=${encodeURIComponent(snapshot.rootID)}&rootOid=${encodeURIComponent(snapshot.rootID)}&path=/`
+                            );
+                          }}
+                          disabled={!snapshot.rootID}
+                          title={
+                            snapshot.rootID ? t('snapshots.browse') : t('snapshots.cannotBrowse')
                           }
-                          void navigate(
-                            `/snapshots/browse?snapshotId=${encodeURIComponent(snapshot.id)}&oid=${encodeURIComponent(snapshot.rootID)}&rootOid=${encodeURIComponent(snapshot.rootID)}&path=/`
-                          );
-                        }}
-                        disabled={!snapshot.rootID}
-                        title={
-                          snapshot.rootID ? t('snapshots.browse') : t('snapshots.cannotBrowse')
-                        }
-                      >
-                        <FolderOpen className="h-4 w-4" />
-                      </Button>
+                        >
+                          <FolderOpen className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (!snapshot.rootID) {
+                              toast.error(t('snapshots.cannotRestore'), {
+                                description: t('snapshots.cannotRestoreDesc'),
+                              });
+                              return;
+                            }
+                            void navigate(
+                              `/snapshots/restore?snapshotId=${encodeURIComponent(snapshot.id)}&oid=${encodeURIComponent(snapshot.rootID)}&path=/`
+                            );
+                          }}
+                          disabled={!snapshot.rootID}
+                          title={
+                            snapshot.rootID ? t('snapshots.restore') : t('snapshots.cannotRestore')
+                          }
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

@@ -43,13 +43,14 @@ export function SnapshotCreate() {
         const resolvedPolicy = await getPolicy();
         setPolicy(resolvedPolicy);
       } catch (err) {
-        console.error('Failed to load policy:', err);
+        console.error(t('snapshotCreate.errors.policyLoadFailed'), err);
       } finally {
         setIsLoadingPolicy(false);
       }
     };
 
     void loadPolicy();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path, getPolicy]);
 
   const handleBrowseFolder = async () => {
@@ -98,8 +99,8 @@ export function SnapshotCreate() {
         {/* Main form */}
         <div className="lg:col-span-2 space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle>{t('snapshotCreate.configuration')}</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">{t('snapshotCreate.configuration')}</CardTitle>
               <CardDescription>{t('snapshotCreate.configurationDesc')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -152,7 +153,7 @@ export function SnapshotCreate() {
         <div className="space-y-6">
           {/* Policy info */}
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Settings className="h-4 w-4" />
                 {t('snapshotCreate.policySettings')}
@@ -176,7 +177,7 @@ export function SnapshotCreate() {
                   <div>
                     <p className="font-medium">{t('policies.compression')}</p>
                     <p className="text-muted-foreground">
-                      {policy.compression?.compressorName || 'Default'}
+                      {policy.compression?.compressorName || t('snapshotCreate.defaultCompressor')}
                     </p>
                   </div>
                   {policy.scheduling?.intervalSeconds && (
@@ -185,7 +186,8 @@ export function SnapshotCreate() {
                       <div>
                         <p className="font-medium">{t('policies.schedule')}</p>
                         <p className="text-muted-foreground">
-                          {Math.floor(policy.scheduling.intervalSeconds / 3600)}h
+                          {Math.floor(policy.scheduling.intervalSeconds / 3600)}
+                          {t('time.hoursShort')}
                         </p>
                       </div>
                     </>

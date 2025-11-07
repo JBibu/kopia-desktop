@@ -129,6 +129,19 @@ export async function selectFile(defaultPath?: string): Promise<string | null> {
 }
 
 /**
+ * Open save file dialog
+ *
+ * Opens a native "Save As" dialog where the user can choose where to save a file
+ * and optionally change the filename.
+ *
+ * @param defaultFilename - Optional default filename to suggest
+ * @returns Path where the user wants to save the file, or null if cancelled
+ */
+export async function saveFile(defaultFilename?: string): Promise<string | null> {
+  return invoke('save_file', { defaultFilename });
+}
+
+/**
  * Create a new repository
  */
 export async function createRepository(
@@ -269,9 +282,7 @@ export async function restoreStart(request: import('./types').RestoreRequest): P
 }
 
 /**
- * Mount a snapshot
- *
- * @note Currently unused - snapshot mounting UI is planned for future release
+ * Mount a snapshot as a local filesystem
  */
 export async function mountSnapshot(root: string): Promise<string> {
   return invoke('mount_snapshot', { root });
@@ -279,8 +290,6 @@ export async function mountSnapshot(root: string): Promise<string> {
 
 /**
  * List all mounted snapshots
- *
- * @note Currently unused - snapshot mounting UI is planned for future release
  */
 export async function listMounts(): Promise<import('./types').MountsResponse> {
   return invoke('mounts_list');
@@ -288,8 +297,6 @@ export async function listMounts(): Promise<import('./types').MountsResponse> {
 
 /**
  * Unmount a snapshot
- *
- * @note Currently unused - snapshot mounting UI is planned for future release
  */
 export async function unmountSnapshot(objectId: string): Promise<void> {
   return invoke('mount_unmount', { objectId });

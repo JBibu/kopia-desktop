@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -32,19 +33,31 @@ import {
   AlertCircle,
   Home,
   ChevronRight,
+  RotateCcw,
+  HardDriveDownload,
+  HardDriveUpload,
+  Copy,
+  FolderOpen,
 } from 'lucide-react';
 import type { DirectoryEntry } from '@/lib/kopia/types';
-import { browseObject } from '@/lib/kopia/client';
+import { browseObject, downloadObject, saveFile } from '@/lib/kopia/client';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia/errors';
 import { formatBytes, formatDateTime } from '@/lib/utils';
 import { useLanguageStore } from '@/stores/language';
+import { useMounts } from '@/hooks/useMounts';
 
 export function SnapshotBrowse() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { language } = useLanguageStore();
+  const {
+    getMountForObject,
+    mountSnapshot,
+    unmountSnapshot,
+    isLoading: isMountLoading,
+  } = useMounts();
 
   // Map language code to locale
   const locale = language === 'es' ? 'es-ES' : 'en-US';
@@ -57,6 +70,10 @@ export function SnapshotBrowse() {
   const [currentPath, setCurrentPath] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [downloadingFiles, setDownloadingFiles] = useState<Set<string>>(new Set());
+
+  // Check if current object is mounted
+  const mountedPath = getMountForObject(objectId);
 
   // Parse the path parameter into breadcrumb segments
   useEffect(() => {
@@ -84,9 +101,10 @@ export function SnapshotBrowse() {
     if (objectId) {
       void fetchDirectory(objectId);
     } else {
-      setError('No object ID provided');
+      setError(t('browse.noObjectId'));
       setIsLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [objectId]);
 
   const handleNavigateToEntry = (entry: DirectoryEntry) => {
@@ -98,9 +116,77 @@ export function SnapshotBrowse() {
         oid: entry.obj,
         path: `/${newPath}`,
       });
-    } else {
-      // For files, show download option
-      toast.info('File download will be implemented in a future update');
+    }
+  };
+
+  const handleDownloadFile = async (entry: DirectoryEntry) => {
+    if (entry.type !== 'f') {
+      toast.error(t('browse.cannotDownloadDirectory'));
+      return;
+    }
+
+    try {
+      // Mark file as downloading
+      setDownloadingFiles((prev) => new Set(prev).add(entry.obj));
+
+      // Get download location from user with save dialog
+      const targetPath = await saveFile(entry.name);
+      if (!targetPath) {
+        // User cancelled
+        setDownloadingFiles((prev) => {
+          const next = new Set(prev);
+          next.delete(entry.obj);
+          return next;
+        });
+        return;
+      }
+
+      // Download the file
+      await downloadObject(entry.obj, entry.name, targetPath);
+
+      toast.success(t('browse.downloadSuccess', { filename: entry.name }));
+    } catch (err) {
+      toast.error(t('browse.downloadFailed', { error: getErrorMessage(err) }));
+    } finally {
+      setDownloadingFiles((prev) => {
+        const next = new Set(prev);
+        next.delete(entry.obj);
+        return next;
+      });
+    }
+  };
+
+  const handleRestore = () => {
+    // Navigate to restore page with current context
+    void navigate(
+      `/snapshots/restore?snapshotId=${snapshotId}&oid=${objectId}&path=${encodeURIComponent(pathParam)}`
+    );
+  };
+
+  const handleMount = async () => {
+    try {
+      const path = await mountSnapshot(objectId);
+      if (path) {
+        toast.success(t('browse.mountSuccess', { path }));
+      }
+    } catch (err) {
+      toast.error(t('browse.mountFailed', { error: getErrorMessage(err) }));
+    }
+  };
+
+  const handleUnmount = async () => {
+    try {
+      await unmountSnapshot(objectId);
+      toast.success(t('browse.unmountSuccess'));
+    } catch (err) {
+      toast.error(t('browse.unmountFailed', { error: getErrorMessage(err) }));
+    }
+  };
+
+  const handleCopyPath = () => {
+    if (mountedPath) {
+      void navigator.clipboard.writeText(mountedPath);
+      toast.success(t('browse.pathCopied'));
     }
   };
 
@@ -117,7 +203,7 @@ export function SnapshotBrowse() {
       // Navigate to specific path segment
       // Note: We can't easily navigate up without storing the parent OID
       // This would require enhanced breadcrumb tracking
-      toast.info('Navigate up by using the back button for now');
+      toast.info(t('browse.breadcrumbNavInfo'));
     }
   };
 
@@ -202,7 +288,73 @@ export function SnapshotBrowse() {
             </div>
           </div>
         </div>
+        <div className="flex gap-2">
+          <Button onClick={handleRestore}>
+            <RotateCcw className="mr-2 h-4 w-4" />
+            {t('browse.restore')}
+          </Button>
+        </div>
       </div>
+
+      {/* Mount Controls */}
+      {mountedPath ? (
+        <Card>
+          <CardContent>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 flex-1">
+                <HardDriveUpload className="h-5 w-5 text-green-600 dark:text-green-400" />
+                <span className="text-sm font-medium">{t('browse.mounted')}</span>
+                <Input readOnly value={mountedPath} className="flex-1 font-mono text-sm" />
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyPath}
+                title={t('browse.copyPath')}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => void handleUnmount()}
+                disabled={isMountLoading}
+              >
+                {isMountLoading ? (
+                  <Spinner className="h-4 w-4 mr-2" />
+                ) : (
+                  <HardDriveDownload className="h-4 w-4 mr-2" />
+                )}
+                {t('browse.unmount')}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FolderOpen className="h-5 w-5 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">{t('browse.notMounted')}</span>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void handleMount()}
+                disabled={isMountLoading}
+              >
+                {isMountLoading ? (
+                  <Spinner className="h-4 w-4 mr-2" />
+                ) : (
+                  <HardDriveUpload className="h-4 w-4 mr-2" />
+                )}
+                {t('browse.mountAsLocal')}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Error Alert */}
       {error && (
@@ -292,12 +444,18 @@ export function SnapshotBrowse() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          disabled={downloadingFiles.has(entry.obj)}
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleNavigateToEntry(entry);
+                            void handleDownloadFile(entry);
                           }}
+                          title={t('browse.download')}
                         >
-                          <Download className="h-4 w-4" />
+                          {downloadingFiles.has(entry.obj) ? (
+                            <Spinner className="h-4 w-4" />
+                          ) : (
+                            <Download className="h-4 w-4" />
+                          )}
                         </Button>
                       )}
                     </TableCell>

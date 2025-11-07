@@ -2,7 +2,7 @@
  * Overview/Dashboard page
  */
 
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useKopiaServer } from '@/hooks/useKopiaServer';
@@ -14,6 +14,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Database,
   Server,
@@ -65,9 +72,10 @@ export function Overview() {
   const { tasks, summary: tasksSummary } = useTasks();
   const maintenanceInfo = useKopiaStore((state) => state.maintenanceInfo);
   const hasTriedToStart = useRef(false);
+  const [timeRange, setTimeRange] = useState<7 | 14 | 30 | 90>(7);
 
-  // Map language code to locale
-  const locale = language === 'es' ? 'es-ES' : 'en-US';
+  // Map language code to locale (memoized to prevent unnecessary re-renders)
+  const locale = useMemo(() => (language === 'es' ? 'es-ES' : 'en-US'), [language]);
 
   const isServerRunning = serverStatus?.running ?? false;
   const isRepoConnected = repoStatus?.connected ?? false;
@@ -84,15 +92,15 @@ export function Overview() {
   const snapshotStats = useMemo(() => {
     if (!snapshots.length) return null;
 
-    // Group snapshots by date (last 7 days)
-    const last7Days = Array.from({ length: 7 }, (_, i) => {
+    // Group snapshots by date based on selected time range
+    const days = Array.from({ length: timeRange }, (_, i) => {
       const date = new Date();
-      date.setDate(date.getDate() - (6 - i));
+      date.setDate(date.getDate() - (timeRange - 1 - i));
       date.setHours(0, 0, 0, 0);
       return date;
     });
 
-    const snapshotsByDay = last7Days.map((date) => {
+    const snapshotsByDay = days.map((date) => {
       const nextDay = new Date(date);
       nextDay.setDate(nextDay.getDate() + 1);
 
@@ -133,7 +141,7 @@ export function Overview() {
       complete: snapshots.length - incompleteCount,
       byDay: snapshotsByDay,
     };
-  }, [snapshots, locale]);
+  }, [snapshots, locale, timeRange]);
 
   // Task status distribution
   const taskStatusData = useMemo(() => {
@@ -312,10 +320,26 @@ export function Overview() {
           {/* Snapshot Activity Chart */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                {t('overview.snapshotActivity')}
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  {t('overview.snapshotActivity')}
+                </CardTitle>
+                <Select
+                  value={timeRange.toString()}
+                  onValueChange={(value) => setTimeRange(Number(value) as 7 | 14 | 30 | 90)}
+                >
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="7">{t('overview.last7Days')}</SelectItem>
+                    <SelectItem value="14">{t('overview.last14Days')}</SelectItem>
+                    <SelectItem value="30">{t('overview.last30Days')}</SelectItem>
+                    <SelectItem value="90">{t('overview.last90Days')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>

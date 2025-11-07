@@ -36,6 +36,9 @@ import {
   connectWebSocket,
   disconnectWebSocket,
   getMaintenanceInfo,
+  listMounts,
+  mountSnapshot as apiMountSnapshot,
+  unmountSnapshot as apiUnmountSnapshot,
   type KopiaServerStatus,
   type KopiaServerInfo,
   type RepositoryStatus,
@@ -50,6 +53,7 @@ import type {
   TasksSummary,
   WebSocketEvent,
   MaintenanceInfo,
+  MountsResponse,
 } from '@/lib/kopia/types';
 import { getErrorMessage } from '@/lib/kopia/errors';
 import { notifyTaskComplete } from '@/lib/notifications';
@@ -87,6 +91,11 @@ interface KopiaStore {
   maintenanceInfo: MaintenanceInfo | null;
   maintenanceError: string | null;
   isMaintenanceLoading: boolean;
+
+  // Mounts state
+  mounts: MountsResponse | null;
+  mountsError: string | null;
+  isMountsLoading: boolean;
 
   // Polling state
   isPolling: boolean;
@@ -147,6 +156,12 @@ interface KopiaStore {
 
   // Maintenance actions
   refreshMaintenanceInfo: () => Promise<void>;
+
+  // Mount actions
+  refreshMounts: () => Promise<void>;
+  mountSnapshot: (root: string) => Promise<string | null>;
+  unmountSnapshot: (objectId: string) => Promise<void>;
+  getMountForObject: (objectId: string) => string | null;
 
   // Polling control
   startPolling: () => void;
@@ -210,6 +225,11 @@ export const useKopiaStore = create<KopiaStore>()(
     maintenanceInfo: null,
     maintenanceError: null,
     isMaintenanceLoading: false,
+
+    // Mounts
+    mounts: null,
+    mountsError: null,
+    isMountsLoading: false,
 
     // Polling
     isPolling: false,
@@ -364,7 +384,6 @@ export const useKopiaStore = create<KopiaStore>()(
     // ========================================================================
 
     refreshSnapshots: async () => {
-      set({ isSnapshotsLoading: true, snapshotsError: null });
       try {
         // First, get all sources
         const sourcesResponse = await listSources();
@@ -390,21 +409,42 @@ export const useKopiaStore = create<KopiaStore>()(
           }
         }
 
-        set({ snapshots: allSnapshots, isSnapshotsLoading: false });
+        const currentSnapshots = get().snapshots;
+
+        // Only update if snapshots actually changed to avoid unnecessary re-renders
+        if (JSON.stringify(currentSnapshots) !== JSON.stringify(allSnapshots)) {
+          set({ snapshots: allSnapshots });
+        }
+        // Don't call set() at all if nothing changed
       } catch (error) {
         const message = getErrorMessage(error);
-        set({ snapshotsError: message, isSnapshotsLoading: false });
+        const currentError = get().snapshotsError;
+
+        // Only update if error changed
+        if (currentError !== message) {
+          set({ snapshotsError: message });
+        }
       }
     },
 
     refreshSources: async () => {
-      set({ isSnapshotsLoading: true, snapshotsError: null });
       try {
         const response = await listSources();
-        set({ sourcesResponse: response, isSnapshotsLoading: false });
+        const currentResponse = get().sourcesResponse;
+
+        // Only update if sources actually changed to avoid unnecessary re-renders
+        if (JSON.stringify(currentResponse) !== JSON.stringify(response)) {
+          set({ sourcesResponse: response });
+        }
+        // Don't call set() at all if nothing changed
       } catch (error) {
         const message = getErrorMessage(error);
-        set({ snapshotsError: message, isSnapshotsLoading: false });
+        const currentError = get().snapshotsError;
+
+        // Only update if error changed
+        if (currentError !== message) {
+          set({ snapshotsError: message });
+        }
       }
     },
 
@@ -472,13 +512,24 @@ export const useKopiaStore = create<KopiaStore>()(
     // ========================================================================
 
     refreshPolicies: async () => {
-      set({ isPoliciesLoading: true, policiesError: null });
       try {
         const response = await listPolicies();
-        set({ policies: response.policies || [], isPoliciesLoading: false });
+        const newPolicies = response.policies || [];
+        const currentPolicies = get().policies;
+
+        // Only update if policies actually changed to avoid unnecessary re-renders
+        if (JSON.stringify(currentPolicies) !== JSON.stringify(newPolicies)) {
+          set({ policies: newPolicies });
+        }
+        // Don't call set() at all if nothing changed
       } catch (error) {
         const message = getErrorMessage(error);
-        set({ policiesError: message, isPoliciesLoading: false });
+        const currentError = get().policiesError;
+
+        // Only update if error changed
+        if (currentError !== message) {
+          set({ policiesError: message });
+        }
       }
     },
 
@@ -647,6 +698,77 @@ export const useKopiaStore = create<KopiaStore>()(
     },
 
     // ========================================================================
+    // Mount Actions
+    // ========================================================================
+
+    refreshMounts: async () => {
+      const { isRepoConnected } = get();
+
+      // Only fetch mounts if repository is connected
+      if (!isRepoConnected()) {
+        return;
+      }
+
+      set({ isMountsLoading: true });
+      try {
+        const mounts = await listMounts();
+        set({ mounts, mountsError: null, isMountsLoading: false });
+      } catch (error) {
+        const message = getErrorMessage(error);
+        set({ mountsError: message, isMountsLoading: false });
+      }
+    },
+
+    mountSnapshot: async (root: string) => {
+      const { isRepoConnected } = get();
+
+      if (!isRepoConnected()) {
+        throw new Error('Repository not connected');
+      }
+
+      set({ isMountsLoading: true });
+      try {
+        const path = await apiMountSnapshot(root);
+        // Refresh mounts list
+        await get().refreshMounts();
+        set({ isMountsLoading: false });
+        return path;
+      } catch (error) {
+        const message = getErrorMessage(error);
+        set({ mountsError: message, isMountsLoading: false });
+        throw error;
+      }
+    },
+
+    unmountSnapshot: async (objectId: string) => {
+      const { isRepoConnected } = get();
+
+      if (!isRepoConnected()) {
+        throw new Error('Repository not connected');
+      }
+
+      set({ isMountsLoading: true });
+      try {
+        await apiUnmountSnapshot(objectId);
+        // Refresh mounts list
+        await get().refreshMounts();
+        set({ isMountsLoading: false });
+      } catch (error) {
+        const message = getErrorMessage(error);
+        set({ mountsError: message, isMountsLoading: false });
+        throw error;
+      }
+    },
+
+    getMountForObject: (objectId: string) => {
+      const { mounts } = get();
+      if (!mounts) return null;
+
+      const mount = mounts.items.find((m) => m.root === objectId);
+      return mount ? mount.path : null;
+    },
+
+    // ========================================================================
     // Polling Control
     // ========================================================================
 
@@ -663,12 +785,13 @@ export const useKopiaStore = create<KopiaStore>()(
         void get().startWebSocket();
       }
 
-      // Server/Repo/Maintenance/Snapshots polling (30s)
+      // Server/Repo/Maintenance/Snapshots/Mounts polling (30s)
       serverPollingTimer = setInterval(() => {
         void get().refreshServerStatus();
         void get().refreshRepositoryStatus();
         void get().refreshMaintenanceInfo();
         void get().refreshSnapshots();
+        void get().refreshMounts();
       }, serverPollingInterval);
 
       // Tasks polling (5s for real-time updates)
@@ -885,6 +1008,7 @@ export const useKopiaStore = create<KopiaStore>()(
         get().refreshTasks(),
         get().refreshTasksSummary(),
         get().refreshMaintenanceInfo(),
+        get().refreshMounts(),
       ]);
     },
 
@@ -913,6 +1037,9 @@ export const useKopiaStore = create<KopiaStore>()(
         maintenanceInfo: null,
         maintenanceError: null,
         isMaintenanceLoading: false,
+        mounts: null,
+        mountsError: null,
+        isMountsLoading: false,
         isWebSocketConnected: false,
       });
     },

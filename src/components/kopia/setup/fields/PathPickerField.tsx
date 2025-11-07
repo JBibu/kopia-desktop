@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ export function PathPickerField({
   helpText,
   required,
 }: PathPickerFieldProps) {
+  const { t } = useTranslation();
   const [isPicking, setIsPicking] = useState(false);
 
   const handleBrowse = async () => {
@@ -62,7 +64,7 @@ export function PathPickerField({
           size="icon"
           onClick={() => void handleBrowse()}
           disabled={isPicking}
-          title="Browse for folder"
+          title={t('setup.fields.common.browse')}
         >
           <FolderOpen className="h-4 w-4" />
         </Button>

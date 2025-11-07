@@ -5,17 +5,19 @@ import { useLanguageStore } from './stores/language';
 import { useFontSizeStore } from './stores/fontSize';
 import { useKopiaStore } from './stores/kopia';
 import { AppLayout } from './components/layout/AppLayout';
-import { ErrorBoundary } from './components/ErrorBoundary';
-import { WindowCloseHandler } from './components/WindowCloseHandler';
+import { ErrorBoundary } from './components/layout/ErrorBoundary';
+import { WindowCloseHandler } from './components/layout/WindowCloseHandler';
 import { Overview } from './pages/Overview';
 import { Repository } from './pages/Repository';
 import { Snapshots } from './pages/Snapshots';
 import { SnapshotCreate } from './pages/SnapshotCreate';
 import { SnapshotHistory } from './pages/SnapshotHistory';
 import { SnapshotBrowse } from './pages/SnapshotBrowse';
+import { SnapshotRestore } from './pages/SnapshotRestore';
 import { Policies } from './pages/Policies';
 import { PolicyEdit } from './pages/PolicyEdit';
 import { Tasks } from './pages/Tasks';
+import { Mounts } from './pages/Mounts';
 import { Preferences } from './pages/Preferences';
 import { Setup } from './pages/Setup';
 import { useRepository } from './hooks/useRepository';
@@ -125,6 +127,14 @@ function App(): React.JSX.Element {
               }
             />
             <Route
+              path="snapshots/restore"
+              element={
+                <ProtectedRoute>
+                  <SnapshotRestore />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="policies"
               element={
                 <ProtectedRoute>
@@ -145,6 +155,14 @@ function App(): React.JSX.Element {
               element={
                 <ProtectedRoute>
                   <Tasks />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="mounts"
+              element={
+                <ProtectedRoute>
+                  <Mounts />
                 </ProtectedRoute>
               }
             />

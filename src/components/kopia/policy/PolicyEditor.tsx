@@ -199,18 +199,21 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
         ? `@${target.host}/*/*`
         : '*/*/*';
 
+  // Check if this is the global policy
+  const isGlobalPolicy = !target.userName && !target.host && !target.path;
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h2 className="text-2xl font-bold tracking-tight">
+          <h2 className="text-3xl font-bold tracking-tight">
             {isNew ? t('policies.createPolicy') : t('policies.editPolicy')}
           </h2>
           <p className="text-sm text-muted-foreground">{targetStr}</p>
         </div>
         <div className="flex items-center gap-2">
-          {!isNew && (
+          {!isNew && !isGlobalPolicy && (
             <Button
               variant="destructive"
               size="sm"
@@ -232,6 +235,14 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
         </div>
       </div>
 
+      {/* Global Policy Warning */}
+      {isGlobalPolicy && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{t('policies.globalPolicyWarning')}</AlertDescription>
+        </Alert>
+      )}
+
       {/* Info Alert */}
       <Alert>
         <Info className="h-4 w-4" />
@@ -246,7 +257,7 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
       {resolvedPolicy?.upcomingSnapshotTimes && resolvedPolicy.upcomingSnapshotTimes.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
+            <CardTitle className="text-base flex items-center gap-2">
               <Clock className="h-4 w-4" />
               {t('policies.upcomingSnapshots')}
             </CardTitle>

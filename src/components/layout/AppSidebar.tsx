@@ -4,7 +4,15 @@
 
 import { Link, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { Database, FolderArchive, Settings, ListTodo, Home, ListChecks } from 'lucide-react';
+import {
+  Database,
+  FolderArchive,
+  Settings,
+  ListTodo,
+  Home,
+  ListChecks,
+  HardDrive,
+} from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { StatusIndicator } from './StatusIndicator';
 
@@ -20,6 +28,7 @@ const navItems: NavItem[] = [
   { nameKey: 'nav.snapshots', path: '/snapshots', icon: FolderArchive },
   { nameKey: 'nav.policies', path: '/policies', icon: ListTodo },
   { nameKey: 'nav.tasks', path: '/tasks', icon: ListChecks },
+  { nameKey: 'nav.mounts', path: '/mounts', icon: HardDrive },
   { nameKey: 'nav.preferences', path: '/preferences', icon: Settings },
 ];
 

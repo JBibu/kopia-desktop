@@ -5,6 +5,8 @@
  * Backend errors are serialized as: { "type": "ERROR_NAME", "data": {...} }
  */
 
+import i18n from '@/lib/i18n/config';
+
 /**
  * Error codes matching the Rust KopiaError enum
  * These match the SCREAMING_SNAKE_CASE serialization from the backend
@@ -127,127 +129,31 @@ export class KopiaError extends Error {
   }
 
   /**
-   * Get user-friendly error message
+   * Get user-friendly error message (translated)
    */
   getUserMessage(): string {
-    switch (this.code) {
-      // Server Lifecycle
-      case KopiaErrorCode.SERVER_START_FAILED:
-        return 'Failed to start Kopia server. Please check the logs.';
-      case KopiaErrorCode.SERVER_STOP_FAILED:
-        return 'Failed to stop Kopia server.';
-      case KopiaErrorCode.SERVER_NOT_RUNNING:
-        return 'Kopia server is not running. Please start the server first.';
-      case KopiaErrorCode.SERVER_ALREADY_RUNNING:
-        return 'Kopia server is already running.';
-      case KopiaErrorCode.SERVER_NOT_READY:
-        return 'Kopia server is not ready yet. Please wait a moment.';
-      case KopiaErrorCode.BINARY_NOT_FOUND:
-        return 'Kopia binary not found. Please ensure Kopia is properly installed.';
-      case KopiaErrorCode.BINARY_EXECUTION_FAILED:
-        return 'Failed to execute Kopia binary.';
-
-      // Repository
-      case KopiaErrorCode.REPOSITORY_CONNECTION_FAILED:
-        return 'Failed to connect to repository. Please check your configuration.';
-      case KopiaErrorCode.REPOSITORY_NOT_CONNECTED:
-        return 'Not connected to repository. Please connect to a repository first.';
-      case KopiaErrorCode.REPOSITORY_ALREADY_CONNECTED:
-        return 'Already connected to a repository. Disconnect first to connect to another.';
-      case KopiaErrorCode.REPOSITORY_NOT_FOUND:
-        return 'Repository not found at the specified location.';
-      case KopiaErrorCode.REPOSITORY_INITIALIZATION_FAILED:
-        return 'Failed to initialize repository.';
-      case KopiaErrorCode.INVALID_PASSWORD:
-        return 'Invalid repository password. Please check your password and try again.';
-      case KopiaErrorCode.REPOSITORY_OPERATION_FAILED:
-        return 'Repository operation failed.';
-
-      // Storage
-      case KopiaErrorCode.STORAGE_CONNECTION_FAILED:
-        return 'Failed to connect to storage. Please check your storage configuration.';
-      case KopiaErrorCode.INVALID_STORAGE_CONFIG:
-        return 'Invalid storage configuration.';
-      case KopiaErrorCode.STORAGE_ACCESS_DENIED:
-        return 'Access denied to storage. Please check your credentials.';
-
-      // Snapshots
-      case KopiaErrorCode.SNAPSHOT_CREATION_FAILED:
-        return 'Failed to create snapshot.';
-      case KopiaErrorCode.SNAPSHOT_NOT_FOUND:
-        return 'Snapshot not found.';
-      case KopiaErrorCode.SNAPSHOT_OPERATION_FAILED:
-        return 'Snapshot operation failed.';
-      case KopiaErrorCode.PATH_RESOLUTION_FAILED:
-        return 'Failed to resolve path.';
-
-      // Policies
-      case KopiaErrorCode.POLICY_NOT_FOUND:
-        return 'Policy not found.';
-      case KopiaErrorCode.POLICY_OPERATION_FAILED:
-        return 'Policy operation failed.';
-      case KopiaErrorCode.INVALID_POLICY_CONFIG:
-        return 'Invalid policy configuration.';
-
-      // Tasks
-      case KopiaErrorCode.TASK_NOT_FOUND:
-        return 'Task not found.';
-      case KopiaErrorCode.TASK_OPERATION_FAILED:
-        return 'Task operation failed.';
-
-      // Restore
-      case KopiaErrorCode.RESTORE_FAILED:
-        return 'Restore operation failed.';
-      case KopiaErrorCode.MOUNT_FAILED:
-        return 'Failed to mount snapshot.';
-
-      // WebSocket
-      case KopiaErrorCode.WEBSOCKET_CONNECTION_FAILED:
-        return 'WebSocket connection failed.';
-      case KopiaErrorCode.WEBSOCKET_ALREADY_CONNECTED:
-        return 'WebSocket is already connected.';
-      case KopiaErrorCode.WEBSOCKET_NOT_CONNECTED:
-        return 'WebSocket is not connected.';
-
-      // Network
-      case KopiaErrorCode.HTTP_REQUEST_FAILED:
-        return 'HTTP request failed.';
-      case KopiaErrorCode.TIMEOUT:
-        return 'Operation timed out.';
-      case KopiaErrorCode.CONNECTION_REFUSED:
-        return 'Connection refused. Please check the server is running.';
-
-      // Validation
-      case KopiaErrorCode.INVALID_INPUT:
-        return 'Invalid input provided.';
-      case KopiaErrorCode.MISSING_FIELD:
-        return 'Required field is missing.';
-
-      // Filesystem
-      case KopiaErrorCode.FILE_NOT_FOUND:
-        return 'File not found.';
-      case KopiaErrorCode.PERMISSION_DENIED:
-        return 'Permission denied. Please check file permissions.';
-      case KopiaErrorCode.IO_ERROR:
-        return 'Input/output error occurred.';
-
-      // System
-      case KopiaErrorCode.CONFIG_ERROR:
-        return 'Configuration error.';
-      case KopiaErrorCode.ENVIRONMENT_ERROR:
-        return 'Environment error.';
-      case KopiaErrorCode.INTERNAL_ERROR:
-        return 'Internal error occurred.';
-
-      // Parsing
-      case KopiaErrorCode.JSON_PARSE_ERROR:
-        return 'Failed to parse JSON response.';
-      case KopiaErrorCode.RESPONSE_PARSE_ERROR:
-        return 'Failed to parse API response.';
-
-      default:
-        return this.message || 'An unknown error occurred.';
+    // If no error code, return the message or generic error
+    if (!this.code) {
+      return this.message || i18n.t('errors.unknownError');
     }
+
+    // Convert error code to camelCase translation key
+    const errorKey = this.code
+      .toLowerCase()
+      .split('_')
+      .map((word, index) => (index === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1)))
+      .join('');
+
+    const translationKey = `errors.kopia.${errorKey}`;
+    const translated = i18n.t(translationKey);
+
+    // If translation exists and is different from the key, use it
+    if (translated && translated !== translationKey) {
+      return translated;
+    }
+
+    // Fallback to original message or generic error
+    return this.message || i18n.t('errors.unknownError');
   }
 }
 

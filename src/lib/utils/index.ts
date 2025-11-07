@@ -47,14 +47,6 @@ export function formatDateTime(date: Date | string, locale = 'en-US'): string {
 }
 
 /**
- * Format date only (no time) to localized string
- */
-export function formatDate(date: Date | string, locale = 'en-US'): string {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return dateObj.toLocaleDateString(locale);
-}
-
-/**
  * Format date with short month and day (e.g., "Jan 15")
  */
 export function formatShortDate(date: Date | string, locale = 'en-US'): string {

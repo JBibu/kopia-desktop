@@ -10,6 +10,7 @@
 //! - TLS support (required for Kopia server)
 
 use crate::error::{KopiaError, Result};
+use crate::types::SourceInfo;
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -67,14 +68,6 @@ pub struct CountersInfo {
     pub hashed_bytes: i64,
     pub cached_files: i64,
     pub cached_bytes: i64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SourceInfo {
-    pub host: String,
-    #[serde(rename = "userName")]
-    pub user_name: String,
-    pub path: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

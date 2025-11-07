@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { PushoverConfig } from '@/lib/kopia/types';
+import { useTranslation } from 'react-i18next';
 
 interface PushoverNotificationFormProps {
   config: Record<string, unknown>;
@@ -15,6 +16,7 @@ interface PushoverNotificationFormProps {
 }
 
 export function PushoverNotificationForm({ config, onChange }: PushoverNotificationFormProps) {
+  const { t } = useTranslation();
   const pushoverConfig = config as Partial<PushoverConfig>;
 
   const updateField = <K extends keyof PushoverConfig>(field: K, value: PushoverConfig[K]) => {
@@ -26,48 +28,39 @@ export function PushoverNotificationForm({ config, onChange }: PushoverNotificat
       {/* App Token */}
       <div className="space-y-2">
         <Label htmlFor="app-token" className="required">
-          Pushover App Token
+          {t('preferences.notificationProfiles.pushover.appToken')}
         </Label>
         <Input
           id="app-token"
           value={pushoverConfig.appToken || ''}
           onChange={(e) => updateField('appToken', e.target.value)}
-          placeholder="Enter your Pushover app token"
+          placeholder={t('preferences.notificationProfiles.pushover.appToken')}
           autoFocus
         />
         <p className="text-xs text-muted-foreground">
-          Create an app at{' '}
-          <a
-            href="https://pushover.net/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline"
-          >
-            pushover.net
-          </a>{' '}
-          to get your app token
+          {t('preferences.notificationProfiles.pushover.appTokenHelp')}
         </p>
       </div>
 
       {/* User Key */}
       <div className="space-y-2">
         <Label htmlFor="user-key" className="required">
-          Recipient User Key or Group Key
+          {t('preferences.notificationProfiles.pushover.userKey')}
         </Label>
         <Input
           id="user-key"
           value={pushoverConfig.userKey || ''}
           onChange={(e) => updateField('userKey', e.target.value)}
-          placeholder="Enter user key or group key"
+          placeholder={t('preferences.notificationProfiles.pushover.userKey')}
         />
         <p className="text-xs text-muted-foreground">
-          Found on your Pushover dashboard after logging in
+          {t('preferences.notificationProfiles.pushover.userKeyHelp')}
         </p>
       </div>
 
       {/* Format */}
       <div className="space-y-2">
-        <Label htmlFor="format">Format</Label>
+        <Label htmlFor="format">{t('preferences.notificationProfiles.pushover.format')}</Label>
         <Select
           value={pushoverConfig.format || 'txt'}
           onValueChange={(value) => updateField('format', value as 'txt' | 'html')}
@@ -76,8 +69,12 @@ export function PushoverNotificationForm({ config, onChange }: PushoverNotificat
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="txt">Plain Text</SelectItem>
-            <SelectItem value="html">HTML</SelectItem>
+            <SelectItem value="txt">
+              {t('preferences.notificationProfiles.pushover.plainText')}
+            </SelectItem>
+            <SelectItem value="html">
+              {t('preferences.notificationProfiles.pushover.html')}
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -85,23 +82,13 @@ export function PushoverNotificationForm({ config, onChange }: PushoverNotificat
       {/* Help Information */}
       <div className="border-t pt-4">
         <p className="text-sm text-muted-foreground">
-          <strong>Getting Started with Pushover:</strong>
+          <strong>{t('preferences.notificationProfiles.pushover.gettingStarted')}</strong>
         </p>
         <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1 mt-2">
-          <li>
-            Sign up for a Pushover account at{' '}
-            <a
-              href="https://pushover.net/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline"
-            >
-              pushover.net
-            </a>
-          </li>
-          <li>Install the Pushover mobile app on your device (iOS/Android)</li>
-          <li>Create a new application in your Pushover dashboard to get an App Token</li>
-          <li>Copy your User Key from the Pushover dashboard</li>
+          <li>{t('preferences.notificationProfiles.pushover.step1')}</li>
+          <li>{t('preferences.notificationProfiles.pushover.step2')}</li>
+          <li>{t('preferences.notificationProfiles.pushover.step3')}</li>
+          <li>{t('preferences.notificationProfiles.pushover.step4')}</li>
         </ol>
       </div>
     </div>

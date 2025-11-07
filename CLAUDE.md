@@ -13,27 +13,29 @@ A React + Tauri application providing a user-friendly interface for managing Kop
 **Implemented:**
 
 - ✅ Complete Kopia server lifecycle management (start/stop/status)
-- ✅ 50 Tauri commands total (43 Kopia API + 4 system utilities + 3 WebSocket)
-- ✅ 9 functional pages (Overview, Repository, Snapshots, SnapshotHistory, SnapshotBrowse, Policies, Tasks, Preferences, Setup)
+- ✅ 50 Tauri commands total (42 Kopia API + 5 system utilities + 3 WebSocket)
+- ✅ 13 functional pages (Overview, Repository, Snapshots, SnapshotCreate, SnapshotHistory, SnapshotBrowse, SnapshotRestore, Policies, PolicyEdit, Tasks, Mounts, Preferences, Setup)
 - ✅ Repository setup wizard with 8 storage providers (Filesystem, S3, B2, Azure, GCS, SFTP, WebDAV, Rclone)
 - ✅ Theme system (light/dark/system) with Zustand
 - ✅ Font size preferences with Zustand
 - ✅ i18n/translations (English + Spanish) with react-i18next
 - ✅ Error handling system with comprehensive `KopiaError` class
-- ✅ Global Kopia state store with Zustand (907 lines - centralized polling + WebSocket)
-- ✅ 8 custom hooks (6 Kopia-specific: useKopiaServer, useRepository, useSnapshots, usePolicies, useTasks, useProviderConfig)
+- ✅ Global Kopia state store with Zustand (centralized polling + WebSocket + mount management)
+- ✅ 9 custom hooks (7 Kopia-specific: useKopiaServer, useRepository, useSnapshots, usePolicies, useTasks, useMounts, useProviderConfig)
 - ✅ Native file/folder pickers via Tauri dialog plugin
 - ✅ 20 shadcn/ui components
-- ✅ 21 Kopia-specific components
+- ✅ 22 Kopia-specific components
 - ✅ WebSocket support with intelligent fallback to polling
 - ✅ Recharts integration for data visualization (with disabled animations to prevent re-render issues)
 - ✅ Snapshot cancel functionality
 - ✅ Next-themes for advanced theme management
+- ✅ System tray integration (show/hide window, quit menu)
+- ✅ Desktop notifications for task completion
+- ✅ Snapshot mounting functionality (mount/unmount snapshots as local filesystems)
 
 **Not Yet Implemented:**
 
 - ❌ Form validation with Zod (package not installed)
-- ❌ System tray integration (tray-icon feature enabled in Cargo.toml but not implemented)
 - ❌ Comprehensive test coverage (infrastructure in place)
 
 ---
@@ -124,7 +126,7 @@ Repositories / Snapshots / Storage
 
 ## State Management Architecture
 
-**Centralized Zustand Store** ([src/stores/kopia.ts](src/stores/kopia.ts) - 907 lines)
+**Centralized Zustand Store** ([src/stores/kopia.ts](src/stores/kopia.ts) - 920 lines)
 
 **Polling Configuration:**
 
@@ -163,11 +165,12 @@ kopia-desktop/
 │   ├── components/
 │   │   ├── ui/                           # shadcn/ui components (20)
 │   │   ├── layout/                       # Layout components (4)
-│   │   └── kopia/                        # Kopia-specific components (21)
+│   │   └── kopia/                        # Kopia-specific components (22)
 │   │       ├── setup/                    # Repository setup wizard
 │   │       │   ├── fields/               # Form fields (3)
 │   │       │   ├── providers/            # Storage providers (8)
 │   │       │   └── steps/                # Wizard steps (4)
+│   │       ├── policy/                   # Policy editor (1)
 │   │       └── notifications/            # Notification profiles (5)
 │   ├── lib/
 │   │   ├── kopia/
@@ -175,24 +178,25 @@ kopia-desktop/
 │   │   │   ├── types.ts                  # TypeScript types
 │   │   │   └── errors.ts                 # KopiaError class
 │   │   └── utils/                        # Utilities
-│   ├── pages/                            # Route pages (9)
-│   │   ├── Overview.tsx, Repository.tsx, Snapshots.tsx
-│   │   ├── SnapshotHistory.tsx, SnapshotBrowse.tsx
-│   │   ├── Policies.tsx, Tasks.tsx, Preferences.tsx, Setup.tsx
+│   ├── pages/                            # Route pages (12)
+│   │   ├── Overview.tsx, Repository.tsx, Snapshots.tsx, SnapshotCreate.tsx
+│   │   ├── SnapshotHistory.tsx, SnapshotBrowse.tsx, SnapshotRestore.tsx
+│   │   ├── Policies.tsx, PolicyEdit.tsx, Tasks.tsx, Preferences.tsx, Setup.tsx
 │   ├── hooks/                            # Custom hooks (8)
 │   ├── stores/                           # Zustand stores (5)
-│   │   └── kopia.ts                      # 907 lines - centralized state
+│   │   └── kopia.ts                      # 920 lines - centralized state
 │   └── App.tsx
 │
 ├── src-tauri/                            # Rust backend
 │   ├── src/
 │   │   ├── commands/
-│   │   │   ├── kopia.rs                  # 43 Kopia commands (1,462 lines)
-│   │   │   ├── system.rs                 # 4 system commands (69 lines)
-│   │   │   └── websocket.rs              # 3 WebSocket commands (49 lines)
+│   │   │   ├── kopia.rs                  # 42 Kopia commands (1,529 lines)
+│   │   │   ├── system.rs                 # 5 system commands (87 lines)
+│   │   │   └── websocket.rs              # 3 WebSocket commands (55 lines)
 │   │   ├── kopia_server.rs               # Server lifecycle & HTTP client
 │   │   ├── kopia_websocket.rs            # WebSocket client
-│   │   └── types.rs                      # Rust types
+│   │   ├── types.rs                      # Rust types
+│   │   └── error.rs                      # Error types & handling
 │   └── Cargo.toml, tauri.conf.json
 │
 └── bin/                                  # Kopia binaries (dev mode)
@@ -277,7 +281,7 @@ export function useSnapshots() {
 
 **Notifications:** `notification_profiles_list`, `notification_profile_create`, `notification_profile_delete`, `notification_profile_test`
 
-**System:** `get_system_info`, `get_current_user`, `select_folder`, `select_file`
+**System:** `get_system_info`, `get_current_user`, `select_folder`, `select_file`, `save_file`
 
 **WebSocket:** `websocket_connect`, `websocket_disconnect`, `websocket_status`
 
@@ -361,7 +365,23 @@ try {
 
 ## Recent Improvements
 
-**Latest commit: "refactor: comprehensive cleanup and API field corrections" (3e63eec)**
+✅ **System Tray Integration:**
+
+- Native system tray with show/hide window functionality
+- Quit menu option
+- Left-click to restore/show window
+
+✅ **Desktop Notifications:**
+
+- Native OS notifications for task completion
+- Success/failure status indication
+- Task description in notification body
+
+✅ **Snapshot & Restore Pages:**
+
+- SnapshotCreate page for creating new snapshots
+- SnapshotRestore page for restore operations
+- PolicyEdit page for editing policies
 
 ✅ **Critical API Field Fixes:**
 
@@ -371,16 +391,10 @@ try {
 - Policy scheduling fields fixed (camelCase issues)
 - Repository creation handles empty `{}` response
 
-✅ **Code Cleanup (~170 lines removed):**
-
-- Removed duplicate functions
-- Removed unused notification functions
-- Removed unused npm/Rust dependencies
-- Conditionalized debug console.log statements
-
 ✅ **Architecture Improvements:**
 
 - WebSocket + polling hybrid for reliability
 - Sources added to 5s polling loop for real-time updates
 - Chart animations disabled to prevent re-renders
 - Repository page shows actual repository name/description
+- Comprehensive error handling with 46 error variants

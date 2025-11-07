@@ -60,6 +60,21 @@ pub async fn select_file(
     Ok(dialog.blocking_pick_file().map(|path| path.to_string()))
 }
 
+/// Open save file dialog
+#[tauri::command]
+pub async fn save_file(
+    app: AppHandle,
+    default_filename: Option<String>,
+) -> Result<Option<String>> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let mut dialog = app.dialog().file();
+    if let Some(filename) = default_filename {
+        dialog = dialog.set_file_name(&filename);
+    }
+    Ok(dialog.blocking_save_file().map(|path| path.to_string()))
+}
+
 /// Configure dialog with optional default path
 fn configure_dialog<R: tauri::Runtime>(
     mut dialog: tauri_plugin_dialog::FileDialogBuilder<R>,

@@ -76,7 +76,18 @@ async fn auto_start_server(state: KopiaServerState) -> error::Result<()> {
             );
             #[cfg(debug_assertions)]
             log::debug!("Poison recovery stack trace: {:?}", std::backtrace::Backtrace::capture());
-            poisoned.into_inner()
+
+            let mut recovered = poisoned.into_inner();
+
+            // Validate recovered state is safe to use
+            if recovered.is_running() {
+                log::warn!(
+                    "Recovered server state shows running process. \
+                     This may indicate incomplete shutdown. Proceeding with caution."
+                );
+            }
+
+            recovered
         });
         let info = server.start(&config_dir)?;
         let waiter = server.get_ready_waiter()?;
@@ -216,6 +227,7 @@ pub fn run() {
             commands::get_current_user,
             commands::select_folder,
             commands::select_file,
+            commands::save_file,
             // WebSocket
             commands::websocket_connect,
             commands::websocket_disconnect,

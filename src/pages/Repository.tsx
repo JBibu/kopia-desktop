@@ -71,7 +71,7 @@ export function Repository() {
           <>
             {/* Repository Status */}
             <Card>
-              <CardContent className="py-6">
+              <CardContent className="pt-6">
                 <div className="flex items-center gap-3 mb-6">
                   <CheckCircle className="h-6 w-6 text-success" />
                   <div>

@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { EmailConfig } from '@/lib/kopia/types';
+import { useTranslation } from 'react-i18next';
 
 interface EmailNotificationFormProps {
   config: Record<string, unknown>;
@@ -15,6 +16,7 @@ interface EmailNotificationFormProps {
 }
 
 export function EmailNotificationForm({ config, onChange }: EmailNotificationFormProps) {
+  const { t } = useTranslation();
   const emailConfig = config as Partial<EmailConfig>;
 
   const updateField = <K extends keyof EmailConfig>(field: K, value: EmailConfig[K]) => {
@@ -27,7 +29,7 @@ export function EmailNotificationForm({ config, onChange }: EmailNotificationFor
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="smtp-server" className="required">
-            SMTP Server
+            {t('preferences.notificationProfiles.email.smtpServer')}
           </Label>
           <Input
             id="smtp-server"
@@ -39,7 +41,7 @@ export function EmailNotificationForm({ config, onChange }: EmailNotificationFor
         </div>
         <div className="space-y-2">
           <Label htmlFor="smtp-port" className="required">
-            SMTP Port
+            {t('preferences.notificationProfiles.email.smtpPort')}
           </Label>
           <Input
             id="smtp-port"
@@ -53,34 +55,40 @@ export function EmailNotificationForm({ config, onChange }: EmailNotificationFor
       {/* SMTP Authentication */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="smtp-username">SMTP Username</Label>
+          <Label htmlFor="smtp-username">
+            {t('preferences.notificationProfiles.email.smtpUsername')}
+          </Label>
           <Input
             id="smtp-username"
             value={emailConfig.smtpUsername || ''}
             onChange={(e) => updateField('smtpUsername', e.target.value)}
-            placeholder="Typically your email address"
+            placeholder={t('preferences.notificationProfiles.email.usernameHelp')}
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="smtp-password">SMTP Password</Label>
+          <Label htmlFor="smtp-password">
+            {t('preferences.notificationProfiles.email.smtpPassword')}
+          </Label>
           <Input
             id="smtp-password"
             type="password"
             value={emailConfig.smtpPassword || ''}
             onChange={(e) => updateField('smtpPassword', e.target.value)}
-            placeholder="SMTP password or app-specific password"
+            placeholder={t('preferences.notificationProfiles.email.passwordHelp')}
           />
         </div>
       </div>
 
       {/* SMTP Identity (optional) */}
       <div className="space-y-2">
-        <Label htmlFor="smtp-identity">SMTP Identity (Optional)</Label>
+        <Label htmlFor="smtp-identity">
+          {t('preferences.notificationProfiles.email.smtpIdentity')}
+        </Label>
         <Input
           id="smtp-identity"
           value={emailConfig.smtpIdentity || ''}
           onChange={(e) => updateField('smtpIdentity', e.target.value)}
-          placeholder="Often empty"
+          placeholder={t('preferences.notificationProfiles.email.identityHelp')}
         />
       </div>
 
@@ -88,7 +96,7 @@ export function EmailNotificationForm({ config, onChange }: EmailNotificationFor
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="from" className="required">
-            From Address
+            {t('preferences.notificationProfiles.email.fromAddress')}
           </Label>
           <Input
             id="from"
@@ -100,7 +108,7 @@ export function EmailNotificationForm({ config, onChange }: EmailNotificationFor
         </div>
         <div className="space-y-2">
           <Label htmlFor="to" className="required">
-            To Address(es)
+            {t('preferences.notificationProfiles.email.toAddress')}
           </Label>
           <Input
             id="to"
@@ -108,24 +116,28 @@ export function EmailNotificationForm({ config, onChange }: EmailNotificationFor
             onChange={(e) => updateField('to', e.target.value)}
             placeholder="recipient@example.com, other@example.com"
           />
-          <p className="text-xs text-muted-foreground">Comma-separated for multiple recipients</p>
+          <p className="text-xs text-muted-foreground">
+            {t('preferences.notificationProfiles.email.toHelp')}
+          </p>
         </div>
       </div>
 
       {/* CC & Format */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="cc">CC Address(es)</Label>
+          <Label htmlFor="cc">{t('preferences.notificationProfiles.email.ccAddress')}</Label>
           <Input
             id="cc"
             value={emailConfig.cc || ''}
             onChange={(e) => updateField('cc', e.target.value)}
             placeholder="cc@example.com"
           />
-          <p className="text-xs text-muted-foreground">Comma-separated for multiple recipients</p>
+          <p className="text-xs text-muted-foreground">
+            {t('preferences.notificationProfiles.email.ccHelp')}
+          </p>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="format">Format</Label>
+          <Label htmlFor="format">{t('preferences.notificationProfiles.email.format')}</Label>
           <Select
             value={emailConfig.format || 'txt'}
             onValueChange={(value) => updateField('format', value as 'txt' | 'html')}
@@ -134,8 +146,12 @@ export function EmailNotificationForm({ config, onChange }: EmailNotificationFor
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="txt">Plain Text</SelectItem>
-              <SelectItem value="html">HTML</SelectItem>
+              <SelectItem value="txt">
+                {t('preferences.notificationProfiles.email.plainText')}
+              </SelectItem>
+              <SelectItem value="html">
+                {t('preferences.notificationProfiles.email.html')}
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>

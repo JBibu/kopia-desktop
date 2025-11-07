@@ -410,10 +410,15 @@ pub struct RootEntry {
 #[serde(rename_all = "camelCase")]
 pub struct RestoreRequest {
     pub root: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub fs_output: Option<FilesystemOutput>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub zip_file: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub uncompressed_zip: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub tar_file: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub options: Option<RestoreOptions>,
 }
 
@@ -422,20 +427,30 @@ pub struct RestoreRequest {
 pub struct FilesystemOutput {
     #[serde(default)]
     pub target_path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub overwrite_files: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub overwrite_directories: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub overwrite_symlinks: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub skip_owners: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub skip_permissions: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub skip_times: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub write_files_atomically: Option<bool>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RestoreOptions {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub incremental: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub ignore_errors: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub restore_dir_entry_at_depth: Option<i64>,
 }
 
@@ -448,7 +463,7 @@ pub struct MountResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MountsResponse {
-    pub mounts: Vec<MountInfo>,
+    pub items: Vec<MountInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -529,6 +544,7 @@ pub struct SchedulingPolicy {
 #[serde(rename_all = "camelCase")]
 pub struct FilesPolicy {
     pub ignore: Option<Vec<String>>,
+    #[serde(rename = "dotIgnore")]
     pub ignore_dot_files: Option<Vec<String>>,
     pub one_file_system: Option<bool>,
     pub no_parent_ignore: Option<bool>,
@@ -632,10 +648,20 @@ impl serde::Serialize for LogLevel {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Splitter policy configuration for content splitting algorithms
+///
+/// Note: Kopia's splitter policy is typically configured at the repository level
+/// and not overridden per-snapshot source. The policy definition in Kopia API
+/// returns an empty object in most cases, as splitter algorithms are not
+/// user-configurable at the policy level (they're repository-wide settings).
+///
+/// This struct exists to match the API response structure and may be extended
+/// in future Kopia versions if per-source splitter configuration is added.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SplitterPolicy {
-    // Splitter policy fields (usually empty in most cases)
+    // Currently empty - Kopia does not expose per-policy splitter configuration
+    // The splitter algorithm is configured at repository creation time
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -800,41 +826,4 @@ pub struct NotificationMethod {
     #[serde(rename = "type")]
     pub method_type: String, // "email", "pushover", "webhook"
     pub config: serde_json::Value, // Method-specific configuration
-}
-
-/// Email notification config (helper type for documentation)
-#[allow(dead_code)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct EmailNotificationConfig {
-    pub smtp_server: String,
-    pub smtp_port: i32,
-    pub smtp_username: Option<String>,
-    pub smtp_password: Option<String>,
-    pub smtp_identity: Option<String>,
-    pub from: String,
-    pub to: String,
-    pub cc: Option<String>,
-    pub format: String, // "txt" or "html"
-}
-
-/// Pushover notification config (helper type for documentation)
-#[allow(dead_code)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PushoverNotificationConfig {
-    pub app_token: String,
-    pub user_key: String,
-    pub format: String, // "txt" or "html"
-}
-
-/// Webhook notification config (helper type for documentation)
-#[allow(dead_code)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WebhookNotificationConfig {
-    pub endpoint: String,
-    pub method: String,          // "POST" or "PUT"
-    pub headers: Option<String>, // Multi-line string, one header per line
-    pub format: String,          // "txt" or "html"
 }

@@ -1,12 +1,14 @@
-import { RequiredField } from '../fields/RequiredField';
-import { PathPickerField } from '../fields/PathPickerField';
+import { RequiredField } from '@/components/kopia/setup/fields/RequiredField';
+import { PathPickerField } from '@/components/kopia/setup/fields/PathPickerField';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import type { ProviderFormProps } from '../types';
+import type { ProviderFormProps } from '@/components/kopia/setup/types';
 import type { RcloneStorageConfig } from '@/lib/kopia/types';
 import { useProviderConfig } from '@/hooks/useProviderConfig';
+import { useTranslation } from 'react-i18next';
 
 export function RcloneProvider({ config, onChange }: ProviderFormProps) {
+  const { t } = useTranslation();
   const rcloneConfig = config as Partial<RcloneStorageConfig>;
   const { handleChange } = useProviderConfig<RcloneStorageConfig>(rcloneConfig, onChange);
 
@@ -41,27 +43,28 @@ export function RcloneProvider({ config, onChange }: ProviderFormProps) {
   return (
     <div className="space-y-4">
       <RequiredField
-        label="Remote Path"
+        label={t('setup.fields.rclone.remotePath')}
         name="remotePath"
         value={rcloneConfig.remotePath || ''}
         onChange={(v) => handleChange('remotePath', v)}
         placeholder="myremote:backup/repository"
-        helpText="Rclone remote path (remote:path format)"
+        helpText={t('setup.fields.rclone.remotePathHelp')}
         autoFocus
       />
 
       <PathPickerField
-        label="Rclone Executable"
+        label={t('setup.fields.rclone.rcloneExecutable')}
         name="rcloneExe"
         value={rcloneConfig.rcloneExe || ''}
         onChange={(v) => handleChange('rcloneExe', v)}
         placeholder="/usr/bin/rclone"
-        helpText="Path to rclone binary (leave empty to use system rclone)"
+        helpText={t('setup.fields.rclone.rcloneExecutableHelp')}
       />
 
       <div className="space-y-2">
         <Label htmlFor="rcloneArgs">
-          Rclone Arguments <span className="text-muted-foreground">(Optional)</span>
+          {t('setup.fields.rclone.rcloneArguments')}{' '}
+          <span className="text-muted-foreground">({t('common.optional')})</span>
         </Label>
         <Textarea
           id="rcloneArgs"
@@ -71,12 +74,15 @@ export function RcloneProvider({ config, onChange }: ProviderFormProps) {
           className="font-mono text-xs"
           rows={4}
         />
-        <p className="text-xs text-muted-foreground">Additional rclone arguments (one per line)</p>
+        <p className="text-xs text-muted-foreground">
+          {t('setup.fields.rclone.rcloneArgumentsHelp')}
+        </p>
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="rcloneEnv">
-          Environment Variables <span className="text-muted-foreground">(Optional)</span>
+          {t('setup.fields.rclone.environmentVariables')}{' '}
+          <span className="text-muted-foreground">({t('common.optional')})</span>
         </Label>
         <Textarea
           id="rcloneEnv"
@@ -87,7 +93,7 @@ export function RcloneProvider({ config, onChange }: ProviderFormProps) {
           rows={4}
         />
         <p className="text-xs text-muted-foreground">
-          Environment variables for rclone (KEY=value format, one per line)
+          {t('setup.fields.rclone.environmentVariablesHelp')}
         </p>
       </div>
     </div>
