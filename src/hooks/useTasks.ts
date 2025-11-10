@@ -8,11 +8,6 @@
 import { useKopiaStore } from '@/stores/kopia';
 import type { Task, TasksSummary } from '@/lib/kopia/types';
 
-interface UseTasksOptions {
-  autoRefresh?: boolean; // Legacy option - now ignored (always auto-refresh from store)
-  refreshInterval?: number; // Legacy option - now ignored (controlled by store)
-}
-
 interface UseTasksReturn {
   tasks: Task[];
   summary: TasksSummary | null;
@@ -31,10 +26,7 @@ interface UseTasksReturn {
  * Uses global Zustand store for state - no local state or polling.
  * Tasks are automatically updated in real-time via WebSocket, with polling fallback.
  */
-export function useTasks(_options: UseTasksOptions = {}): UseTasksReturn {
-  // Legacy options are ignored - polling is controlled by global store
-  // Keeping the signature for backward compatibility
-
+export function useTasks(): UseTasksReturn {
   // Subscribe to global store
   const tasks = useKopiaStore((state) => state.tasks);
   const summary = useKopiaStore((state) => state.tasksSummary);

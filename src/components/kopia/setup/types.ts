@@ -1,8 +1,14 @@
-import type { StorageConfig, StorageType } from '@/lib/kopia/types';
+import type { StorageType } from '@/lib/kopia/types';
+
+/**
+ * Partial storage config used during the wizard steps
+ * This is a Record type since we're building it step-by-step
+ */
+export type PartialStorageConfig = Record<string, unknown>;
 
 export interface ProviderFormProps {
-  config: Partial<StorageConfig['config']>;
-  onChange: (config: Partial<StorageConfig['config']>) => void;
+  config: PartialStorageConfig;
+  onChange: (config: PartialStorageConfig) => void;
   errors?: Record<string, string>;
 }
 
@@ -16,7 +22,7 @@ export interface ProviderMetadata {
 export interface SetupWizardState {
   step: 'provider' | 'config' | 'verify' | 'password';
   provider: StorageType | null;
-  storageConfig: Partial<StorageConfig['config']>;
+  storageConfig: PartialStorageConfig;
   mode: 'create' | 'connect' | null;
   password: string;
   confirmPassword: string;

@@ -12,7 +12,7 @@ interface UsePoliciesReturn {
   isLoading: boolean;
   error: string | null;
   fetchPolicies: () => Promise<void>;
-  getPolicy: (userName?: string, host?: string, path?: string) => Promise<PolicyResponse | null>;
+  getPolicy: (userName?: string, host?: string, path?: string) => Promise<PolicyDefinition | null>;
   setPolicy: (
     policy: PolicyDefinition,
     userName?: string,

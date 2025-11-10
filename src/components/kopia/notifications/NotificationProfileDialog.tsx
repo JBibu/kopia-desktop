@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -24,7 +25,7 @@ import {
   getErrorMessage,
 } from '@/lib/kopia/client';
 import type { NotificationProfile, NotificationSeverity } from '@/lib/kopia/types';
-import { SeverityLabels, NotificationSeverities } from '@/lib/kopia/types';
+import { getSeverityLabel, NotificationSeverities } from '@/lib/kopia/types';
 import { EmailNotificationForm } from './EmailNotificationForm';
 import { PushoverNotificationForm } from './PushoverNotificationForm';
 import { WebhookNotificationForm } from './WebhookNotificationForm';
@@ -42,6 +43,7 @@ export function NotificationProfileDialog({
   profile: initialProfile,
   isNew,
 }: NotificationProfileDialogProps) {
+  const { t } = useTranslation();
   const [profile, setProfile] = useState<NotificationProfile>(initialProfile);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -57,17 +59,21 @@ export function NotificationProfileDialog({
 
     // Validate profile name
     if (!profile.profile.trim()) {
-      setValidationError('Profile name is required');
+      setValidationError(t('preferences.notificationProfiles.profileNameRequired'));
       return;
     }
 
     try {
       setSaving(true);
       await createNotificationProfile(profile);
-      toast.success(isNew ? 'Notification profile created' : 'Notification profile updated');
+      toast.success(
+        isNew
+          ? t('preferences.notificationProfiles.created')
+          : t('preferences.notificationProfiles.updated')
+      );
       onClose(true);
     } catch (error) {
-      toast.error('Failed to save notification profile', {
+      toast.error(t('preferences.notificationProfiles.saveFailed'), {
         description: getErrorMessage(error),
       });
       setValidationError(getErrorMessage(error));
@@ -82,11 +88,11 @@ export function NotificationProfileDialog({
     try {
       setTesting(true);
       await testNotificationProfile(profile);
-      toast.success('Test notification sent', {
-        description: 'Please check your notification destination to verify receipt.',
+      toast.success(t('preferences.notificationProfiles.testSent'), {
+        description: t('preferences.notificationProfiles.testSentDesc'),
       });
     } catch (error) {
-      toast.error('Failed to send test notification', {
+      toast.error(t('preferences.notificationProfiles.testFailed'), {
         description: getErrorMessage(error),
       });
       setValidationError(getErrorMessage(error));
@@ -107,7 +113,7 @@ export function NotificationProfileDialog({
 
   const severityOptions = Object.entries(NotificationSeverities).map(([_key, value]) => ({
     value: value.toString(),
-    label: SeverityLabels[value],
+    label: getSeverityLabel(value),
   }));
 
   return (
@@ -115,10 +121,12 @@ export function NotificationProfileDialog({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {isNew ? 'New Notification Profile' : 'Edit Notification Profile'}
+            {isNew
+              ? t('preferences.notificationProfiles.dialog.newTitle')
+              : t('preferences.notificationProfiles.dialog.editTitle')}
           </DialogTitle>
           <DialogDescription>
-            Configure how and when Kopia should send notifications for this profile.
+            {t('preferences.notificationProfiles.dialog.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -126,24 +134,24 @@ export function NotificationProfileDialog({
           {/* Profile Name */}
           <div className="space-y-2">
             <Label htmlFor="profile-name" className="required">
-              Profile Name
+              {t('preferences.notificationProfiles.dialog.profileName')}
             </Label>
             <Input
               id="profile-name"
               value={profile.profile}
               onChange={(e) => setProfile({ ...profile, profile: e.target.value })}
-              placeholder="Enter profile name"
+              placeholder={t('preferences.notificationProfiles.dialog.profileNamePlaceholder')}
               disabled={!isNew}
             />
             <p className="text-sm text-muted-foreground">
-              Unique name for this notification profile
+              {t('preferences.notificationProfiles.dialog.profileNameHelp')}
             </p>
           </div>
 
           {/* Minimum Severity */}
           <div className="space-y-2">
             <Label htmlFor="min-severity" className="required">
-              Minimum Severity
+              {t('preferences.notificationProfiles.dialog.minimumSeverity')}
             </Label>
             <Select
               value={profile.minSeverity.toString()}
@@ -163,16 +171,19 @@ export function NotificationProfileDialog({
               </SelectContent>
             </Select>
             <p className="text-sm text-muted-foreground">
-              Minimum severity required to trigger notifications using this profile
+              {t('preferences.notificationProfiles.dialog.minimumSeverityHelp')}
             </p>
           </div>
 
           {/* Method-specific configuration */}
           <div className="border-t pt-4">
             <h3 className="text-sm font-medium mb-4">
-              {profile.method.type === 'email' && 'Email Configuration'}
-              {profile.method.type === 'pushover' && 'Pushover Configuration'}
-              {profile.method.type === 'webhook' && 'Webhook Configuration'}
+              {profile.method.type === 'email' &&
+                t('preferences.notificationProfiles.dialog.emailConfiguration')}
+              {profile.method.type === 'pushover' &&
+                t('preferences.notificationProfiles.dialog.pushoverConfiguration')}
+              {profile.method.type === 'webhook' &&
+                t('preferences.notificationProfiles.dialog.webhookConfiguration')}
             </h3>
 
             {profile.method.type === 'email' && (
@@ -206,17 +217,23 @@ export function NotificationProfileDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onClose(false)} disabled={saving || testing}>
-            Cancel
+            {t('preferences.notificationProfiles.dialog.cancel')}
           </Button>
           <Button
             variant="secondary"
             onClick={() => void handleTest()}
             disabled={saving || testing}
           >
-            {testing ? 'Sending...' : 'Send Test Notification'}
+            {testing
+              ? t('preferences.notificationProfiles.dialog.sending')
+              : t('preferences.notificationProfiles.dialog.sendTest')}
           </Button>
           <Button onClick={() => void handleSave()} disabled={saving || testing}>
-            {saving ? 'Saving...' : isNew ? 'Create Profile' : 'Update Profile'}
+            {saving
+              ? t('preferences.notificationProfiles.dialog.saving')
+              : isNew
+                ? t('preferences.notificationProfiles.dialog.createProfile')
+                : t('preferences.notificationProfiles.dialog.updateProfile')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -4,11 +4,13 @@
 
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Minus, Maximize, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import kopiaIcon from '../../../src-tauri/icons/icon.svg';
 
 const appWindow = getCurrentWindow();
 
 export function Titlebar() {
+  const { t } = useTranslation();
   const handleMinimize = () => {
     void appWindow.minimize();
   };
@@ -37,27 +39,27 @@ export function Titlebar() {
         <button
           type="button"
           onClick={handleMinimize}
-          className="h-8 w-10 inline-flex items-center justify-center hover:bg-accent hover:text-accent-foreground transition-colors rounded-sm"
-          title="Minimize"
-          aria-label="Minimize window"
+          className="h-8 w-10 inline-flex items-center justify-center hover:bg-accent hover:text-accent-foreground transition-colors"
+          title={t('accessibility.minimize')}
+          aria-label={t('accessibility.minimizeWindow')}
         >
           <Minus className="h-4 w-4" />
         </button>
         <button
           type="button"
           onClick={handleMaximize}
-          className="h-8 w-10 inline-flex items-center justify-center hover:bg-accent hover:text-accent-foreground transition-colors rounded-sm"
-          title="Maximize"
-          aria-label="Maximize window"
+          className="h-8 w-10 inline-flex items-center justify-center hover:bg-accent hover:text-accent-foreground transition-colors"
+          title={t('accessibility.maximize')}
+          aria-label={t('accessibility.maximizeWindow')}
         >
           <Maximize className="h-4 w-4" />
         </button>
         <button
           type="button"
           onClick={handleClose}
-          className="h-8 w-10 inline-flex items-center justify-center hover:bg-destructive hover:text-destructive-foreground transition-colors rounded-sm"
-          title="Close"
-          aria-label="Close window"
+          className="h-8 w-10 inline-flex items-center justify-center hover:bg-destructive hover:text-destructive-foreground transition-colors"
+          title={t('accessibility.close')}
+          aria-label={t('accessibility.closeWindow')}
         >
           <X className="h-4 w-4" />
         </button>

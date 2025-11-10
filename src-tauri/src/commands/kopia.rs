@@ -1,7 +1,8 @@
 use crate::error::{HttpResultExt, IoResultExt, JsonResultExt, KopiaError, Result};
 use crate::kopia_server::{KopiaServerInfo, KopiaServerState, KopiaServerStatus};
+use crate::types::{RepositoryConnectRequest, RepositoryStatus, StorageConfig};
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tauri::State;
 
 // Helper macro for mutex recovery
@@ -45,63 +46,45 @@ pub async fn kopia_server_status(
 }
 
 /// Get the default Kopia configuration directory
+///
+/// Returns the platform-specific configuration directory:
+/// - Windows: `%USERPROFILE%\AppData\Roaming\kopia`
+/// - Unix/Linux/macOS: `$HOME/.config/kopia`
+///
+/// Creates the directory if it doesn't exist.
 pub fn get_default_config_dir() -> Result<String> {
+    use std::path::PathBuf;
+
     let home_dir = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .map_err(|_| KopiaError::EnvironmentError {
             message: "Cannot determine home directory (HOME or USERPROFILE not set)".to_string(),
         })?;
 
+    let mut config_path = PathBuf::from(home_dir);
+
     #[cfg(target_os = "windows")]
-    let config_dir = format!("{}\\AppData\\Roaming\\kopia", home_dir);
+    config_path.extend(&["AppData", "Roaming", "kopia"]);
 
     #[cfg(not(target_os = "windows"))]
-    let config_dir = format!("{}/.config/kopia", home_dir);
+    config_path.extend(&[".config", "kopia"]);
 
     // Ensure directory exists
-    std::fs::create_dir_all(&config_dir).map_io_error(&config_dir)?;
+    std::fs::create_dir_all(&config_path)
+        .map_io_error(config_path.to_str().unwrap_or("config directory"))?;
 
-    Ok(config_dir)
+    config_path
+        .to_str()
+        .map(String::from)
+        .ok_or_else(|| KopiaError::InternalError {
+            message: "Config path contains invalid UTF-8 characters".to_string(),
+            details: None,
+        })
 }
 
 // ============================================================================
 // Repository Commands
 // ============================================================================
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RepositoryStatus {
-    pub connected: bool,
-    #[serde(rename = "configFile")]
-    pub config_file: Option<String>,
-    #[serde(rename = "formatVersion")]
-    pub format_version: Option<i32>,
-    pub hash: Option<String>,
-    pub encryption: Option<String>,
-    pub ecc: Option<String>,
-    #[serde(rename = "eccOverheadPercent")]
-    pub ecc_overhead_percent: Option<i32>,
-    pub splitter: Option<String>,
-    #[serde(rename = "maxPackSize")]
-    pub max_pack_size: Option<i32>,
-    pub storage: Option<String>,
-    #[serde(rename = "apiServerURL")]
-    pub api_server_url: Option<String>,
-    #[serde(rename = "supportsContentCompression")]
-    pub supports_content_compression: Option<bool>,
-    // ClientOptions fields (embedded in Go via struct embedding)
-    pub description: Option<String>,
-    pub username: Option<String>,
-    pub hostname: Option<String>,
-    pub readonly: Option<bool>,
-    #[serde(rename = "enableActions")]
-    pub enable_actions: Option<bool>,
-    #[serde(rename = "formatBlobCacheDuration")]
-    pub format_blob_cache_duration: Option<i64>,
-    // Repository initialization task ID
-    #[serde(rename = "initTaskID")]
-    pub init_task_id: Option<String>,
-}
 
 /// Get repository status
 #[tauri::command]
@@ -115,22 +98,6 @@ pub async fn repository_status(server: State<'_, KopiaServerState>) -> Result<Re
         .map_http_error("Get repository status")?;
 
     handle_response(response, "Get repository status").await
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StorageConfig {
-    #[serde(rename = "type")]
-    pub storage_type: String,
-    pub config: serde_json::Value, // Storage-type specific config (e.g., {"path": "..."} for filesystem)
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RepositoryConnectRequest {
-    pub storage: StorageConfig,
-    pub password: String,
-    pub token: Option<String>,
-    pub client_options: Option<crate::types::ClientOptions>,
 }
 
 /// Connect to an existing repository
@@ -180,18 +147,15 @@ pub async fn repository_disconnect(server: State<'_, KopiaServerState>) -> Resul
 }
 
 /// Create a new repository
+///
+/// The Kopia API returns an empty object `{}` on success.
+/// We just need to verify the request succeeded, no task ID is returned.
 #[tauri::command]
 pub async fn repository_create(
     server: State<'_, KopiaServerState>,
     config: crate::types::RepositoryCreateRequest,
 ) -> Result<String> {
     let (server_url, client) = get_server_client(&server)?;
-
-    #[derive(Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    struct CreateResponse {
-        init_task_id: String,
-    }
 
     let response = client
         .post(format!("{}/api/v1/repo/create", server_url))
@@ -200,8 +164,9 @@ pub async fn repository_create(
         .await
         .map_http_error("Failed to create repository")?;
 
-    let result: CreateResponse = handle_response(response, "Create repository").await?;
-    Ok(result.init_task_id)
+    // API returns empty object on success, just validate response
+    handle_empty_response(response, "Create repository").await?;
+    Ok("Repository created successfully".to_string())
 }
 
 /// Check if repository exists
@@ -442,12 +407,7 @@ pub async fn snapshot_cancel(
 ) -> Result<()> {
     let (server_url, client) = get_server_client(&server)?;
 
-    let query_params = format!(
-        "?userName={}&host={}&path={}",
-        urlencoding::encode(&user_name),
-        urlencoding::encode(&host),
-        urlencoding::encode(&path)
-    );
+    let query_params = build_source_query(&user_name, &host, &path);
 
     let response = client
         .post(format!(
@@ -459,7 +419,7 @@ pub async fn snapshot_cancel(
         .map_http_error("Failed to cancel snapshot")?;
 
     if !response.status().is_success() {
-        return Err(KopiaError::HttpRequestFailed { message: "Failed to cancel snapshot".to_string(), status_code: Some(response.status().as_u16()), url: None });
+        return Err(http_request_failed("Failed to cancel snapshot", response.status().as_u16()));
     }
 
     Ok(())
@@ -481,10 +441,8 @@ pub async fn snapshots_list(
     let (server_url, client) = get_server_client(&server)?;
 
     let query_params = format!(
-        "?userName={}&host={}&path={}&all={}",
-        urlencoding::encode(&user_name),
-        urlencoding::encode(&host),
-        urlencoding::encode(&path),
+        "{}&all={}",
+        build_source_query(&user_name, &host, &path),
         if all { "1" } else { "0" }
     );
 
@@ -495,7 +453,7 @@ pub async fn snapshots_list(
         .map_http_error("Failed to list snapshots")?;
 
     if !response.status().is_success() {
-        return Err(KopiaError::HttpRequestFailed { message: "Failed to list snapshots".to_string(), status_code: Some(response.status().as_u16()), url: None });
+        return Err(http_request_failed("Failed to list snapshots", response.status().as_u16()));
     }
 
     let result = response
@@ -541,14 +499,27 @@ pub async fn snapshot_edit(
 #[tauri::command]
 pub async fn snapshot_delete(
     server: State<'_, KopiaServerState>,
+    user_name: String,
+    host: String,
+    path: String,
     manifest_ids: Vec<String>,
 ) -> Result<i64> {
     let (server_url, client) = get_server_client(&server)?;
 
-    // The API expects "snapshotManifestIds" (not "manifestIDs")
+    // API expects source info + manifest IDs
+    let payload = crate::types::SnapshotDeleteRequest {
+        source: crate::types::SourceInfo {
+            user_name,
+            host,
+            path,
+        },
+        snapshot_manifest_ids: manifest_ids,
+        delete_source_and_policy: Some(false),
+    };
+
     let response = client
         .post(format!("{}/api/v1/snapshots/delete", server_url))
-        .json(&serde_json::json!({ "snapshotManifestIds": manifest_ids }))
+        .json(&payload)
         .send()
         .await
         .map_http_error("Failed to delete snapshots")?;
@@ -598,7 +569,7 @@ pub async fn object_browse(
         .map_http_error("Failed to browse object")?;
 
     if !response.status().is_success() {
-        return Err(KopiaError::HttpRequestFailed { message: "Failed to browse object".to_string(), status_code: Some(response.status().as_u16()), url: None });
+        return Err(http_request_failed("Failed to browse object", response.status().as_u16()));
     }
 
     let result = response
@@ -631,7 +602,7 @@ pub async fn object_download(
         .map_http_error("Failed to download object")?;
 
     if !response.status().is_success() {
-        return Err(KopiaError::HttpRequestFailed { message: "Failed to download object".to_string(), status_code: Some(response.status().as_u16()), url: None });
+        return Err(http_request_failed("Failed to download object", response.status().as_u16()));
     }
 
     // Get the file content
@@ -667,7 +638,7 @@ pub async fn restore_start(
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(KopiaError::HttpRequestFailed { message: format!("Failed to start restore: {}", error_text), status_code: Some(status.as_u16()), url: None });
+        return Err(http_request_failed(format!("Failed to start restore: {}", error_text), status.as_u16()));
     }
 
     #[derive(Deserialize)]
@@ -704,7 +675,7 @@ pub async fn mount_snapshot(
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(KopiaError::HttpRequestFailed { message: format!("Failed to mount snapshot: {}", error_text), status_code: Some(status.as_u16()), url: None });
+        return Err(http_request_failed(format!("Failed to mount snapshot: {}", error_text), status.as_u16()));
     }
 
     let result: crate::types::MountResponse = response
@@ -729,7 +700,7 @@ pub async fn mounts_list(
         .map_http_error("Failed to list mounts")?;
 
     if !response.status().is_success() {
-        return Err(KopiaError::HttpRequestFailed { message: "Failed to list mounts".to_string(), status_code: Some(response.status().as_u16()), url: None });
+        return Err(http_request_failed("Failed to list mounts", response.status().as_u16()));
     }
 
     let result = response
@@ -755,7 +726,7 @@ pub async fn mount_unmount(
         .map_http_error("Failed to unmount snapshot")?;
 
     if !response.status().is_success() {
-        return Err(KopiaError::HttpRequestFailed { message: "Failed to unmount snapshot".to_string(), status_code: Some(response.status().as_u16()), url: None });
+        return Err(http_request_failed("Failed to unmount snapshot", response.status().as_u16()));
     }
 
     Ok(())
@@ -806,22 +777,7 @@ pub async fn policy_get(
 ) -> Result<crate::types::PolicyWithTarget> {
     let (server_url, client) = get_server_client(&server)?;
 
-    let mut query_parts = Vec::new();
-    if let Some(user) = user_name {
-        query_parts.push(format!("userName={}", urlencoding::encode(&user)));
-    }
-    if let Some(h) = host {
-        query_parts.push(format!("host={}", urlencoding::encode(&h)));
-    }
-    if let Some(p) = path {
-        query_parts.push(format!("path={}", urlencoding::encode(&p)));
-    }
-
-    let query_string = if query_parts.is_empty() {
-        String::new()
-    } else {
-        format!("?{}", query_parts.join("&"))
-    };
+    let query_string = build_policy_query(user_name.as_deref(), host.as_deref(), path.as_deref());
 
     let response = client
         .get(format!("{}/api/v1/policy{}", server_url, query_string))
@@ -830,7 +786,7 @@ pub async fn policy_get(
         .map_http_error("Failed to get policy")?;
 
     if !response.status().is_success() {
-        return Err(KopiaError::HttpRequestFailed { message: "Failed to get policy".to_string(), status_code: Some(response.status().as_u16()), url: None });
+        return Err(http_request_failed("Failed to get policy", response.status().as_u16()));
     }
 
     let result = response
@@ -852,29 +808,22 @@ pub async fn policy_resolve(
 ) -> Result<crate::types::ResolvedPolicyResponse> {
     let (server_url, client) = get_server_client(&server)?;
 
-    let mut query_parts = Vec::new();
-    if let Some(user) = user_name {
-        query_parts.push(format!("userName={}", urlencoding::encode(&user)));
-    }
-    if let Some(h) = host {
-        query_parts.push(format!("host={}", urlencoding::encode(&h)));
-    }
-    if let Some(p) = path {
-        query_parts.push(format!("path={}", urlencoding::encode(&p)));
-    }
+    let query_string = build_policy_query(user_name.as_deref(), host.as_deref(), path.as_deref());
 
-    let query_string = if query_parts.is_empty() {
-        String::new()
-    } else {
-        format!("?{}", query_parts.join("&"))
-    };
-
+    // Build request payload - KopiaUI always sends updates field and numUpcomingSnapshotTimes
     let mut payload = serde_json::Map::new();
+
     if let Some(upd) = updates {
         let value = serde_json::to_value(upd)
             .map_json_error("Failed to serialize policy updates")?;
         payload.insert("updates".to_string(), value);
+    } else {
+        // Send null for updates when just fetching (not modifying)
+        payload.insert("updates".to_string(), serde_json::Value::Null);
     }
+
+    // Always request upcoming snapshot times
+    payload.insert("numUpcomingSnapshotTimes".to_string(), serde_json::json!(5));
 
     let response = client
         .post(format!(
@@ -892,10 +841,10 @@ pub async fn policy_resolve(
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(KopiaError::HttpRequestFailed { message: format!("Failed to resolve policy: {}", error_text), status_code: Some(status.as_u16()), url: None });
+        return Err(http_request_failed(format!("Failed to resolve policy: {}", error_text), status.as_u16()));
     }
 
-    let result = response
+    let result: crate::types::ResolvedPolicyResponse = response
         .json()
         .await
         .map_http_error("Failed to parse response")?;
@@ -914,22 +863,7 @@ pub async fn policy_set(
 ) -> Result<()> {
     let (server_url, client) = get_server_client(&server)?;
 
-    let mut query_parts = Vec::new();
-    if let Some(user) = user_name {
-        query_parts.push(format!("userName={}", urlencoding::encode(&user)));
-    }
-    if let Some(h) = host {
-        query_parts.push(format!("host={}", urlencoding::encode(&h)));
-    }
-    if let Some(p) = path {
-        query_parts.push(format!("path={}", urlencoding::encode(&p)));
-    }
-
-    let query_string = if query_parts.is_empty() {
-        String::new()
-    } else {
-        format!("?{}", query_parts.join("&"))
-    };
+    let query_string = build_policy_query(user_name.as_deref(), host.as_deref(), path.as_deref());
 
     let response = client
         .put(format!("{}/api/v1/policy{}", server_url, query_string))
@@ -944,7 +878,7 @@ pub async fn policy_set(
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(KopiaError::HttpRequestFailed { message: format!("Failed to set policy: {}", error_text), status_code: Some(status.as_u16()), url: None });
+        return Err(http_request_failed(format!("Failed to set policy: {}", error_text), status.as_u16()));
     }
 
     Ok(())
@@ -960,22 +894,7 @@ pub async fn policy_delete(
 ) -> Result<()> {
     let (server_url, client) = get_server_client(&server)?;
 
-    let mut query_parts = Vec::new();
-    if let Some(user) = user_name {
-        query_parts.push(format!("userName={}", urlencoding::encode(&user)));
-    }
-    if let Some(h) = host {
-        query_parts.push(format!("host={}", urlencoding::encode(&h)));
-    }
-    if let Some(p) = path {
-        query_parts.push(format!("path={}", urlencoding::encode(&p)));
-    }
-
-    let query_string = if query_parts.is_empty() {
-        String::new()
-    } else {
-        format!("?{}", query_parts.join("&"))
-    };
+    let query_string = build_policy_query(user_name.as_deref(), host.as_deref(), path.as_deref());
 
     let response = client
         .delete(format!("{}/api/v1/policy{}", server_url, query_string))
@@ -984,7 +903,7 @@ pub async fn policy_delete(
         .map_http_error("Failed to delete policy")?;
 
     if !response.status().is_success() {
-        return Err(KopiaError::HttpRequestFailed { message: "Failed to delete policy".to_string(), status_code: Some(response.status().as_u16()), url: None });
+        return Err(http_request_failed("Failed to delete policy", response.status().as_u16()));
     }
 
     Ok(())
@@ -1008,7 +927,7 @@ pub async fn tasks_list(
         .map_http_error("Failed to list tasks")?;
 
     if !response.status().is_success() {
-        return Err(KopiaError::HttpRequestFailed { message: "Failed to list tasks".to_string(), status_code: Some(response.status().as_u16()), url: None });
+        return Err(http_request_failed("Failed to list tasks", response.status().as_u16()));
     }
 
     let result = response
@@ -1034,7 +953,7 @@ pub async fn task_get(
         .map_http_error("Failed to get task")?;
 
     if !response.status().is_success() {
-        return Err(KopiaError::HttpRequestFailed { message: "Failed to get task".to_string(), status_code: Some(response.status().as_u16()), url: None });
+        return Err(http_request_failed("Failed to get task", response.status().as_u16()));
     }
 
     let result: crate::types::TaskDetail = response
@@ -1060,7 +979,7 @@ pub async fn task_logs(
         .map_http_error("Failed to get task logs")?;
 
     if !response.status().is_success() {
-        return Err(KopiaError::HttpRequestFailed { message: "Failed to get task logs".to_string(), status_code: Some(response.status().as_u16()), url: None });
+        return Err(http_request_failed("Failed to get task logs", response.status().as_u16()));
     }
 
     #[derive(Deserialize)]
@@ -1091,7 +1010,7 @@ pub async fn task_cancel(
         .map_http_error("Failed to cancel task")?;
 
     if !response.status().is_success() {
-        return Err(KopiaError::HttpRequestFailed { message: "Failed to cancel task".to_string(), status_code: Some(response.status().as_u16()), url: None });
+        return Err(http_request_failed("Failed to cancel task", response.status().as_u16()));
     }
 
     Ok(())
@@ -1112,11 +1031,7 @@ pub async fn tasks_summary(
 
     if !response.status().is_success() {
         let status = response.status();
-        return Err(KopiaError::HttpRequestFailed {
-            message: "Failed to get tasks summary".to_string(),
-            status_code: Some(status.as_u16()),
-            url: None,
-        });
+        return Err(http_request_failed("Failed to get tasks summary", status.as_u16()));
     }
 
     let result = response
@@ -1145,7 +1060,7 @@ pub async fn maintenance_info(
         .map_http_error("Failed to get maintenance info")?;
 
     if !response.status().is_success() {
-        return Err(KopiaError::HttpRequestFailed { message: "Failed to get maintenance info".to_string(), status_code: Some(response.status().as_u16()), url: None });
+        return Err(http_request_failed("Failed to get maintenance info", response.status().as_u16()));
     }
 
     let result = response
@@ -1184,7 +1099,7 @@ pub async fn maintenance_run(
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(KopiaError::HttpRequestFailed { message: format!("Failed to run maintenance: {}", error_text), status_code: Some(status.as_u16()), url: None });
+        return Err(http_request_failed(format!("Failed to run maintenance: {}", error_text), status.as_u16()));
     }
 
     #[derive(Deserialize)]
@@ -1204,32 +1119,7 @@ pub async fn maintenance_run(
 // Utility Commands
 // ============================================================================
 
-/// Get current user information
-#[tauri::command]
-pub async fn current_user_get(
-    server: State<'_, KopiaServerState>,
-) -> Result<crate::types::CurrentUserResponse> {
-    let (server_url, client) = get_server_client(&server)?;
-
-    let response = client
-        .get(format!("{}/api/v1/current-user", server_url))
-        .send()
-        .await
-        .map_http_error("Failed to get current user")?;
-
-    if !response.status().is_success() {
-        return Err(KopiaError::HttpRequestFailed { message: "Failed to get current user".to_string(), status_code: Some(response.status().as_u16()), url: None });
-    }
-
-    let result = response
-        .json()
-        .await
-        .map_http_error("Failed to parse response")?;
-
-    Ok(result)
-}
-
-/// Resolve path to source
+/// Resolve a file system path to get source info (user@host:/path)
 #[tauri::command]
 pub async fn path_resolve(
     server: State<'_, KopiaServerState>,
@@ -1250,7 +1140,10 @@ pub async fn path_resolve(
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(KopiaError::HttpRequestFailed { message: format!("Failed to resolve path: {}", error_text), status_code: Some(status.as_u16()), url: None });
+        return Err(KopiaError::PathResolutionFailed {
+            path,
+            message: error_text,
+        });
     }
 
     #[derive(Deserialize)]
@@ -1267,23 +1160,12 @@ pub async fn path_resolve(
     Ok(result.source)
 }
 
-/// Estimate snapshot size for a given path
-///
-/// This command starts an estimation task that calculates the size, file count,
-/// and other statistics for a potential snapshot. It returns a task ID that can
-/// be polled to get the estimation results.
-///
-/// # Arguments
-/// * `path` - The path to estimate (can be relative or absolute)
-/// * `max_examples_per_bucket` - Optional limit for examples per bucket
-///
-/// # Returns
-/// EstimateResponse containing the task ID to poll for results
+/// Estimate snapshot size
 #[tauri::command]
 pub async fn estimate_snapshot(
-    server: State<'_, KopiaServerState>,
     path: String,
     max_examples_per_bucket: Option<i64>,
+    server: State<'_, KopiaServerState>,
 ) -> Result<crate::types::EstimateResponse> {
     let (server_url, client) = get_server_client(&server)?;
 
@@ -1302,7 +1184,7 @@ pub async fn estimate_snapshot(
                 .text()
                 .await
                 .unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(KopiaError::HttpRequestFailed { message: format!("Failed to resolve path: {}", error_text), status_code: Some(status.as_u16()), url: None });
+            return Err(http_request_failed(format!("Failed to resolve path: {}", error_text), status.as_u16()));
         }
 
         #[derive(Deserialize)]
@@ -1338,7 +1220,7 @@ pub async fn estimate_snapshot(
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(KopiaError::HttpRequestFailed { message: format!("Failed to estimate snapshot: {}", error_text), status_code: Some(status.as_u16()), url: None });
+        return Err(http_request_failed(format!("Failed to estimate snapshot: {}", error_text), status.as_u16()));
     }
 
     let result: crate::types::EstimateResponse = response
@@ -1363,7 +1245,7 @@ pub async fn ui_preferences_get(
         .map_http_error("Failed to get UI preferences")?;
 
     if !response.status().is_success() {
-        return Err(KopiaError::HttpRequestFailed { message: "Failed to get UI preferences".to_string(), status_code: Some(response.status().as_u16()), url: None });
+        return Err(http_request_failed("Failed to get UI preferences", response.status().as_u16()));
     }
 
     let result = response
@@ -1395,7 +1277,7 @@ pub async fn ui_preferences_set(
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(KopiaError::HttpRequestFailed { message: format!("Failed to set UI preferences: {}", error_text), status_code: Some(status.as_u16()), url: None });
+        return Err(http_request_failed(format!("Failed to set UI preferences: {}", error_text), status.as_u16()));
     }
 
     Ok(())
@@ -1418,16 +1300,21 @@ pub async fn notification_profiles_list(
         .await
         .map_http_error("Failed to list notification profiles")?;
 
-    if !response.status().is_success() {
-        // If 404 or no profiles, return empty array
-        if response.status().as_u16() == 404 {
-            return Ok(vec![]);
-        }
-        return Err(KopiaError::HttpRequestFailed { message: "Failed to list notification profiles".to_string(), status_code: Some(response.status().as_u16()), url: None });
+    // Handle 404 as "no profiles configured" (common case)
+    if response.status().as_u16() == 404 {
+        return Ok(vec![]);
     }
 
-    let result: Vec<crate::types::NotificationProfile> =
-        response.json().await.unwrap_or_else(|_| vec![]); // Return empty array if parsing fails
+    // For other non-success status codes, return error
+    if !response.status().is_success() {
+        return Err(http_request_failed("Failed to list notification profiles", response.status().as_u16()));
+    }
+
+    // Parse response - propagate parse errors instead of swallowing them
+    let result: Vec<crate::types::NotificationProfile> = response
+        .json()
+        .await
+        .map_http_error("Failed to parse notification profiles response")?;
 
     Ok(result)
 }
@@ -1453,11 +1340,7 @@ pub async fn notification_profile_create(
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(KopiaError::HttpRequestFailed {
-            message: format!("Failed to create notification profile: {}", error_text),
-            status_code: Some(status.as_u16()),
-            url: None,
-        });
+        return Err(http_request_failed(format!("Failed to create notification profile: {}", error_text), status.as_u16()));
     }
 
     Ok(())
@@ -1481,7 +1364,7 @@ pub async fn notification_profile_delete(
         .map_http_error("Failed to delete notification profile")?;
 
     if !response.status().is_success() {
-        return Err(KopiaError::HttpRequestFailed { message: "Failed to delete notification profile".to_string(), status_code: Some(response.status().as_u16()), url: None });
+        return Err(http_request_failed("Failed to delete notification profile", response.status().as_u16()));
     }
 
     Ok(())
@@ -1508,11 +1391,7 @@ pub async fn notification_profile_test(
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(KopiaError::HttpRequestFailed {
-            message: format!("Failed to test notification profile: {}", error_text),
-            status_code: Some(status.as_u16()),
-            url: None,
-        });
+        return Err(http_request_failed(format!("Failed to test notification profile: {}", error_text), status.as_u16()));
     }
 
     Ok(())
@@ -1580,4 +1459,71 @@ async fn handle_empty_response(response: reqwest::Response, operation: &str) -> 
         ));
     }
     Ok(())
+}
+
+/// Create an HttpRequestFailed error with consistent structure
+///
+/// This helper reduces boilerplate when constructing HTTP request failures
+/// throughout the API commands.
+///
+/// # Arguments
+/// * `message` - Error message describing what failed
+/// * `status_code` - HTTP status code from the response
+///
+/// # Returns
+/// A `KopiaError::HttpRequestFailed` with url set to None (not tracked for localhost API)
+fn http_request_failed(message: impl Into<String>, status_code: u16) -> KopiaError {
+    KopiaError::HttpRequestFailed {
+        message: message.into(),
+        status_code: Some(status_code),
+        url: None,
+    }
+}
+
+/// Build URL query string for snapshot source (user@host:/path)
+///
+/// # Arguments
+/// * `user_name` - Username for the snapshot source
+/// * `host` - Hostname for the snapshot source
+/// * `path` - File path for the snapshot source
+///
+/// # Returns
+/// URL-encoded query string in format: `?userName=X&host=Y&path=Z`
+fn build_source_query(user_name: &str, host: &str, path: &str) -> String {
+    format!(
+        "?userName={}&host={}&path={}",
+        urlencoding::encode(user_name),
+        urlencoding::encode(host),
+        urlencoding::encode(path)
+    )
+}
+
+/// Build URL query string for policy target (optional user/host/path)
+///
+/// # Arguments
+/// * `user_name` - Optional username filter
+/// * `host` - Optional hostname filter
+/// * `path` - Optional path filter
+///
+/// # Returns
+/// URL-encoded query string, or empty string if no parameters
+fn build_policy_query(
+    user_name: Option<&str>,
+    host: Option<&str>,
+    path: Option<&str>,
+) -> String {
+    let parts: Vec<_> = [
+        user_name.map(|u| format!("userName={}", urlencoding::encode(u))),
+        host.map(|h| format!("host={}", urlencoding::encode(h))),
+        path.map(|p| format!("path={}", urlencoding::encode(p))),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+
+    if parts.is_empty() {
+        String::new()
+    } else {
+        format!("?{}", parts.join("&"))
+    }
 }

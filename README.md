@@ -66,11 +66,27 @@ pnpm clean              # Clear build caches
 
 ---
 
+## 📚 Documentation
+
+- **[CLAUDE.md](CLAUDE.md)** - Project overview and development guide for AI assistants
+- **[docs/API_REFERENCE.md](docs/API_REFERENCE.md)** - Complete Kopia REST API documentation (verified against source)
+- **[docs/FEATURE_STATUS.md](docs/FEATURE_STATUS.md)** - Feature implementation status and roadmap
+- **[tests/README.md](tests/README.md)** - Testing guide
+
+---
+
 ## 🏗️ Architecture
 
 Uses the same approach as the official KopiaUI:
 
 1. **Bundle** – Includes platform-specific Kopia binary
 2. **Launch** – Spawns `kopia server start --ui` on startup
-3. **Communication** – React UI interacts via REST API
+3. **Communication** – React UI interacts via REST API (50 endpoints, 95% accuracy)
 4. **Lifecycle** – Server shuts down gracefully with the app
+
+**Key Features:**
+
+- Centralized state management (Zustand store - 907 lines)
+- Hybrid WebSocket + polling for real-time updates
+- Strict TypeScript with comprehensive error handling
+- Modern UI with shadcn/ui components

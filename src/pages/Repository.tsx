@@ -71,11 +71,13 @@ export function Repository() {
           <>
             {/* Repository Status */}
             <Card>
-              <CardContent className="py-6">
+              <CardContent className="pt-6">
                 <div className="flex items-center gap-3 mb-6">
                   <CheckCircle className="h-6 w-6 text-success" />
                   <div>
-                    <h3 className="text-lg font-medium">{t('repository.connectedToRepository')}</h3>
+                    <h3 className="text-lg font-medium">
+                      {status.description || t('repository.connectedToRepository')}
+                    </h3>
                     {status.username && status.hostname && (
                       <p className="text-sm text-muted-foreground">
                         {status.username}@{status.hostname}

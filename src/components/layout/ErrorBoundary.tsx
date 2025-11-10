@@ -4,6 +4,7 @@
  */
 
 import { Component, type ReactNode } from 'react';
+import i18n from '@/lib/i18n/config';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -68,8 +69,8 @@ export class ErrorBoundary extends Component<Props, State> {
               <div className="flex items-center gap-3">
                 <AlertTriangle className="h-6 w-6 text-destructive" />
                 <div>
-                  <CardTitle>Something went wrong</CardTitle>
-                  <CardDescription>An unexpected error occurred</CardDescription>
+                  <CardTitle>{i18n.t('errorBoundary.title')}</CardTitle>
+                  <CardDescription>{i18n.t('errorBoundary.description')}</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -85,11 +86,11 @@ export class ErrorBoundary extends Component<Props, State> {
               <div className="flex gap-2">
                 <Button onClick={this.handleReset} className="flex-1">
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  Try Again
+                  {i18n.t('common.tryAgain')}
                 </Button>
                 <Button onClick={this.handleGoHome} variant="outline" className="flex-1">
                   <Home className="mr-2 h-4 w-4" />
-                  Home
+                  {i18n.t('common.home')}
                 </Button>
               </div>
             </CardContent>

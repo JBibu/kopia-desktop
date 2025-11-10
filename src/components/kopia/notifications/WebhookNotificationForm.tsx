@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { WebhookConfig } from '@/lib/kopia/types';
+import { useTranslation } from 'react-i18next';
 
 interface WebhookNotificationFormProps {
   config: Record<string, unknown>;
@@ -16,6 +17,7 @@ interface WebhookNotificationFormProps {
 }
 
 export function WebhookNotificationForm({ config, onChange }: WebhookNotificationFormProps) {
+  const { t } = useTranslation();
   const webhookConfig = config as Partial<WebhookConfig>;
 
   const updateField = <K extends keyof WebhookConfig>(field: K, value: WebhookConfig[K]) => {
@@ -27,7 +29,7 @@ export function WebhookNotificationForm({ config, onChange }: WebhookNotificatio
       {/* Endpoint URL */}
       <div className="space-y-2">
         <Label htmlFor="endpoint" className="required">
-          URL Endpoint
+          {t('preferences.notificationProfiles.webhook.urlEndpoint')}
         </Label>
         <Input
           id="endpoint"
@@ -37,7 +39,7 @@ export function WebhookNotificationForm({ config, onChange }: WebhookNotificatio
           autoFocus
         />
         <p className="text-xs text-muted-foreground">
-          The URL where notification data will be sent
+          {t('preferences.notificationProfiles.webhook.endpointHelp')}
         </p>
       </div>
 
@@ -45,7 +47,7 @@ export function WebhookNotificationForm({ config, onChange }: WebhookNotificatio
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="method" className="required">
-            HTTP Method
+            {t('preferences.notificationProfiles.webhook.httpMethod')}
           </Label>
           <Select
             value={webhookConfig.method || 'POST'}
@@ -61,7 +63,7 @@ export function WebhookNotificationForm({ config, onChange }: WebhookNotificatio
           </Select>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="format">Format</Label>
+          <Label htmlFor="format">{t('preferences.notificationProfiles.webhook.format')}</Label>
           <Select
             value={webhookConfig.format || 'txt'}
             onValueChange={(value) => updateField('format', value as 'txt' | 'html')}
@@ -70,8 +72,12 @@ export function WebhookNotificationForm({ config, onChange }: WebhookNotificatio
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="txt">Plain Text</SelectItem>
-              <SelectItem value="html">HTML</SelectItem>
+              <SelectItem value="txt">
+                {t('preferences.notificationProfiles.webhook.plainText')}
+              </SelectItem>
+              <SelectItem value="html">
+                {t('preferences.notificationProfiles.webhook.html')}
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -79,7 +85,9 @@ export function WebhookNotificationForm({ config, onChange }: WebhookNotificatio
 
       {/* Additional Headers */}
       <div className="space-y-2">
-        <Label htmlFor="headers">Additional Headers (Optional)</Label>
+        <Label htmlFor="headers">
+          {t('preferences.notificationProfiles.webhook.additionalHeaders')}
+        </Label>
         <Textarea
           id="headers"
           value={webhookConfig.headers || ''}
@@ -88,19 +96,23 @@ export function WebhookNotificationForm({ config, onChange }: WebhookNotificatio
           rows={5}
         />
         <p className="text-xs text-muted-foreground">
-          Enter one header per line in the format "Header-Name: value"
+          {t('preferences.notificationProfiles.webhook.headersHelp')}
         </p>
       </div>
 
       {/* Help Information */}
       <div className="border-t pt-4">
         <p className="text-sm text-muted-foreground">
-          <strong>Webhook Request Format:</strong>
+          <strong>{t('preferences.notificationProfiles.webhook.requestFormat')}</strong>
         </p>
         <p className="text-xs text-muted-foreground mt-2">
-          Kopia will send a {webhookConfig.method || 'POST'} request to your endpoint with the
-          notification content in the request body. The content will be formatted as{' '}
-          {webhookConfig.format === 'html' ? 'HTML' : 'plain text'}.
+          {t('preferences.notificationProfiles.webhook.requestFormatDesc', {
+            method: webhookConfig.method || 'POST',
+            format:
+              webhookConfig.format === 'html'
+                ? 'HTML'
+                : t('preferences.notificationProfiles.webhook.plainText'),
+          })}
         </p>
       </div>
     </div>

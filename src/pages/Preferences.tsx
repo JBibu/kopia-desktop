@@ -11,7 +11,6 @@ import { usePreferencesStore } from '@/stores/preferences';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import {
   Select,
@@ -22,8 +21,6 @@ import {
 } from '@/components/ui/select';
 import { Palette, Globe, Bell, Zap, Sun, Moon, Monitor, Type, Mail } from 'lucide-react';
 import { NotificationProfiles } from '@/components/kopia/notifications/NotificationProfiles';
-import { sendDesktopNotification } from '@/lib/notifications';
-import { toast } from 'sonner';
 
 export function Preferences() {
   const { t } = useTranslation();
@@ -32,19 +29,6 @@ export function Preferences() {
   const { fontSize, setFontSize } = useFontSizeStore();
   const { minimizeToTray, setMinimizeToTray } = usePreferencesStore();
   const [notifications, setNotifications] = useState(true);
-
-  const handleTestNotification = async () => {
-    try {
-      await sendDesktopNotification({
-        title: t('preferences.testNotificationTitle'),
-        body: t('preferences.testNotificationBody'),
-      });
-      toast.success(t('preferences.testNotificationSent'));
-    } catch (error) {
-      toast.error(t('preferences.testNotificationFailed'));
-      console.error('Notification error:', error);
-    }
-  };
   const [autoBackup, setAutoBackup] = useState(false);
   const [soundEffects, setSoundEffects] = useState(true);
 
@@ -174,11 +158,6 @@ export function Preferences() {
               {t('preferences.soundEffects')}
             </Label>
             <Switch id="sound" checked={soundEffects} onCheckedChange={setSoundEffects} />
-          </div>
-          <div className="pt-2">
-            <Button variant="outline" size="sm" onClick={() => void handleTestNotification()}>
-              {t('preferences.testNotification')}
-            </Button>
           </div>
         </CardContent>
       </Card>

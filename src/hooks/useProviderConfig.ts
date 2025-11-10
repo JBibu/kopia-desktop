@@ -27,15 +27,5 @@ export function useProviderConfig<T extends object>(
     [config, onChange]
   );
 
-  const handleMultipleChanges = useCallback(
-    (changes: Partial<T>) => {
-      onChange({ ...config, ...changes });
-    },
-    [config, onChange]
-  );
-
-  return {
-    handleChange,
-    handleMultipleChanges,
-  };
+  return { handleChange };
 }

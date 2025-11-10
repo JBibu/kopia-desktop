@@ -344,7 +344,7 @@ impl<T> HttpResultExt<T> for std::result::Result<T, reqwest::Error> {
 
             if e.is_timeout() {
                 KopiaError::Timeout {
-                    timeout_seconds: 300,
+                    timeout_seconds: crate::kopia_server::HTTP_OPERATION_TIMEOUT_SECS,
                 }
             } else if e.is_connect() {
                 KopiaError::ConnectionRefused {

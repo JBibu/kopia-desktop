@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/useToast';
 import { useRepository } from '@/hooks/useRepository';
 import {
   createRepository,
@@ -15,9 +16,9 @@ import { ProviderSelection } from './steps/ProviderSelection';
 import { ProviderConfig } from './steps/ProviderConfig';
 import { StorageVerification } from './steps/StorageVerification';
 import { PasswordSetup } from './steps/PasswordSetup';
-import { parseKopiaError, KopiaErrorCode } from '@/lib/kopia/errors';
 
 export function SetupRepository() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { refreshStatus } = useRepository();
@@ -109,22 +110,20 @@ export function SetupRepository() {
           await new Promise((resolve) => setTimeout(resolve, 500));
         } catch {
           // If disconnect fails, we can't proceed - repository is in unknown state
-          throw new Error(
-            'Failed to disconnect from existing repository. Please try restarting the application.'
-          );
+          throw new Error(t('setup.toasts.disconnectFailed'));
         }
       }
 
       // Prepare storage configuration
+      // At this point, the wizard has validated all required fields,
+      // so we can safely cast the partial config to the full type
       const storageConfig: StorageConfig = {
         type: state.provider,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
-        config: state.storageConfig as any, // Type assertion needed due to partial config
+        config: state.storageConfig as unknown as StorageConfig['config'],
       };
 
       // Create or connect to repository
       if (state.mode === 'create') {
-        // Repository creation is async - it returns a task ID
         await createRepository({
           storage: storageConfig,
           password: state.password,
@@ -139,8 +138,6 @@ export function SetupRepository() {
             },
           },
         });
-        // Wait longer for repository creation to complete (it's a background task)
-        await new Promise((resolve) => setTimeout(resolve, 2000));
       } else {
         await connectRepository({
           storage: storageConfig,
@@ -149,9 +146,9 @@ export function SetupRepository() {
       }
 
       // Wait for connection to be ready with exponential backoff
-      // Total attempts: 15, Total time: up to ~15 seconds
+      // Total attempts: 10, Total time: up to ~10 seconds
       let connected = false;
-      const maxAttempts = 15;
+      const maxAttempts = 10;
 
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const newStatus = await getRepositoryStatus();
@@ -163,51 +160,55 @@ export function SetupRepository() {
 
         // Don't wait after the last attempt
         if (attempt < maxAttempts - 1) {
-          // Exponential backoff: 500ms, 1000ms, 1500ms (linear after first)
-          const delay = attempt === 0 ? 500 : 1000;
+          // Exponential backoff: 200ms, 400ms, 800ms, 1000ms (capped)
+          const delay = Math.min(200 * Math.pow(2, attempt), 1000);
           await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
 
       if (!connected) {
-        throw new Error(
-          'Repository operation completed but connection could not be verified. Please check the repository status.'
-        );
+        throw new Error(t('setup.toasts.verificationFailed'));
       }
 
       // Connection verified - show success and navigate
       toast({
-        title: state.mode === 'create' ? 'Repository created' : 'Connected',
+        title:
+          state.mode === 'create' ? t('setup.toasts.repoCreated') : t('setup.toasts.connected'),
         description:
           state.mode === 'create'
-            ? 'Your backup repository has been created successfully.'
-            : 'Successfully connected to repository.',
+            ? t('setup.toasts.repoCreatedDesc')
+            : t('setup.toasts.connectedDesc'),
       });
 
       await refreshStatus();
       void navigate('/', { replace: true });
     } catch (error) {
-      // Parse error using unified error handling
-      const kopiaError = parseKopiaError(error);
-      let userMessage = kopiaError.getUserMessage();
+      // Parse error message for better user feedback
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      let userMessage = errorMessage;
 
-      // Handle specific error cases with custom messages
-      if (kopiaError.is(KopiaErrorCode.REPOSITORY_ALREADY_CONNECTED)) {
+      // Handle common error cases with user-friendly messages
+      if (errorMessage.includes('ALREADY_CONNECTED')) {
         // This should be rare now since we auto-disconnect, but handle it gracefully
-        userMessage =
-          'Repository is still connected. Please restart the application and try again.';
-      } else if (kopiaError.is(KopiaErrorCode.REPOSITORY_NOT_FOUND)) {
-        userMessage =
-          'No repository found at this location. Please create a new repository instead.';
+        userMessage = t('setup.toasts.alreadyConnected');
+      } else if (errorMessage.includes('INVALID_PASSWORD')) {
+        userMessage = t('setup.toasts.invalidPassword');
+      } else if (errorMessage.includes('NOT_INITIALIZED')) {
+        userMessage = t('setup.toasts.notInitialized');
       } else if (
-        kopiaError.is(KopiaErrorCode.CONNECTION_REFUSED) ||
-        kopiaError.is(KopiaErrorCode.SERVER_NOT_RUNNING)
+        errorMessage.includes('connection refused') ||
+        errorMessage.includes('ECONNREFUSED')
       ) {
-        userMessage = 'Cannot connect to Kopia server. Please restart the application.';
+        userMessage = t('setup.toasts.serverUnavailable');
+      } else if (errorMessage.includes('Failed to disconnect')) {
+        userMessage = errorMessage; // Use the specific disconnect error message
       }
 
       toast({
-        title: state.mode === 'create' ? 'Failed to create repository' : 'Failed to connect',
+        title:
+          state.mode === 'create'
+            ? t('setup.toasts.createFailed')
+            : t('setup.toasts.connectFailed'),
         description: userMessage,
         variant: 'destructive',
       });
@@ -244,8 +245,7 @@ export function SetupRepository() {
             <StorageVerification
               storageConfig={{
                 type: state.provider,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
-                config: state.storageConfig as any, // Type assertion needed due to partial config
+                config: state.storageConfig as unknown as StorageConfig['config'],
               }}
               onBack={handleVerifyBack}
               onCreateNew={handleCreateNew}
