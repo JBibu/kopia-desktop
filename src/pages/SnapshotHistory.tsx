@@ -241,7 +241,7 @@ export function SnapshotHistory() {
             ) : (
               <>
                 <Plus className="h-4 w-4 mr-2" />
-                {t('snapshots.snapshotNow')}
+                {t('snapshots.createSnapshotNow')}
               </>
             )}
           </Button>
@@ -287,7 +287,7 @@ export function SnapshotHistory() {
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="search"
-                  placeholder={t('snapshots.searchPlaceholder')}
+                  placeholder={t('snapshots.searchSnapshotsPlaceholder')}
                   className="pl-8 w-[250px]"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
