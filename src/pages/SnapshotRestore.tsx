@@ -17,7 +17,14 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Spinner } from '@/components/ui/spinner';
 import {
-  ArrowLeft,
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
+import {
   FolderOpen,
   Download,
   FileArchive,
@@ -33,6 +40,7 @@ import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia/errors';
 import { formatBytes } from '@/lib/utils';
 import { useKopiaStore } from '@/stores/kopia';
+import { navigateBack } from '@/lib/utils/navigation';
 
 type RestoreMode = 'filesystem' | 'zip' | 'tar';
 
@@ -188,21 +196,29 @@ export function SnapshotRestore() {
   };
 
   const handleBack = () => {
-    void navigate(-1);
+    navigateBack(navigate, '/profiles');
   };
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb Navigation */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink to="/profiles">{t('nav.profiles')}</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{t('restore.title')}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={handleBack}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <h1 className="text-3xl font-bold tracking-tight">{t('restore.title')}</h1>
-          </div>
-          <p className="pl-10 text-sm text-muted-foreground">{t('restore.subtitle')}</p>
+          <h1 className="text-3xl font-bold tracking-tight">{t('restore.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('restore.subtitle')}</p>
         </div>
       </div>
 
@@ -468,7 +484,7 @@ export function SnapshotRestore() {
       {/* Restore Progress */}
       {restoreTaskId && (
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5" />
               {t('restore.restoreProgress')}

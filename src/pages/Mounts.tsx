@@ -87,7 +87,7 @@ export function Mounts() {
               <HardDrive className="h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">{t('mounts.noMounts')}</h3>
               <p className="text-sm text-muted-foreground mb-4">{t('mounts.noMountsDesc')}</p>
-              <Button onClick={() => void navigate('/snapshots')}>
+              <Button onClick={() => void navigate('/profiles')}>
                 {t('mounts.viewSnapshots')}
               </Button>
             </div>
@@ -97,7 +97,7 @@ export function Mounts() {
                 <TableRow>
                   <TableHead>{t('mounts.snapshotObject')}</TableHead>
                   <TableHead>{t('mounts.mountPath')}</TableHead>
-                  <TableHead className="w-[200px]">{t('mounts.actions')}</TableHead>
+                  <TableHead className="w-[150px]">{t('mounts.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

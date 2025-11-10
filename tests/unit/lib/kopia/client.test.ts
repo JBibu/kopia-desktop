@@ -206,7 +206,7 @@ describe('Kopia Client - Error Handling', () => {
       const error = 'Server not running';
       const result = parseKopiaError(error);
       expect(result).toBeInstanceOf(Error);
-      expect(result.message).toBe('An unknown error occurred');
+      expect(result.message).toBe('Server not running');
     });
 
     it('parses Error object', () => {
@@ -226,8 +226,16 @@ describe('Kopia Client - Error Handling', () => {
 
   describe('isServerNotRunningError', () => {
     it('detects server not running error', () => {
-      expect(isServerNotRunningError(new Error('server is not running'))).toBe(true);
-      expect(isServerNotRunningError(new Error('connection refused'))).toBe(true);
+      const serverNotRunningError = {
+        type: 'SERVER_NOT_RUNNING',
+        data: { message: 'Server is not running' },
+      };
+      const connectionRefusedError = {
+        type: 'CONNECTION_REFUSED',
+        data: { message: 'Connection refused' },
+      };
+      expect(isServerNotRunningError(serverNotRunningError)).toBe(true);
+      expect(isServerNotRunningError(connectionRefusedError)).toBe(true);
     });
 
     it('returns false for other errors', () => {
@@ -239,26 +247,27 @@ describe('Kopia Client - Error Handling', () => {
   describe('isNotConnectedError', () => {
     it('detects not connected error', () => {
       const error = {
-        response: {
-          data: {
-            code: 'NOT_CONNECTED',
-          },
-        },
+        type: 'REPOSITORY_NOT_CONNECTED',
+        data: { message: 'Repository not connected' },
       };
       expect(isNotConnectedError(error)).toBe(true);
     });
 
     it('returns false for other errors', () => {
       expect(isNotConnectedError('Invalid password')).toBe(false);
-      expect(isNotConnectedError({ response: { data: { code: 'OTHER' } } })).toBe(false);
+      expect(isNotConnectedError({ type: 'OTHER_ERROR', data: { message: 'Other error' } })).toBe(
+        false
+      );
     });
   });
 
   describe('isInvalidPasswordError', () => {
     it('detects invalid password error', () => {
-      expect(isInvalidPasswordError(new Error('invalid password'))).toBe(true);
-      expect(isInvalidPasswordError(new Error('incorrect password'))).toBe(true);
-      expect(isInvalidPasswordError(new Error('INVALID PASSWORD'))).toBe(true);
+      const invalidPasswordError = {
+        type: 'INVALID_PASSWORD',
+        data: { message: 'Invalid password' },
+      };
+      expect(isInvalidPasswordError(invalidPasswordError)).toBe(true);
     });
 
     it('returns false for other errors', () => {

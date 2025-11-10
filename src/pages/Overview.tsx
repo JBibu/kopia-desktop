@@ -51,15 +51,15 @@ import { useLanguageStore } from '@/stores/language';
 
 const CHART_COLORS = {
   primary: 'hsl(var(--primary))',
-  success: 'hsl(var(--success))',
-  warning: 'hsl(var(--warning))',
-  destructive: 'hsl(var(--destructive))',
+  success: 'hsl(142 76% 36%)',
+  warning: 'hsl(38 92% 50%)',
+  destructive: 'hsl(0 84% 60%)',
   muted: 'hsl(var(--muted-foreground))',
-  chart1: '#3b82f6',
-  chart2: '#10b981',
-  chart3: '#f59e0b',
-  chart4: '#ef4444',
-  chart5: '#8b5cf6',
+  chart1: 'hsl(217 91% 60%)', // blue
+  chart2: 'hsl(142 76% 36%)', // green
+  chart3: 'hsl(38 92% 50%)', // orange
+  chart4: 'hsl(0 84% 60%)', // red
+  chart5: 'hsl(262 83% 58%)', // purple
 };
 
 export function Overview() {
@@ -92,24 +92,36 @@ export function Overview() {
   const snapshotStats = useMemo(() => {
     if (!snapshots.length) return null;
 
-    // Group snapshots by date based on selected time range
-    const days = Array.from({ length: timeRange }, (_, i) => {
+    // Use weekly grouping for 90-day range, daily for others
+    const useWeeklyGrouping = timeRange === 90;
+    const periods = useWeeklyGrouping ? Math.ceil(timeRange / 7) : timeRange;
+
+    // Group snapshots by date/week based on selected time range
+    const groups = Array.from({ length: periods }, (_, i) => {
       const date = new Date();
-      date.setDate(date.getDate() - (timeRange - 1 - i));
+      if (useWeeklyGrouping) {
+        date.setDate(date.getDate() - (periods - 1 - i) * 7);
+      } else {
+        date.setDate(date.getDate() - (timeRange - 1 - i));
+      }
       date.setHours(0, 0, 0, 0);
       return date;
     });
 
-    const snapshotsByDay = days.map((date) => {
-      const nextDay = new Date(date);
-      nextDay.setDate(nextDay.getDate() + 1);
+    const snapshotsByPeriod = groups.map((date) => {
+      const nextPeriod = new Date(date);
+      if (useWeeklyGrouping) {
+        nextPeriod.setDate(nextPeriod.getDate() + 7);
+      } else {
+        nextPeriod.setDate(nextPeriod.getDate() + 1);
+      }
 
-      const daySnapshots = snapshots.filter((s) => {
+      const periodSnapshots = snapshots.filter((s) => {
         const snapshotDate = new Date(s.startTime);
-        return snapshotDate >= date && snapshotDate < nextDay;
+        return snapshotDate >= date && snapshotDate < nextPeriod;
       });
 
-      const totalSize = daySnapshots.reduce((sum, s) => {
+      const totalSize = periodSnapshots.reduce((sum, s) => {
         const snapshotSize =
           s.summary?.totalFileSize || s.summary?.size || s.rootEntry?.summ?.size || 0;
         return sum + snapshotSize;
@@ -117,7 +129,7 @@ export function Overview() {
 
       return {
         date: formatShortDate(date, locale),
-        count: daySnapshots.length,
+        count: periodSnapshots.length,
         size: totalSize,
         sizeFormatted: formatBytes(totalSize),
       };
@@ -139,7 +151,7 @@ export function Overview() {
       totalFiles,
       incomplete: incompleteCount,
       complete: snapshots.length - incompleteCount,
-      byDay: snapshotsByDay,
+      byPeriod: snapshotsByPeriod,
     };
   }, [snapshots, locale, timeRange]);
 
@@ -278,7 +290,7 @@ export function Overview() {
           </CardContent>
         </Card>
 
-        {/* Storage Used (Deduplicated) */}
+        {/* Storage Used */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -289,6 +301,29 @@ export function Overview() {
           <CardContent>
             {repoLoading ? (
               <Spinner className="h-4 w-4" />
+            ) : maintenanceInfo?.stats && snapshotStats ? (
+              <div className="space-y-2">
+                <div>
+                  <div className="text-2xl font-bold">
+                    {formatBytes(maintenanceInfo.stats.totalBlobSize)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {maintenanceInfo.stats.blobCount.toLocaleString()} {t('overview.blobs')}
+                    {' • '}
+                    {t('overview.deduplicated')}
+                  </p>
+                </div>
+                <div className="pt-1 border-t">
+                  <div className="text-base font-medium text-muted-foreground">
+                    {formatBytes(snapshotStats.totalSize)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {snapshotStats.totalFiles.toLocaleString()} {t('overview.files')}
+                    {' • '}
+                    {t('overview.logicalSize')}
+                  </p>
+                </div>
+              </div>
             ) : maintenanceInfo?.stats ? (
               <div className="space-y-1">
                 <div className="text-2xl font-bold">
@@ -301,7 +336,7 @@ export function Overview() {
                 </p>
               </div>
             ) : snapshotStats ? (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <div className="text-2xl font-bold">{formatBytes(snapshotStats.totalSize)}</div>
                 <p className="text-xs text-muted-foreground">
                   {snapshotStats.totalFiles.toLocaleString()} {t('overview.files')}
@@ -314,154 +349,187 @@ export function Overview() {
         </Card>
       </div>
 
-      {/* Charts Section */}
-      {isServerRunning && isRepoConnected && !snapshotsLoading && snapshotStats && (
+      {/* Empty State or Charts Section */}
+      {isServerRunning && isRepoConnected && !snapshotsLoading && (
         <>
-          {/* Snapshot Activity Chart */}
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4" />
-                  {t('overview.snapshotActivity')}
-                </CardTitle>
-                <Select
-                  value={timeRange.toString()}
-                  onValueChange={(value) => setTimeRange(Number(value) as 7 | 14 | 30 | 90)}
-                >
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="7">{t('overview.last7Days')}</SelectItem>
-                    <SelectItem value="14">{t('overview.last14Days')}</SelectItem>
-                    <SelectItem value="30">{t('overview.last30Days')}</SelectItem>
-                    <SelectItem value="90">{t('overview.last90Days')}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={snapshotStats.byDay}>
-                  <defs>
-                    <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={CHART_COLORS.chart1} stopOpacity={0.8} />
-                      <stop offset="95%" stopColor={CHART_COLORS.chart1} stopOpacity={0.1} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="date" className="text-xs" />
-                  <YAxis className="text-xs" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px',
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="count"
-                    stroke={CHART_COLORS.chart1}
-                    fillOpacity={1}
-                    fill="url(#colorCount)"
-                    name={t('overview.snapshots')}
-                    isAnimationActive={false}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          {/* Task Status Chart */}
-          {taskStatusData && taskStatusData.length > 0 && (
+          {!snapshotStats ? (
             <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Activity className="h-4 w-4" />
-                  {t('overview.taskStatus')}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={taskStatusData}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                      isAnimationActive={false}
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <FolderArchive className="h-16 w-16 text-muted-foreground mb-4" />
+                <h3 className="text-xl font-semibold mb-2">{t('overview.noSnapshotsYet')}</h3>
+                <p className="text-sm text-muted-foreground text-center mb-6 max-w-md">
+                  {t('overview.createFirstSnapshot')}
+                </p>
+                <Button onClick={() => void navigate('/snapshots')}>
+                  <FolderArchive className="mr-2 h-4 w-4" />
+                  {t('overview.goToSnapshots')}
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* Snapshot Activity Chart */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4" />
+                      {t('overview.snapshotActivity')}
+                    </CardTitle>
+                    <Select
+                      value={timeRange.toString()}
+                      onValueChange={(value) => setTimeRange(Number(value) as 7 | 14 | 30 | 90)}
                     >
-                      {taskStatusData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                      }}
-                    />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          )}
+                      <SelectTrigger className="w-[140px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="7">{t('overview.last7Days')}</SelectItem>
+                        <SelectItem value="14">{t('overview.last14Days')}</SelectItem>
+                        <SelectItem value="30">{t('overview.last30Days')}</SelectItem>
+                        <SelectItem value="90">{t('overview.last90Days')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <AreaChart data={snapshotStats.byPeriod}>
+                      <defs>
+                        <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={CHART_COLORS.chart1} stopOpacity={0.8} />
+                          <stop offset="95%" stopColor={CHART_COLORS.chart1} stopOpacity={0.1} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="date" className="text-xs" />
+                      <YAxis className="text-xs" />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="count"
+                        stroke={CHART_COLORS.chart1}
+                        fillOpacity={1}
+                        fill="url(#colorCount)"
+                        name={t('overview.snapshots')}
+                        isAnimationActive={false}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
 
-          {/* Recent Activity */}
-          {tasks.length > 0 && (
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    {t('overview.recentActivity')}
-                  </CardTitle>
-                  <Button variant="ghost" size="sm" onClick={() => void navigate('/tasks')}>
-                    {t('overview.viewAll')}
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {tasks.slice(0, 5).map((task) => (
-                    <div key={task.id} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Badge
-                          variant={
-                            task.status === 'SUCCESS'
-                              ? 'default'
-                              : task.status === 'FAILED'
-                                ? 'destructive'
-                                : task.status === 'RUNNING'
-                                  ? 'secondary'
-                                  : 'outline'
-                          }
+              {/* Task Status Chart */}
+              {taskStatusData && taskStatusData.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Activity className="h-4 w-4" />
+                      {t('overview.taskStatus')}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={taskStatusData}
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                          isAnimationActive={false}
                         >
-                          {task.status}
-                        </Badge>
-                        <div>
-                          <p className="text-sm font-medium">{task.kind || t('tasks.unknown')}</p>
-                          {task.startTime && (
-                            <p className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(new Date(task.startTime))}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      {task.progressInfo && (
-                        <div className="text-xs text-muted-foreground">{task.progressInfo}</div>
-                      )}
+                          {taskStatusData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'hsl(var(--card))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px',
+                          }}
+                        />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Recent Activity */}
+              {tasks.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Clock className="h-4 w-4" />
+                        {t('overview.recentActivity')}
+                      </CardTitle>
+                      <Button variant="ghost" size="sm" onClick={() => void navigate('/tasks')}>
+                        {t('overview.viewAll')}
+                      </Button>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {tasks.slice(0, 5).map((task) => {
+                        const taskKindKey = task.kind?.toLowerCase() || 'unknown';
+                        const taskKindTranslationKey = `overview.taskKind.${taskKindKey}`;
+                        const taskKindDisplay = t(taskKindTranslationKey, {
+                          defaultValue: task.kind || t('overview.taskKind.unknown'),
+                        });
+
+                        const taskStatusTranslationKey = `overview.taskStatus.${task.status}`;
+                        const taskStatusDisplay = t(taskStatusTranslationKey, {
+                          defaultValue: task.status,
+                        });
+
+                        return (
+                          <div key={task.id} className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <Badge
+                                variant={
+                                  task.status === 'SUCCESS'
+                                    ? 'default'
+                                    : task.status === 'FAILED'
+                                      ? 'destructive'
+                                      : task.status === 'RUNNING'
+                                        ? 'secondary'
+                                        : 'outline'
+                                }
+                              >
+                                {taskStatusDisplay}
+                              </Badge>
+                              <div>
+                                <p className="text-sm font-medium">{taskKindDisplay}</p>
+                                {task.startTime && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {formatDistanceToNow(new Date(task.startTime))}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            {task.progressInfo && (
+                              <div className="text-xs text-muted-foreground">
+                                {task.progressInfo}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </>
           )}
         </>
       )}

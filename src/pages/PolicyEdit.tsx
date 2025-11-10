@@ -28,11 +28,6 @@ export function PolicyEdit() {
     void navigate('/policies');
   };
 
-  const handleSave = () => {
-    // Refresh policies list
-    void navigate('/policies');
-  };
-
   return (
     <div className="space-y-6">
       {/* Back button */}
@@ -42,7 +37,7 @@ export function PolicyEdit() {
       </Button>
 
       {/* Editor */}
-      <PolicyEditor target={target} onClose={handleClose} onSave={handleSave} />
+      <PolicyEditor target={target} onClose={handleClose} />
     </div>
   );
 }

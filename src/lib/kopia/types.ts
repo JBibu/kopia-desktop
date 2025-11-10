@@ -650,6 +650,28 @@ export interface UIPreferences {
   pageSize?: 10 | 20 | 30 | 40 | 50 | 100;
   defaultSnapshotViewAll?: boolean;
   bytesStringBase2?: boolean;
+  profiles?: BackupProfile[]; // Backup profiles stored in preferences
+}
+
+// ============================================================================
+// Backup Profile Types
+// ============================================================================
+
+/**
+ * Backup Profile - contains directories to backup with shared policy
+ *
+ * A profile groups multiple directories that should be backed up together
+ * with the same policy configuration.
+ */
+export interface BackupProfile {
+  id: string; // UUID
+  name: string;
+  description?: string;
+  directories: string[]; // List of directory paths to backup
+  policyId?: string; // Policy ID to apply to all directories in this profile
+  enabled: boolean;
+  createdAt: string; // ISO8601
+  updatedAt: string; // ISO8601
 }
 
 // ============================================================================

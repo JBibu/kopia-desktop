@@ -23,8 +23,15 @@ import {
 } from '@/components/ui/table';
 import { Spinner } from '@/components/ui/spinner';
 import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
+import {
   FolderArchive,
-  ArrowLeft,
   Folder,
   File,
   Download,
@@ -207,10 +214,6 @@ export function SnapshotBrowse() {
     }
   };
 
-  const handleBack = () => {
-    void navigate(-1);
-  };
-
   const getFileTypeIcon = (type: string) => {
     switch (type) {
       case 'd':
@@ -253,15 +256,23 @@ export function SnapshotBrowse() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb Navigation */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink to="/profiles">{t('nav.profiles')}</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{t('browse.title')}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={handleBack}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <h1 className="text-3xl font-bold tracking-tight">{t('browse.title')}</h1>
-          </div>
+          <h1 className="text-3xl font-bold tracking-tight">{t('browse.title')}</h1>
           <div className="pl-10">
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
               <Button

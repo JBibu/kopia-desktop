@@ -54,6 +54,9 @@ export function Repository() {
         </Card>
       ) : !isConnected ? (
         <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">{t('repository.connectionStatus')}</CardTitle>
+          </CardHeader>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <XCircle className="h-12 w-12 text-destructive mb-4" />
             <h3 className="text-lg font-medium mb-2">{t('common.notConnected')}</h3>

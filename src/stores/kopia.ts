@@ -399,7 +399,12 @@ export const useKopiaStore = create<KopiaStore>()(
               source.source.path,
               true // all=true to include hidden snapshots
             );
-            allSnapshots.push(...(response.snapshots || []));
+            // Add source info to each snapshot (snapshots from /api/v1/snapshots don't have source field)
+            const snapshotsWithSource = (response.snapshots || []).map((snapshot) => ({
+              ...snapshot,
+              source: source.source,
+            }));
+            allSnapshots.push(...snapshotsWithSource);
           } catch (error) {
             // Continue with other sources even if one fails
             console.warn(

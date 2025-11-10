@@ -83,12 +83,35 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
         setPolicy(data || {});
         setIsNew(false);
       } catch (err: unknown) {
-        // Policy not found - this is a new policy
+        // Policy not found - this is a new policy (expected for new policies)
         const message = getErrorMessage(err);
-        if (message.includes('NOT_FOUND') || message.includes('not found')) {
+
+        // Extract nested error message if available
+        let errorData = '';
+        if (typeof err === 'object' && err !== null && 'data' in err) {
+          const data = err.data as Record<string, unknown>;
+          if (typeof data.message === 'string') {
+            errorData = data.message;
+          }
+        }
+
+        // Treat NOT_FOUND, 404, HTTP failures, deserialization errors, and "not found" as new policy scenarios
+        // This is expected behavior when creating a new policy
+        const isNotFoundError =
+          message.includes('NOT_FOUND') ||
+          message.includes('not found') ||
+          message.includes('404') ||
+          message.includes('HTTP request failed') ||
+          errorData.includes('missing field') ||
+          errorData.includes('error decoding response body') ||
+          message.toLowerCase().includes('not found');
+
+        if (isNotFoundError) {
           setPolicy({});
           setIsNew(true);
         } else {
+          // Only set error for actual failures (not missing policies)
+          console.error('Error fetching policy:', message, err);
           setError(message);
         }
       } finally {

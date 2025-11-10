@@ -33,6 +33,14 @@ import {
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
 import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
+import {
   FolderArchive,
   RefreshCw,
   Search,
@@ -40,7 +48,6 @@ import {
   Calendar,
   HardDrive,
   AlertCircle,
-  ArrowLeft,
   CheckCircle2,
   XCircle,
   Plus,
@@ -53,6 +60,7 @@ import { getErrorMessage } from '@/lib/kopia/errors';
 import { formatBytes, formatDateTime } from '@/lib/utils';
 import { useLanguageStore } from '@/stores/language';
 import { useKopiaStore } from '@/stores/kopia';
+import { navigateToSnapshotBrowse, navigateToSnapshotRestore } from '@/lib/utils/navigation';
 
 export function SnapshotHistory() {
   const { t } = useTranslation();
@@ -207,16 +215,24 @@ export function SnapshotHistory() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb Navigation */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink to="/profiles">{t('nav.profiles')}</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{t('snapshots.snapshotHistory')}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => void navigate('/snapshots')}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <h1 className="text-3xl font-bold tracking-tight">{t('snapshots.snapshotHistory')}</h1>
-          </div>
-          <p className="text-sm text-muted-foreground pl-10">{sourceLabel}</p>
+          <h1 className="text-3xl font-bold tracking-tight">{t('snapshots.snapshotHistory')}</h1>
+          <p className="text-sm text-muted-foreground">{sourceLabel}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -330,7 +346,7 @@ export function SnapshotHistory() {
                   <TableHead>{t('snapshots.time')}</TableHead>
                   <TableHead className="text-right">{t('snapshots.size')}</TableHead>
                   <TableHead className="text-right">{t('snapshots.files')}</TableHead>
-                  <TableHead className="w-[100px]">{t('snapshots.actions')}</TableHead>
+                  <TableHead className="w-[150px]">{t('snapshots.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -386,12 +402,19 @@ export function SnapshotHistory() {
                               });
                               return;
                             }
-                            void navigate(
-                              `/snapshots/browse?snapshotId=${encodeURIComponent(snapshot.id)}&oid=${encodeURIComponent(snapshot.rootID)}&rootOid=${encodeURIComponent(snapshot.rootID)}&path=/`
+                            navigateToSnapshotBrowse(
+                              navigate,
+                              snapshot.id,
+                              snapshot.rootID,
+                              snapshot.rootID,
+                              '/'
                             );
                           }}
                           disabled={!snapshot.rootID}
                           title={
+                            snapshot.rootID ? t('snapshots.browse') : t('snapshots.cannotBrowse')
+                          }
+                          aria-label={
                             snapshot.rootID ? t('snapshots.browse') : t('snapshots.cannotBrowse')
                           }
                         >
@@ -407,12 +430,13 @@ export function SnapshotHistory() {
                               });
                               return;
                             }
-                            void navigate(
-                              `/snapshots/restore?snapshotId=${encodeURIComponent(snapshot.id)}&oid=${encodeURIComponent(snapshot.rootID)}&path=/`
-                            );
+                            navigateToSnapshotRestore(navigate, snapshot.id, snapshot.rootID, '/');
                           }}
                           disabled={!snapshot.rootID}
                           title={
+                            snapshot.rootID ? t('snapshots.restore') : t('snapshots.cannotRestore')
+                          }
+                          aria-label={
                             snapshot.rootID ? t('snapshots.restore') : t('snapshots.cannotRestore')
                           }
                         >

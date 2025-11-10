@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTasks } from '@/hooks/useTasks';
+import { useSnapshots } from '@/hooks/useSnapshots';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,7 +26,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { Spinner } from '@/components/ui/spinner';
+import { Progress } from '@/components/ui/progress';
 import {
   ListChecks,
   RefreshCw,
@@ -37,6 +40,9 @@ import {
   Activity,
   TrendingUp,
   TrendingDown,
+  ChevronDown,
+  ChevronRight,
+  Calendar,
 } from 'lucide-react';
 import type { Task } from '@/lib/kopia/types';
 import { formatDateTime } from '@/lib/utils';
@@ -47,6 +53,7 @@ export function Tasks() {
   const { language } = useLanguageStore();
   const { tasks, summary, isLoading, error, isWebSocketConnected, cancelTask, refreshAll } =
     useTasks();
+  const { sources } = useSnapshots();
 
   // Map language code to locale
   const locale = language === 'es' ? 'es-ES' : 'en-US';
@@ -55,8 +62,60 @@ export function Tasks() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
 
+  // Task details state
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+
   const handleRefresh = async () => {
     await refreshAll();
+  };
+
+  const handleToggleDetails = (taskId: string) => {
+    if (expandedTaskId === taskId) {
+      setExpandedTaskId(null);
+    } else {
+      setExpandedTaskId(taskId);
+    }
+  };
+
+  // Format counter key to human-readable label
+  const formatCounterLabel = (key: string): string => {
+    // Convert snake_case to Title Case
+    return key
+      .split('_')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
+  // Format bytes to human-readable size
+  const formatBytes = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+  };
+
+  // Calculate progress percentage from task counters
+  const getTaskProgress = (task: Task): number | null => {
+    if (!task.counters) return null;
+
+    // Try to calculate from processed/estimated counters
+    const processedBytes = task.counters.processed_bytes?.value;
+    const estimatedBytes = task.counters.estimated_bytes?.value;
+    const processedFiles = task.counters.processed_files?.value;
+    const estimatedFiles = task.counters.estimated_files?.value;
+
+    // Prefer bytes-based progress if available
+    if (processedBytes !== undefined && estimatedBytes !== undefined && estimatedBytes > 0) {
+      return Math.min(100, (processedBytes / estimatedBytes) * 100);
+    }
+
+    // Fall back to files-based progress
+    if (processedFiles !== undefined && estimatedFiles !== undefined && estimatedFiles > 0) {
+      return Math.min(100, (processedFiles / estimatedFiles) * 100);
+    }
+
+    return null;
   };
 
   const handleCancelTask = async () => {
@@ -73,6 +132,15 @@ export function Tasks() {
       setIsCancelling(false);
     }
   };
+
+  // Get future tasks from sources with scheduled snapshots
+  const futureTasks = sources
+    .filter((source) => source.nextSnapshotTime)
+    .sort((a, b) => {
+      const timeA = new Date(a.nextSnapshotTime!).getTime();
+      const timeB = new Date(b.nextSnapshotTime!).getTime();
+      return timeA - timeB;
+    });
 
   const getTaskStatusBadge = (status: string) => {
     const variants: Record<
@@ -219,64 +287,258 @@ export function Tasks() {
                   <TableHead>{t('tasks.started')}</TableHead>
                   <TableHead>{t('tasks.duration')}</TableHead>
                   <TableHead>{t('tasks.progress')}</TableHead>
-                  <TableHead className="text-right">{t('common.actions')}</TableHead>
+                  <TableHead className="w-[150px]">{t('common.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {tasks.map((task) => (
-                  <TableRow key={task.id}>
-                    <TableCell className="font-mono text-xs">{task.id.slice(0, 8)}...</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{task.kind || t('tasks.unknown')}</Badge>
-                    </TableCell>
-                    <TableCell>{getTaskStatusBadge(task.status)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-sm">{formatDateTime(task.startTime, locale)}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm">
-                        {task.endTime
-                          ? formatDuration(
-                              Math.floor(
-                                (new Date(task.endTime).getTime() -
-                                  new Date(task.startTime).getTime()) /
-                                  1000
+                  <>
+                    <TableRow key={task.id}>
+                      <TableCell className="font-mono text-xs">{task.id.slice(0, 8)}...</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{task.kind || t('tasks.unknown')}</Badge>
+                      </TableCell>
+                      <TableCell>{getTaskStatusBadge(task.status)}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-sm">{formatDateTime(task.startTime, locale)}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm">
+                          {task.endTime
+                            ? formatDuration(
+                                Math.floor(
+                                  (new Date(task.endTime).getTime() -
+                                    new Date(task.startTime).getTime()) /
+                                    1000
+                                )
                               )
-                            )
-                          : t('tasks.inProgress')}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {task.progressInfo ? (
-                        <span className="text-sm text-muted-foreground">{task.progressInfo}</span>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {task.status === 'RUNNING' && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedTask(task);
-                            setShowCancelDialog(true);
-                          }}
-                        >
-                          <XCircle className="h-4 w-4 text-destructive" />
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
+                            : t('tasks.inProgress')}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        {(() => {
+                          const progress = getTaskProgress(task);
+                          if (progress !== null) {
+                            return (
+                              <div className="flex items-center gap-2">
+                                <Progress value={progress} className="h-2 w-24" />
+                                <span className="text-xs text-muted-foreground tabular-nums">
+                                  {progress.toFixed(1)}%
+                                </span>
+                              </div>
+                            );
+                          }
+                          return task.progressInfo ? (
+                            <span className="text-sm text-muted-foreground">
+                              {task.progressInfo}
+                            </span>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">-</span>
+                          );
+                        })()}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleToggleDetails(task.id)}
+                            title={t('tasks.viewDetails')}
+                          >
+                            {expandedTaskId === task.id ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                          </Button>
+                          {task.status === 'RUNNING' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedTask(task);
+                                setShowCancelDialog(true);
+                              }}
+                              title={t('tasks.cancelTask')}
+                            >
+                              <XCircle className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                    {expandedTaskId === task.id && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="bg-muted/50 p-0">
+                          <Collapsible open={true}>
+                            <CollapsibleContent>
+                              <div className="p-4">
+                                <h4 className="text-sm font-medium mb-3">
+                                  {t('tasks.taskDetails')}
+                                </h4>
+                                <div className="bg-background rounded-md border p-3 space-y-2 text-xs">
+                                  {task.description && (
+                                    <div>
+                                      <span className="font-medium text-muted-foreground">
+                                        {t('tasks.description')}:
+                                      </span>{' '}
+                                      <span className="text-foreground">{task.description}</span>
+                                    </div>
+                                  )}
+                                  {task.errorMessage && (
+                                    <div>
+                                      <span className="font-medium text-destructive">
+                                        {t('tasks.error')}:
+                                      </span>{' '}
+                                      <span className="text-destructive">{task.errorMessage}</span>
+                                    </div>
+                                  )}
+                                  {task.counters && Object.keys(task.counters).length > 0 && (
+                                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-2">
+                                      {Object.entries(task.counters)
+                                        .sort(([a], [b]) => a.localeCompare(b))
+                                        .map(([key, value]) => {
+                                          let formattedValue: string;
+
+                                          if (
+                                            typeof value === 'object' &&
+                                            value !== null &&
+                                            'value' in value
+                                          ) {
+                                            // Check if this is a byte counter (units === 'bytes' or key contains 'bytes')
+                                            if (
+                                              value.units === 'bytes' ||
+                                              key.toLowerCase().includes('bytes')
+                                            ) {
+                                              formattedValue = formatBytes(value.value);
+                                            } else {
+                                              formattedValue = `${value.value.toLocaleString()}${value.units ? ` ${value.units}` : ''}`;
+                                            }
+                                          } else {
+                                            formattedValue = String(value);
+                                          }
+
+                                          return (
+                                            <div key={key} className="flex justify-between gap-2">
+                                              <span className="font-medium text-muted-foreground">
+                                                {formatCounterLabel(key)}:
+                                              </span>
+                                              <span className="text-foreground text-right">
+                                                {formattedValue}
+                                              </span>
+                                            </div>
+                                          );
+                                        })}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </CollapsibleContent>
+                          </Collapsible>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
                 ))}
               </TableBody>
             </Table>
           )}
         </CardContent>
       </Card>
+
+      {/* Future Tasks Section */}
+      {futureTasks.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              {t('tasks.futureTasks')}
+            </CardTitle>
+            <CardDescription>
+              {t('tasks.futureTasksDescription', { count: futureTasks.length })}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('tasks.source')}</TableHead>
+                  <TableHead>{t('tasks.schedule')}</TableHead>
+                  <TableHead>{t('tasks.nextRun')}</TableHead>
+                  <TableHead>{t('tasks.timeUntilRun')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {futureTasks.map((source) => {
+                  const nextRunTime = new Date(source.nextSnapshotTime!);
+                  const now = new Date();
+                  const timeUntilRun = Math.max(0, nextRunTime.getTime() - now.getTime());
+                  const hoursUntil = Math.floor(timeUntilRun / (1000 * 60 * 60));
+                  const minutesUntil = Math.floor((timeUntilRun % (1000 * 60 * 60)) / (1000 * 60));
+
+                  // Build schedule description
+                  let scheduleDesc = '';
+                  if (source.schedule?.manual) {
+                    scheduleDesc = t('tasks.scheduleManual');
+                  } else if (source.schedule?.intervalSeconds) {
+                    const hours = Math.floor(source.schedule.intervalSeconds / 3600);
+                    if (hours >= 24) {
+                      scheduleDesc = t('tasks.scheduleEveryDays', {
+                        count: Math.floor(hours / 24),
+                      });
+                    } else if (hours > 0) {
+                      scheduleDesc = t('tasks.scheduleEveryHours', { count: hours });
+                    } else {
+                      const minutes = Math.floor(source.schedule.intervalSeconds / 60);
+                      scheduleDesc = t('tasks.scheduleEveryMinutes', { count: minutes });
+                    }
+                  } else if (source.schedule?.cron && source.schedule.cron.length > 0) {
+                    scheduleDesc = t('tasks.scheduleCron', { expr: source.schedule.cron[0] });
+                  } else if (source.schedule?.timeOfDay && source.schedule.timeOfDay.length > 0) {
+                    scheduleDesc = t('tasks.scheduleDailyAt', {
+                      time: source.schedule.timeOfDay[0],
+                    });
+                  } else {
+                    scheduleDesc = t('tasks.scheduleUnknown');
+                  }
+
+                  const sourceId = `${source.source.userName}@${source.source.host}:${source.source.path}`;
+
+                  return (
+                    <TableRow key={sourceId}>
+                      <TableCell className="font-mono text-xs">{sourceId}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{scheduleDesc}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-sm">
+                            {formatDateTime(nextRunTime.toISOString(), locale)}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-muted-foreground">
+                          {hoursUntil > 0
+                            ? t('tasks.timeUntilHours', {
+                                hours: hoursUntil,
+                                minutes: minutesUntil,
+                              })
+                            : t('tasks.timeUntilMinutes', { minutes: minutesUntil })}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Cancel Task Dialog */}
       <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
