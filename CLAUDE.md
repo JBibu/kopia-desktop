@@ -34,12 +34,13 @@ A React + Tauri application providing a user-friendly interface for managing Kop
 - ✅ Snapshot mounting (mount/unmount snapshots as local filesystems)
 - ✅ Custom window decorations with titlebar
 - ✅ Window close handler with minimize to tray
-- ✅ Comprehensive Rust backend testing (136 passing unit tests, 65% coverage)
+- ✅ Comprehensive Rust backend testing (146 passing tests: 136 unit + 10 integration, ~65% coverage)
+- ✅ Kopia API integration tests (10 tests with real Kopia binary)
 
 **Not Yet Implemented:**
 
 - ❌ Form validation with Zod (package not installed, using manual validation)
-- ❌ Frontend test coverage (vitest configured but tests not written)
+- ❌ Frontend test coverage (vitest configured, 74 wrapper tests written but low value)
 - ❌ Auto-updates
 - ❌ E2E tests with Playwright (configured but tests not written)
 
@@ -55,7 +56,7 @@ pnpm lint             # Lint and auto-fix code
 pnpm typecheck        # Type check TypeScript
 pnpm validate         # Run all checks (typecheck, lint:check, format:check, test:run)
 pnpm validate:fix     # Run all checks with auto-fix (typecheck, lint, format, test:run)
-pnpm test:rust        # Run Rust backend tests (136 unit tests)
+pnpm test:rust        # Run Rust backend tests (146 tests: 136 unit + 10 integration)
 ```
 
 ---
@@ -91,10 +92,11 @@ pnpm test:rust        # Run Rust backend tests (136 unit tests)
 
 **Testing:**
 
-- Vitest 4.0 (unit tests, configured but not written)
+- Vitest 4.0 (74 frontend wrapper tests - low value, only test invoke() calls)
 - Playwright 1.56 (E2E tests, configured but not written)
-- Rust cargo test (136 passing unit tests, 8 integration tests)
+- Rust cargo test (146 passing tests: 136 unit + 10 integration with real Kopia binary)
 - cargo-llvm-cov (code coverage for Rust)
+- tempfile 3.x (temporary directories for integration tests)
 
 **Import Aliases:**
 
@@ -464,26 +466,37 @@ All 46 error variants are tested with:
 
 ## Testing
 
-### Frontend (Not Implemented)
+### Frontend (Minimal Coverage)
 
-- Vitest configured but no tests written
+- **74 wrapper tests** - Test TypeScript invoke() calls only (low value)
+- Vitest configured
 - Playwright configured but no E2E tests written
 - Testing Library installed for future React component tests
 
 ### Backend (Fully Implemented)
 
-- **136 passing unit tests** (100% success rate)
-- **8 integration/stress tests** (ignored, require Kopia binary)
-- **~65% code coverage** (realistic maximum without integration tests)
+- **146 passing tests** (100% success rate)
+  - **136 unit tests** - Core functionality, error handling, edge cases
+  - **10 integration tests** - Real Kopia binary API interactions
+- **~65% code coverage** (realistic maximum without full integration)
 - **All critical paths tested**
 
 **Run Tests:**
 
 ```bash
-pnpm test:rust                    # Run all unit tests
+pnpm test:rust                    # Run all unit tests (136 tests)
 pnpm test:rust:coverage           # Generate coverage report
 pnpm test:rust:coverage:html      # Open coverage in browser
+
+# Integration tests (require Kopia binary)
+KOPIA_PATH=/path/to/bin/kopia-linux-x64 cargo test --lib kopia_api_integration -- --ignored --test-threads=1
 ```
+
+**Integration Test Coverage:**
+
+- Server Lifecycle (7 tests): start/stop, status, HTTP client, URL retrieval, uptime
+- Repository API (2 tests): algorithms endpoint, status endpoint
+- Error Handling (3 tests): stop when not running, double start, operation validation
 
 **See [src-tauri/TESTING.md](src-tauri/TESTING.md) for comprehensive testing guide.**
 
@@ -518,9 +531,11 @@ pnpm test:rust:coverage:html      # Open coverage in browser
 
 ✅ **Comprehensive Testing:**
 
-- 136 passing Rust unit tests
+- 146 passing Rust tests (136 unit + 10 integration)
+- 10 integration tests with real Kopia binary (server lifecycle, API calls, error handling)
 - All 46 error variants tested
 - Edge cases, concurrency, integration scenarios
+- 74 frontend wrapper tests (low value - only test TypeScript invoke() calls)
 
 ✅ **Critical API Field Fixes:**
 

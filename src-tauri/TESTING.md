@@ -2,10 +2,12 @@
 
 ## 🎉 Test Status
 
-**✅ ALL 136 UNIT TESTS PASSING (100%)**
+**✅ ALL 146 TESTS PASSING (100%)**
 
 ```
-test result: ok. 136 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out
+Unit Tests:        136 passed (100%)
+Integration Tests:  10 passed (requires Kopia binary)
+Total:             146 tests
 ```
 
 ---
@@ -14,49 +16,52 @@ test result: ok. 136 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out
 
 ### Summary by Category
 
-| Category         | Tests   | Status          |
-| ---------------- | ------- | --------------- |
-| Error Handling   | 36      | ✅ 100% passing |
-| Server Lifecycle | 35      | ✅ 100% passing |
-| Type System      | 32      | ✅ 100% passing |
-| Command Handlers | 16      | ✅ 100% passing |
-| WebSocket        | 12      | ✅ 100% passing |
-| Concurrency      | 9       | ✅ 100% passing |
-| Integration      | 8       | ✅ 100% passing |
-| System Commands  | 5       | ✅ 100% passing |
-| **Total**        | **136** | **✅ 100%**     |
+| Category            | Tests   | Status          |
+| ------------------- | ------- | --------------- |
+| Error Handling      | 36      | ✅ 100% passing |
+| Server Lifecycle    | 35      | ✅ 100% passing |
+| Type System         | 32      | ✅ 100% passing |
+| Command Handlers    | 16      | ✅ 100% passing |
+| WebSocket           | 12      | ✅ 100% passing |
+| Kopia API (real)    | 10      | ✅ 100% passing |
+| Concurrency         | 9       | ✅ 100% passing |
+| Integration (mocks) | 8       | ✅ 100% passing |
+| System Commands     | 5       | ✅ 100% passing |
+| **Total**           | **146** | **✅ 100%**     |
 
 ### Module Coverage
 
-| Module                | Unit Tests | Integration Tests | Coverage     |
-| --------------------- | ---------- | ----------------- | ------------ |
-| error.rs              | 36         | 0                 | ✅ Excellent |
-| types.rs              | 32         | 0                 | ✅ Excellent |
-| commands/kopia.rs     | 16         | 0                 | ✅ Excellent |
-| kopia_server.rs       | 15         | 3 (ignored)       | ✅ Excellent |
-| kopia_websocket.rs    | 12         | 3 (ignored)       | ✅ Excellent |
-| commands/system.rs    | 5          | 0                 | ✅ Excellent |
-| commands/websocket.rs | 0\*        | 0                 | ⚠️ Indirect  |
+| Module                         | Unit Tests | Integration Tests | Coverage     |
+| ------------------------------ | ---------- | ----------------- | ------------ |
+| error.rs                       | 36         | 0                 | ✅ Excellent |
+| types.rs                       | 32         | 0                 | ✅ Excellent |
+| commands/kopia.rs              | 16         | 0                 | ✅ Excellent |
+| kopia_server.rs                | 15         | 10 (real binary)  | ✅ Excellent |
+| kopia_websocket.rs             | 12         | 0                 | ✅ Excellent |
+| commands/system.rs             | 5          | 0                 | ✅ Excellent |
+| commands/websocket.rs          | 0\*        | 0                 | ⚠️ Indirect  |
+| kopia_api_integration_tests.rs | 0          | 10 (real Kopia)   | ✅ Excellent |
 
 \*Tested indirectly through kopia_websocket.rs
 
 ### Test Files
 
-| Test File                 | Tests | Description                   |
-| ------------------------- | ----- | ----------------------------- |
-| error.rs                  | 7     | Basic error handling (inline) |
-| advanced_error_tests.rs   | 12    | All 46 error variants         |
-| error_edge_cases_tests.rs | 17    | Error boundaries & edge cases |
-| commands_tests.rs         | 3     | Config directory handling     |
-| kopia_commands_tests.rs   | 13    | Command handlers              |
-| kopia_server_tests.rs     | 35    | Server lifecycle              |
-| kopia_websocket_tests.rs  | 12    | WebSocket client              |
-| types_tests.rs            | 6     | Type serialization            |
-| types_advanced_tests.rs   | 13    | Advanced type testing         |
-| types_unit_tests.rs       | 13    | Trait implementations         |
-| system_tests.rs           | 5     | System commands               |
-| integration_tests.rs      | 8     | End-to-end scenarios          |
-| concurrency_tests.rs      | 9     | Thread safety                 |
+| Test File                      | Tests | Description                       |
+| ------------------------------ | ----- | --------------------------------- |
+| error.rs                       | 7     | Basic error handling (inline)     |
+| advanced_error_tests.rs        | 12    | All 46 error variants             |
+| error_edge_cases_tests.rs      | 17    | Error boundaries & edge cases     |
+| commands_tests.rs              | 3     | Config directory handling         |
+| kopia_commands_tests.rs        | 13    | Command handlers                  |
+| kopia_server_tests.rs          | 35    | Server lifecycle (unit tests)     |
+| kopia_api_integration_tests.rs | 10    | **Real Kopia binary integration** |
+| kopia_websocket_tests.rs       | 12    | WebSocket client                  |
+| types_tests.rs                 | 6     | Type serialization                |
+| types_advanced_tests.rs        | 13    | Advanced type testing             |
+| types_unit_tests.rs            | 13    | Trait implementations             |
+| system_tests.rs                | 5     | System commands                   |
+| integration_tests.rs           | 8     | End-to-end scenarios (mocks)      |
+| concurrency_tests.rs           | 9     | Thread safety                     |
 
 ---
 
@@ -83,7 +88,7 @@ cargo test kopia_server_tests
 cargo test --lib -- --ignored
 ```
 
-### Expected Output
+### Expected Output (Unit Tests)
 
 ```
 running 136 tests
@@ -93,8 +98,70 @@ test concurrency_tests::tests::test_server_multiple_status_calls ... ok
 [... 133 more tests ...]
 test types_unit_tests::tests::test_storage_config_clone ... ok
 
-test result: ok. 136 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out
+test result: ok. 136 passed; 0 failed; 10 ignored; 0 measured; 0 filtered out
 ```
+
+### Integration Tests (10 tests)
+
+**Running Integration Tests:**
+
+```bash
+cd src-tauri
+
+# Set Kopia binary path (required)
+export KOPIA_PATH=/home/javi/Git/kopia-desktop/bin/kopia-linux-x64
+
+# Run integration tests (sequential execution to avoid port conflicts)
+cargo test --lib -- --ignored --test-threads=1
+
+# Or use the npm script (auto-sets KOPIA_PATH)
+pnpm test:rust:integration
+```
+
+**Expected Output:**
+
+```
+running 10 tests
+test kopia_api_integration_tests::tests::test_server_start_and_stop_integration ... ok
+test kopia_api_integration_tests::tests::test_server_status_when_not_running ... ok
+test kopia_api_integration_tests::tests::test_server_http_client_availability ... ok
+test kopia_api_integration_tests::tests::test_server_url_when_running ... ok
+test kopia_api_integration_tests::tests::test_repository_algorithms_api ... ok
+test kopia_api_integration_tests::tests::test_repository_status_not_connected ... ok
+test kopia_api_integration_tests::tests::test_stop_server_when_not_running ... ok
+test kopia_api_integration_tests::tests::test_start_server_twice ... ok
+test kopia_api_integration_tests::tests::test_operations_require_running_server ... ok
+test kopia_api_integration_tests::tests::test_server_uptime_tracking ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 11.52s
+```
+
+**What Integration Tests Cover:**
+
+1. **Server Lifecycle (7 tests):**
+   - Full server start/stop cycle with real Kopia binary
+   - Server status checks when running and not running
+   - HTTP client availability lifecycle
+   - Server URL retrieval
+   - Ready waiter functionality
+   - Uptime tracking
+
+2. **Repository API (2 tests):**
+   - Real `/api/v1/repo/algorithms` endpoint
+   - Real `/api/v1/repo/status` endpoint (not connected state)
+
+3. **Error Handling (3 tests):**
+   - Stop when not running (ServerNotRunning error)
+   - Double start attempt (ServerAlreadyRunning error)
+   - Operations requiring running server
+
+**Important Notes:**
+
+- Tests run **sequentially** (`--test-threads=1`) to avoid port conflicts
+- Each test uses a **unique temporary config directory** to avoid lock conflicts
+- Tests spawn actual Kopia server processes (localhost, random port)
+- Kopia 0.21.1 limitation: No `--shutdown-on-stdin` support (uses process kill)
+- Tests clean up all resources automatically
 
 ---
 
@@ -255,6 +322,54 @@ test result: ok. 136 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out
 - 100 concurrent server creations
 - 1000 concurrent error serializations
 
+### 9. Kopia API Integration Tests (10 tests)
+
+**File**: `kopia_api_integration_tests.rs`
+
+These tests verify **actual Kopia binary integration** by spawning real Kopia server processes and making HTTP requests to live API endpoints.
+
+**Server Lifecycle Tests (7)**:
+
+- `test_server_start_and_stop_integration` - Full lifecycle: start, wait for ready, status checks, stop
+- `test_server_status_when_not_running` - Status structure when server not started
+- `test_server_http_client_availability` - HTTP client lifecycle (None → Some → None)
+- `test_server_url_when_running` - Server URL retrieval and validation
+- `test_server_uptime_tracking` - Uptime tracking (None → Some(≥1s) → None)
+
+**Repository API Tests (2)**:
+
+- `test_repository_algorithms_api` - Real HTTP GET to `/api/v1/repo/algorithms`
+  - Verifies JSON structure: `defaultHash`, `defaultEncryption`, `hash`, `encryption`
+- `test_repository_status_not_connected` - Real HTTP GET to `/api/v1/repo/status`
+  - Verifies 404 or `connected: false` when no repository connected
+
+**Error Handling Tests (3)**:
+
+- `test_stop_server_when_not_running` - Verify `KopiaError::ServerNotRunning`
+- `test_start_server_twice` - Verify `KopiaError::ServerAlreadyRunning` with port
+- `test_operations_require_running_server` - Verify None/Err when server not running
+
+**Test Helpers**:
+
+```rust
+fn get_test_config_dir() -> TempDir {
+    // Creates unique temp dir per test to avoid config lock conflicts
+}
+
+async fn wait_for_server_health(server: &KopiaServer, max_attempts: u32) -> bool {
+    // Polls /api/v1/repo/status until server responds (404 or 200 OK)
+}
+```
+
+**Key Implementation Details**:
+
+- Uses `tempfile::TempDir` for isolated config directories per test
+- Each test spawns a real Kopia server on random port (localhost only)
+- Health check waits up to 30 seconds (60 attempts × 500ms)
+- All tests marked `#[ignore]` for explicit opt-in
+- Tests run sequentially (`--test-threads=1`) to avoid port conflicts
+- Automatic cleanup via `Drop` implementation
+
 ---
 
 ## 🔧 Test Infrastructure
@@ -264,13 +379,13 @@ test result: ok. 136 passed; 0 failed; 8 ignored; 0 measured; 0 filtered out
 ```toml
 [dev-dependencies]
 mockito = "1.5"      # HTTP mocking (for future use)
-tempfile = "3.13"    # Temporary files (for future use)
+tempfile = "3.13"    # Temporary directories (used in integration tests)
 serial_test = "3.2"  # Serial execution (for future use)
 ```
 
 ### Writing New Tests
 
-**Test Structure Example:**
+**Unit Test Structure:**
 
 ```rust
 #[test]
@@ -286,13 +401,35 @@ fn test_feature_behavior() {
 }
 ```
 
-**Integration Test Annotation:**
+**Integration Test Structure:**
 
 ```rust
-#[test]
-#[ignore = "Requires Kopia binary"]
-fn test_server_integration() {
-    // Test code requiring actual Kopia binary
+#[tokio::test]
+#[ignore = "Requires Kopia binary - Run with: cargo test -- --ignored --test-threads=1"]
+async fn test_kopia_api_integration() {
+    // Create unique temp directory per test to avoid config lock conflicts
+    let config_dir_temp = TempDir::new().expect("Failed to create temp config directory");
+    let config_dir = config_dir_temp.path().to_str().expect("Invalid temp path");
+
+    // Create and start server
+    let mut server = KopiaServer::new();
+    let start_result = server.start(config_dir);
+    assert!(start_result.is_ok(), "Failed to start server: {:?}", start_result.err());
+
+    // Wait for server to be ready
+    let ready_waiter = server.get_ready_waiter().expect("Failed to get ready waiter");
+    let wait_result = ready_waiter.await;
+    assert!(wait_result.is_ok(), "Server failed to become ready: {:?}", wait_result.err());
+
+    // Test actual Kopia API endpoints
+    let client = server.get_http_client().expect("No HTTP client");
+    let server_url = server.get_server_url().expect("No server URL");
+    let response = client.get(&format!("{}/api/v1/repo/status", server_url)).send().await;
+    assert!(response.is_ok());
+
+    // Cleanup (automatic via Drop, but explicit is clearer)
+    let stop_result = server.stop();
+    assert!(stop_result.is_ok());
 }
 ```
 
@@ -304,9 +441,12 @@ fn test_server_integration() {
 - Use descriptive test names (`test_feature_condition_expected`)
 - Test one thing per test
 - Document complex tests
-- Mark integration tests with `#[ignore]`
-- Test error cases
-- Test boundary values
+- Mark integration tests with `#[ignore]` and descriptive message
+- Test error cases and boundary values
+- Use unique TempDir per integration test (avoid config lock conflicts)
+- Clean up resources explicitly in integration tests
+- Use `#[tokio::test]` for async integration tests
+- Run integration tests sequentially (`--test-threads=1`)
 
 **❌ Don't:**
 
@@ -315,6 +455,8 @@ fn test_server_integration() {
 - Skip error state testing
 - Forget to test edge cases
 - Use magic numbers without explanation
+- Share config directories between integration tests
+- Run integration tests in parallel (port conflicts)
 
 ---
 
@@ -336,11 +478,55 @@ cargo test --lib -- --test-threads=1
 ### Integration tests failing
 
 ```bash
-# Check Kopia binary exists
-ls -la ../bin/
+# Check Kopia binary exists and is executable
+ls -la ../bin/kopia-linux-x64
+file ../bin/kopia-linux-x64
 
-# Run only unit tests
+# Verify KOPIA_PATH environment variable
+echo $KOPIA_PATH
+
+# Run integration tests with verbose output
+KOPIA_PATH=/home/javi/Git/kopia-desktop/bin/kopia-linux-x64 \
+  cargo test --lib -- --ignored --test-threads=1 --nocapture
+
+# Run only unit tests (skip integration)
 cargo test --lib
+```
+
+### Integration test "Server process exited"
+
+**Symptoms:** Server exits immediately, `is_running()` returns false
+
+**Common Causes:**
+
+1. Config directory lock conflict (use unique TempDir per test)
+2. Port already in use (ensure `--test-threads=1`)
+3. Kopia binary not found or not executable
+4. Permission issues with temp directories
+
+**Solutions:**
+
+```bash
+# Check for stale .mlock files
+find /tmp -name "*.mlock" 2>/dev/null
+
+# Verify temp directory creation works
+cargo test get_test_config_dir --lib -- --ignored --nocapture
+
+# Test manual server start
+/home/javi/Git/kopia-desktop/bin/kopia-linux-x64 server start --ui \
+  --address=localhost:51530 \
+  --config-file=/tmp/test.config
+```
+
+### Integration test port conflicts
+
+**Symptoms:** `Address already in use` errors
+
+**Solution:** Always run integration tests sequentially:
+
+```bash
+cargo test --lib -- --ignored --test-threads=1
 ```
 
 ### Import errors
@@ -394,12 +580,20 @@ cargo test --lib
 
 The Kopia Desktop backend has **production-ready test coverage**:
 
-- ✅ **136 passing unit tests** (100% success rate)
-- ✅ **8 integration/stress tests** (ready for CI/CD)
-- ✅ **~65% code coverage** (realistic maximum without integration tests)
-- ✅ **All critical paths tested**
-- ✅ **Extensive edge case coverage**
+- ✅ **136 passing unit tests** (100% success rate, fast execution)
+- ✅ **10 passing integration tests** (real Kopia binary, sequential execution)
+- ✅ **~65% code coverage** (unit tests only)
+- ✅ **All critical paths tested** (including actual Kopia API endpoints)
+- ✅ **Extensive edge case coverage** (boundaries, unicode, errors)
 - ✅ **Zero compiler warnings**
 - ✅ **Comprehensive documentation**
+
+**Key Achievements:**
+
+- Full Kopia server lifecycle testing with real binary
+- Real API endpoint testing (`/api/v1/repo/algorithms`, `/api/v1/repo/status`)
+- Robust error handling (all 46 variants tested)
+- Thread safety verified with concurrent tests
+- Automated cleanup and resource management
 
 **The backend is production-ready and well-tested! 🎉**

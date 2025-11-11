@@ -1053,8 +1053,26 @@ describe('Kopia Client - Notifications', () => {
   describe('listNotificationProfiles', () => {
     it('lists notification profiles', async () => {
       const mockProfiles = [
-        { profile: 'email-alerts', method: 'pushover' as const, minSeverity: 'error' as const },
-        { profile: 'slack-alerts', method: 'pushover' as const, minSeverity: 'warning' as const },
+        {
+          profile: 'email-alerts',
+          method: {
+            type: 'pushover' as const,
+            config: { appToken: 'token', userKey: 'key', format: 'txt' as const },
+          },
+          minSeverity: 20 as const, // ERROR
+        },
+        {
+          profile: 'slack-alerts',
+          method: {
+            type: 'webhook' as const,
+            config: {
+              endpoint: 'https://slack.com',
+              method: 'POST' as const,
+              format: 'txt' as const,
+            },
+          },
+          minSeverity: 10 as const, // WARNING
+        },
       ];
       mockInvoke.mockResolvedValue(mockProfiles);
 
@@ -1069,8 +1087,11 @@ describe('Kopia Client - Notifications', () => {
     it('creates notification profile', async () => {
       const profile = {
         profile: 'email-alerts',
-        method: 'pushover' as const,
-        minSeverity: 'error' as const,
+        method: {
+          type: 'pushover' as const,
+          config: { appToken: 'token', userKey: 'key', format: 'txt' as const },
+        },
+        minSeverity: 20 as const, // ERROR
       };
       mockInvoke.mockResolvedValue(undefined);
 
@@ -1096,8 +1117,11 @@ describe('Kopia Client - Notifications', () => {
     it('tests notification profile', async () => {
       const profile = {
         profile: 'email-alerts',
-        method: 'pushover' as const,
-        minSeverity: 'error' as const,
+        method: {
+          type: 'pushover' as const,
+          config: { appToken: 'token', userKey: 'key', format: 'txt' as const },
+        },
+        minSeverity: 20 as const, // ERROR
       };
       mockInvoke.mockResolvedValue(undefined);
 
