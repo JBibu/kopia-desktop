@@ -20,6 +20,8 @@ mod error_edge_cases_tests;
 #[cfg(test)]
 mod integration_tests;
 #[cfg(test)]
+mod kopia_api_integration_tests; // NEW: Actual Kopia binary API integration tests
+#[cfg(test)]
 mod kopia_commands_tests;
 #[cfg(test)]
 mod kopia_server_tests;

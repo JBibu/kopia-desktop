@@ -14,9 +14,11 @@
 //!
 //! # Architecture
 //!
-//! The server is started as a child process with `--shutdown-on-stdin`, allowing
-//! graceful termination when the app closes. Communication happens via HTTPS on
-//! a randomly selected port to avoid conflicts.
+//! The server is started as a child process and terminated via process kill when
+//! the app closes. Communication happens via HTTPS on a randomly selected port to
+//! avoid conflicts.
+//!
+//! NOTE: Graceful shutdown via `--shutdown-on-stdin` is not available in Kopia 0.21.1.
 //!
 //! # Example
 //!
@@ -29,7 +31,6 @@
 
 use crate::error::{KopiaError, Result};
 use serde::{Deserialize, Serialize};
-use std::io::Write;
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
@@ -40,14 +41,10 @@ const DEFAULT_PORT: u16 = 51515;
 const PORT_SEARCH_RANGE: u16 = 10;
 /// Delay before checking if server process started successfully (100ms)
 const STARTUP_CHECK_DELAY_MS: u64 = 100;
-/// Number of retries when waiting for server to become ready (20 * 500ms = 10s total)
-const HEALTH_CHECK_RETRIES: u32 = 20;
+/// Number of retries when waiting for server to become ready (40 * 500ms = 20s total)
+const HEALTH_CHECK_RETRIES: u32 = 40;
 /// Interval between health check retries (500ms)
 const HEALTH_CHECK_INTERVAL_MS: u64 = 500;
-/// Maximum time to wait for graceful shutdown before force kill (5 seconds)
-const GRACEFUL_SHUTDOWN_TIMEOUT_MS: u64 = 5000;
-/// Interval between shutdown status checks (500ms)
-const SHUTDOWN_INTERVAL_MS: u64 = 500;
 /// Maximum timeout for HTTP operations (5 minutes)
 /// This is used for error reporting in the error module
 pub const HTTP_OPERATION_TIMEOUT_SECS: u64 = 300;
@@ -92,32 +89,13 @@ impl Drop for KopiaServer {
                 process.id()
             );
 
-            // Send shutdown signal via stdin
-            if let Some(mut stdin) = process.stdin.take() {
-                let _ = stdin.write_all(b"\n");
-                let _ = stdin.flush();
-                drop(stdin);
-
-                // Give process brief moment to shut down gracefully
-                // Use very short timeout since we're in Drop (can't block long)
-                for _ in 0..5 {
-                    // 5 attempts * 10ms = 50ms max
-                    if let Ok(Some(_)) = process.try_wait() {
-                        log::info!("Process shut down gracefully during drop");
-                        self.cleanup();
-                        return;
-                    }
-                    std::thread::sleep(Duration::from_millis(10));
-                }
-            }
-
-            // Force kill if graceful shutdown didn't work quickly
-            log::warn!("Graceful shutdown timeout during drop, force killing process");
+            // Kill the process directly (no graceful shutdown with Kopia 0.21.1)
             if let Err(e) = process.kill() {
                 log::error!("Failed to kill process during drop: {}", e);
             } else {
                 // Wait for process to be reaped (prevents zombie)
                 let _ = process.wait();
+                log::info!("Process terminated successfully during drop");
             }
 
             self.cleanup();
@@ -171,11 +149,12 @@ impl KopiaServer {
             &server_password,
             "--config-file",
             &config_file,
-            "--shutdown-on-stdin",
+            // NOTE: --shutdown-on-stdin flag removed as it's not supported in Kopia 0.21.1
+            // Server will be terminated via process kill() instead
         ])
         .env("KOPIA_CHECK_FOR_UPDATES", "false")
         .stdin(Stdio::piped())
-        .stdout(Stdio::null())  // Discard stdout to prevent pipe buffer deadlock
+        .stdout(Stdio::piped())  // Capture stdout for debugging (was Stdio::null())
         .stderr(Stdio::piped());
 
         // On Windows, prevent console window from appearing
@@ -271,55 +250,26 @@ impl KopiaServer {
     }
 
     /// Stop the Kopia server process gracefully
+    ///
+    /// NOTE: With Kopia 0.21.1, we don't have --shutdown-on-stdin support,
+    /// so we directly kill the process. This is acceptable for localhost-only operation.
     pub fn stop(&mut self) -> Result<()> {
         let mut process = self.process.take().ok_or(KopiaError::ServerNotRunning)?;
 
-        // Try graceful shutdown via stdin
-        if self.try_graceful_shutdown(&mut process)? {
-            self.cleanup();
-            return Ok(());
-        }
-
-        // Force kill if graceful shutdown failed
-        log::warn!("Graceful shutdown timed out, forcing kill");
+        // Kill the server process
         process.kill().map_err(|e| KopiaError::ServerStopFailed {
             message: format!("Failed to kill server process: {}", e),
             details: None,
         })?;
+
+        // Wait for process to terminate
         process.wait().map_err(|e| KopiaError::ServerStopFailed {
             message: format!("Failed to wait for server termination: {}", e),
             details: None,
         })?;
+
         self.cleanup();
         Ok(())
-    }
-
-    /// Try to gracefully shutdown the process via stdin
-    fn try_graceful_shutdown(&self, process: &mut Child) -> Result<bool> {
-        let Some(mut stdin) = process.stdin.take() else {
-            return Ok(false);
-        };
-
-        // Write newline to trigger --shutdown-on-stdin
-        if let Err(e) = stdin.write_all(b"\n") {
-            log::debug!("Failed to write to stdin during shutdown: {}", e);
-        }
-        if let Err(e) = stdin.flush() {
-            log::debug!("Failed to flush stdin during shutdown: {}", e);
-        }
-        drop(stdin);
-
-        // Wait for graceful shutdown
-        let retries = GRACEFUL_SHUTDOWN_TIMEOUT_MS / SHUTDOWN_INTERVAL_MS;
-
-        for _ in 0..retries {
-            if let Ok(Some(_)) = process.try_wait() {
-                return Ok(true);
-            }
-            std::thread::sleep(Duration::from_millis(SHUTDOWN_INTERVAL_MS));
-        }
-
-        Ok(false)
     }
 
     /// Clean up server state
@@ -530,6 +480,14 @@ impl KopiaServer {
     /// Returns a clone of the client (cheap operation due to internal Arc)
     pub fn get_http_client(&self) -> Option<reqwest::Client> {
         self.http_client.clone()
+    }
+
+    /// Get the server URL if the server is running
+    ///
+    /// This method is primarily used by integration tests to verify server URLs.
+    #[allow(dead_code)]
+    pub fn get_server_url(&self) -> Option<String> {
+        self.info.as_ref().map(|info| info.server_url.clone())
     }
 }
 
