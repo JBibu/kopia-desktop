@@ -84,6 +84,47 @@ impl Default for KopiaServer {
     }
 }
 
+impl Drop for KopiaServer {
+    fn drop(&mut self) {
+        if let Some(mut process) = self.process.take() {
+            log::info!(
+                "KopiaServer dropping, cleaning up process (PID: {})",
+                process.id()
+            );
+
+            // Send shutdown signal via stdin
+            if let Some(mut stdin) = process.stdin.take() {
+                let _ = stdin.write_all(b"\n");
+                let _ = stdin.flush();
+                drop(stdin);
+
+                // Give process brief moment to shut down gracefully
+                // Use very short timeout since we're in Drop (can't block long)
+                for _ in 0..5 {
+                    // 5 attempts * 10ms = 50ms max
+                    if let Ok(Some(_)) = process.try_wait() {
+                        log::info!("Process shut down gracefully during drop");
+                        self.cleanup();
+                        return;
+                    }
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+            }
+
+            // Force kill if graceful shutdown didn't work quickly
+            log::warn!("Graceful shutdown timeout during drop, force killing process");
+            if let Err(e) = process.kill() {
+                log::error!("Failed to kill process during drop: {}", e);
+            } else {
+                // Wait for process to be reaped (prevents zombie)
+                let _ = process.wait();
+            }
+
+            self.cleanup();
+        }
+    }
+}
+
 impl KopiaServer {
     pub fn new() -> Self {
         Self {
@@ -134,7 +175,7 @@ impl KopiaServer {
         ])
         .env("KOPIA_CHECK_FOR_UPDATES", "false")
         .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
+        .stdout(Stdio::null())  // Discard stdout to prevent pipe buffer deadlock
         .stderr(Stdio::piped());
 
         // On Windows, prevent console window from appearing
@@ -169,10 +210,22 @@ impl KopiaServer {
             csrf_token: None,
         };
 
+        // Create HTTP client BEFORE storing process (if this fails, kill the child)
+        let http_client = match self.create_http_client(SERVER_USERNAME, &server_password) {
+            Ok(client) => client,
+            Err(e) => {
+                log::error!("Failed to create HTTP client, killing spawned process");
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(e);
+            }
+        };
+
+        // Only store state after all operations that can fail have succeeded
         self.process = Some(child);
         self.info = Some(info.clone());
         self.start_time = Some(SystemTime::now());
-        self.http_client = Some(self.create_http_client(SERVER_USERNAME, &server_password)?);
+        self.http_client = Some(http_client);
 
         Ok(info)
     }
@@ -187,7 +240,7 @@ impl KopiaServer {
         let random_bytes: [u8; 32] = rng.gen();
         format!(
             "kopia-{}",
-            base64::prelude::BASE64_STANDARD.encode(&random_bytes)
+            base64::prelude::BASE64_STANDARD.encode(random_bytes)
         )
     }
 
@@ -202,10 +255,11 @@ impl KopiaServer {
     }
 
     /// Get a future to wait for server readiness (can be called outside mutex lock)
-    pub fn get_ready_waiter(
-        &self,
-    ) -> Result<impl std::future::Future<Output = Result<()>>> {
-        let http_client = self.http_client.clone().ok_or(KopiaError::ServerNotRunning)?;
+    pub fn get_ready_waiter(&self) -> Result<impl std::future::Future<Output = Result<()>>> {
+        let http_client = self
+            .http_client
+            .clone()
+            .ok_or(KopiaError::ServerNotRunning)?;
         let server_url = self
             .info
             .as_ref()
@@ -294,15 +348,21 @@ impl KopiaServer {
     }
 
     /// Get current server status
-    pub fn status(&self) -> KopiaServerStatus {
+    ///
+    /// This checks if the process is actually running (not just if we have state stored).
+    /// Requires &mut self to clean up stale state if the process has exited.
+    pub fn status(&mut self) -> KopiaServerStatus {
+        // Check if process is actually alive (cleans up zombie state)
+        let running = self.is_running();
+
         match &self.info {
-            Some(info) => KopiaServerStatus {
+            Some(info) if running => KopiaServerStatus {
                 running: true,
                 server_url: Some(info.server_url.clone()),
                 port: Some(info.port),
                 uptime: self.get_uptime(),
             },
-            None => KopiaServerStatus {
+            _ => KopiaServerStatus {
                 running: false,
                 server_url: None,
                 port: None,

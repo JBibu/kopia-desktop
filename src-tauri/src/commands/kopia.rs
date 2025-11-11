@@ -39,9 +39,7 @@ pub async fn kopia_server_stop(server: State<'_, KopiaServerState>) -> Result<()
 
 /// Get Kopia server status
 #[tauri::command]
-pub async fn kopia_server_status(
-    server: State<'_, KopiaServerState>,
-) -> Result<KopiaServerStatus> {
+pub async fn kopia_server_status(server: State<'_, KopiaServerState>) -> Result<KopiaServerStatus> {
     Ok(lock_server!(server).status())
 }
 
@@ -371,7 +369,8 @@ pub async fn snapshot_create(
         log::error!("Failed to create snapshot: {}", error_text);
         return Err(KopiaError::SnapshotCreationFailed {
             message: error_text,
-            path: Some(path.clone()),
+            snapshot_source: None,
+            snapshot_path: Some(path.clone()),
         });
     }
 
@@ -390,7 +389,8 @@ pub async fn snapshot_create(
     if !result.snapshotted {
         return Err(KopiaError::SnapshotCreationFailed {
             message: "Snapshot was not started by server".to_string(),
-            path: Some(path),
+            snapshot_source: None,
+            snapshot_path: Some(path),
         });
     }
 
@@ -419,7 +419,10 @@ pub async fn snapshot_cancel(
         .map_http_error("Failed to cancel snapshot")?;
 
     if !response.status().is_success() {
-        return Err(http_request_failed("Failed to cancel snapshot", response.status().as_u16()));
+        return Err(http_request_failed(
+            "Failed to cancel snapshot",
+            response.status().as_u16(),
+        ));
     }
 
     Ok(())
@@ -453,7 +456,10 @@ pub async fn snapshots_list(
         .map_http_error("Failed to list snapshots")?;
 
     if !response.status().is_success() {
-        return Err(http_request_failed("Failed to list snapshots", response.status().as_u16()));
+        return Err(http_request_failed(
+            "Failed to list snapshots",
+            response.status().as_u16(),
+        ));
     }
 
     let result = response
@@ -569,7 +575,10 @@ pub async fn object_browse(
         .map_http_error("Failed to browse object")?;
 
     if !response.status().is_success() {
-        return Err(http_request_failed("Failed to browse object", response.status().as_u16()));
+        return Err(http_request_failed(
+            "Failed to browse object",
+            response.status().as_u16(),
+        ));
     }
 
     let result = response
@@ -602,7 +611,10 @@ pub async fn object_download(
         .map_http_error("Failed to download object")?;
 
     if !response.status().is_success() {
-        return Err(http_request_failed("Failed to download object", response.status().as_u16()));
+        return Err(http_request_failed(
+            "Failed to download object",
+            response.status().as_u16(),
+        ));
     }
 
     // Get the file content
@@ -638,7 +650,10 @@ pub async fn restore_start(
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(http_request_failed(format!("Failed to start restore: {}", error_text), status.as_u16()));
+        return Err(http_request_failed(
+            format!("Failed to start restore: {}", error_text),
+            status.as_u16(),
+        ));
     }
 
     #[derive(Deserialize)]
@@ -656,10 +671,7 @@ pub async fn restore_start(
 
 /// Mount a snapshot
 #[tauri::command]
-pub async fn mount_snapshot(
-    server: State<'_, KopiaServerState>,
-    root: String,
-) -> Result<String> {
+pub async fn mount_snapshot(server: State<'_, KopiaServerState>, root: String) -> Result<String> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
@@ -675,7 +687,10 @@ pub async fn mount_snapshot(
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(http_request_failed(format!("Failed to mount snapshot: {}", error_text), status.as_u16()));
+        return Err(http_request_failed(
+            format!("Failed to mount snapshot: {}", error_text),
+            status.as_u16(),
+        ));
     }
 
     let result: crate::types::MountResponse = response
@@ -700,7 +715,10 @@ pub async fn mounts_list(
         .map_http_error("Failed to list mounts")?;
 
     if !response.status().is_success() {
-        return Err(http_request_failed("Failed to list mounts", response.status().as_u16()));
+        return Err(http_request_failed(
+            "Failed to list mounts",
+            response.status().as_u16(),
+        ));
     }
 
     let result = response
@@ -713,10 +731,7 @@ pub async fn mounts_list(
 
 /// Unmount a snapshot
 #[tauri::command]
-pub async fn mount_unmount(
-    server: State<'_, KopiaServerState>,
-    object_id: String,
-) -> Result<()> {
+pub async fn mount_unmount(server: State<'_, KopiaServerState>, object_id: String) -> Result<()> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
@@ -726,7 +741,10 @@ pub async fn mount_unmount(
         .map_http_error("Failed to unmount snapshot")?;
 
     if !response.status().is_success() {
-        return Err(http_request_failed("Failed to unmount snapshot", response.status().as_u16()));
+        return Err(http_request_failed(
+            "Failed to unmount snapshot",
+            response.status().as_u16(),
+        ));
     }
 
     Ok(())
@@ -786,7 +804,10 @@ pub async fn policy_get(
         .map_http_error("Failed to get policy")?;
 
     if !response.status().is_success() {
-        return Err(http_request_failed("Failed to get policy", response.status().as_u16()));
+        return Err(http_request_failed(
+            "Failed to get policy",
+            response.status().as_u16(),
+        ));
     }
 
     let result = response
@@ -814,8 +835,8 @@ pub async fn policy_resolve(
     let mut payload = serde_json::Map::new();
 
     if let Some(upd) = updates {
-        let value = serde_json::to_value(upd)
-            .map_json_error("Failed to serialize policy updates")?;
+        let value =
+            serde_json::to_value(upd).map_json_error("Failed to serialize policy updates")?;
         payload.insert("updates".to_string(), value);
     } else {
         // Send null for updates when just fetching (not modifying)
@@ -841,7 +862,10 @@ pub async fn policy_resolve(
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(http_request_failed(format!("Failed to resolve policy: {}", error_text), status.as_u16()));
+        return Err(http_request_failed(
+            format!("Failed to resolve policy: {}", error_text),
+            status.as_u16(),
+        ));
     }
 
     let result: crate::types::ResolvedPolicyResponse = response
@@ -878,7 +902,10 @@ pub async fn policy_set(
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(http_request_failed(format!("Failed to set policy: {}", error_text), status.as_u16()));
+        return Err(http_request_failed(
+            format!("Failed to set policy: {}", error_text),
+            status.as_u16(),
+        ));
     }
 
     Ok(())
@@ -903,7 +930,10 @@ pub async fn policy_delete(
         .map_http_error("Failed to delete policy")?;
 
     if !response.status().is_success() {
-        return Err(http_request_failed("Failed to delete policy", response.status().as_u16()));
+        return Err(http_request_failed(
+            "Failed to delete policy",
+            response.status().as_u16(),
+        ));
     }
 
     Ok(())
@@ -927,7 +957,10 @@ pub async fn tasks_list(
         .map_http_error("Failed to list tasks")?;
 
     if !response.status().is_success() {
-        return Err(http_request_failed("Failed to list tasks", response.status().as_u16()));
+        return Err(http_request_failed(
+            "Failed to list tasks",
+            response.status().as_u16(),
+        ));
     }
 
     let result = response
@@ -953,7 +986,10 @@ pub async fn task_get(
         .map_http_error("Failed to get task")?;
 
     if !response.status().is_success() {
-        return Err(http_request_failed("Failed to get task", response.status().as_u16()));
+        return Err(http_request_failed(
+            "Failed to get task",
+            response.status().as_u16(),
+        ));
     }
 
     let result: crate::types::TaskDetail = response
@@ -979,7 +1015,10 @@ pub async fn task_logs(
         .map_http_error("Failed to get task logs")?;
 
     if !response.status().is_success() {
-        return Err(http_request_failed("Failed to get task logs", response.status().as_u16()));
+        return Err(http_request_failed(
+            "Failed to get task logs",
+            response.status().as_u16(),
+        ));
     }
 
     #[derive(Deserialize)]
@@ -997,10 +1036,7 @@ pub async fn task_logs(
 
 /// Cancel a task
 #[tauri::command]
-pub async fn task_cancel(
-    server: State<'_, KopiaServerState>,
-    task_id: String,
-) -> Result<()> {
+pub async fn task_cancel(server: State<'_, KopiaServerState>, task_id: String) -> Result<()> {
     let (server_url, client) = get_server_client(&server)?;
 
     let response = client
@@ -1010,7 +1046,10 @@ pub async fn task_cancel(
         .map_http_error("Failed to cancel task")?;
 
     if !response.status().is_success() {
-        return Err(http_request_failed("Failed to cancel task", response.status().as_u16()));
+        return Err(http_request_failed(
+            "Failed to cancel task",
+            response.status().as_u16(),
+        ));
     }
 
     Ok(())
@@ -1031,7 +1070,10 @@ pub async fn tasks_summary(
 
     if !response.status().is_success() {
         let status = response.status();
-        return Err(http_request_failed("Failed to get tasks summary", status.as_u16()));
+        return Err(http_request_failed(
+            "Failed to get tasks summary",
+            status.as_u16(),
+        ));
     }
 
     let result = response
@@ -1060,7 +1102,10 @@ pub async fn maintenance_info(
         .map_http_error("Failed to get maintenance info")?;
 
     if !response.status().is_success() {
-        return Err(http_request_failed("Failed to get maintenance info", response.status().as_u16()));
+        return Err(http_request_failed(
+            "Failed to get maintenance info",
+            response.status().as_u16(),
+        ));
     }
 
     let result = response
@@ -1099,7 +1144,10 @@ pub async fn maintenance_run(
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(http_request_failed(format!("Failed to run maintenance: {}", error_text), status.as_u16()));
+        return Err(http_request_failed(
+            format!("Failed to run maintenance: {}", error_text),
+            status.as_u16(),
+        ));
     }
 
     #[derive(Deserialize)]
@@ -1184,7 +1232,10 @@ pub async fn estimate_snapshot(
                 .text()
                 .await
                 .unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(http_request_failed(format!("Failed to resolve path: {}", error_text), status.as_u16()));
+            return Err(http_request_failed(
+                format!("Failed to resolve path: {}", error_text),
+                status.as_u16(),
+            ));
         }
 
         #[derive(Deserialize)]
@@ -1220,7 +1271,10 @@ pub async fn estimate_snapshot(
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(http_request_failed(format!("Failed to estimate snapshot: {}", error_text), status.as_u16()));
+        return Err(http_request_failed(
+            format!("Failed to estimate snapshot: {}", error_text),
+            status.as_u16(),
+        ));
     }
 
     let result: crate::types::EstimateResponse = response
@@ -1245,7 +1299,10 @@ pub async fn ui_preferences_get(
         .map_http_error("Failed to get UI preferences")?;
 
     if !response.status().is_success() {
-        return Err(http_request_failed("Failed to get UI preferences", response.status().as_u16()));
+        return Err(http_request_failed(
+            "Failed to get UI preferences",
+            response.status().as_u16(),
+        ));
     }
 
     let result = response
@@ -1277,7 +1334,10 @@ pub async fn ui_preferences_set(
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(http_request_failed(format!("Failed to set UI preferences: {}", error_text), status.as_u16()));
+        return Err(http_request_failed(
+            format!("Failed to set UI preferences: {}", error_text),
+            status.as_u16(),
+        ));
     }
 
     Ok(())
@@ -1307,7 +1367,10 @@ pub async fn notification_profiles_list(
 
     // For other non-success status codes, return error
     if !response.status().is_success() {
-        return Err(http_request_failed("Failed to list notification profiles", response.status().as_u16()));
+        return Err(http_request_failed(
+            "Failed to list notification profiles",
+            response.status().as_u16(),
+        ));
     }
 
     // Parse response - propagate parse errors instead of swallowing them
@@ -1340,7 +1403,10 @@ pub async fn notification_profile_create(
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(http_request_failed(format!("Failed to create notification profile: {}", error_text), status.as_u16()));
+        return Err(http_request_failed(
+            format!("Failed to create notification profile: {}", error_text),
+            status.as_u16(),
+        ));
     }
 
     Ok(())
@@ -1364,7 +1430,10 @@ pub async fn notification_profile_delete(
         .map_http_error("Failed to delete notification profile")?;
 
     if !response.status().is_success() {
-        return Err(http_request_failed("Failed to delete notification profile", response.status().as_u16()));
+        return Err(http_request_failed(
+            "Failed to delete notification profile",
+            response.status().as_u16(),
+        ));
     }
 
     Ok(())
@@ -1391,7 +1460,10 @@ pub async fn notification_profile_test(
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(http_request_failed(format!("Failed to test notification profile: {}", error_text), status.as_u16()));
+        return Err(http_request_failed(
+            format!("Failed to test notification profile: {}", error_text),
+            status.as_u16(),
+        ));
     }
 
     Ok(())
@@ -1403,7 +1475,7 @@ pub async fn notification_profile_test(
 
 /// Get server URL and HTTP client
 fn get_server_client(server: &State<'_, KopiaServerState>) -> Result<(String, reqwest::Client)> {
-    let server_guard = lock_server!(server);
+    let mut server_guard = lock_server!(server);
     let status = server_guard.status();
 
     if !status.running {
@@ -1437,10 +1509,13 @@ async fn handle_response<T: DeserializeOwned>(
         ));
     }
 
-    response.json().await.map_err(|e| KopiaError::ResponseParseError {
-        message: e.to_string(),
-        expected_type: std::any::type_name::<T>().to_string(),
-    })
+    response
+        .json()
+        .await
+        .map_err(|e| KopiaError::ResponseParseError {
+            message: e.to_string(),
+            expected_type: std::any::type_name::<T>().to_string(),
+        })
 }
 
 /// Handle API response that returns empty/unit result
@@ -1476,7 +1551,7 @@ fn http_request_failed(message: impl Into<String>, status_code: u16) -> KopiaErr
     KopiaError::HttpRequestFailed {
         message: message.into(),
         status_code: Some(status_code),
-        url: None,
+        operation: "API Request".to_string(),
     }
 }
 
@@ -1507,11 +1582,7 @@ fn build_source_query(user_name: &str, host: &str, path: &str) -> String {
 ///
 /// # Returns
 /// URL-encoded query string, or empty string if no parameters
-fn build_policy_query(
-    user_name: Option<&str>,
-    host: Option<&str>,
-    path: Option<&str>,
-) -> String {
+fn build_policy_query(user_name: Option<&str>, host: Option<&str>, path: Option<&str>) -> String {
     let parts: Vec<_> = [
         user_name.map(|u| format!("userName={}", urlencoding::encode(u))),
         host.map(|h| format!("host={}", urlencoding::encode(h))),

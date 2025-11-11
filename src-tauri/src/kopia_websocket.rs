@@ -132,11 +132,12 @@ impl KopiaWebSocket {
                 message: format!("Failed to build WebSocket request: {}", e),
             })?;
 
-        let (ws_stream, _) = connect_async(request)
-            .await
-            .map_err(|e| KopiaError::WebSocketConnectionFailed {
-                message: format!("Failed to connect to WebSocket: {}", e),
-            })?;
+        let (ws_stream, _) =
+            connect_async(request)
+                .await
+                .map_err(|e| KopiaError::WebSocketConnectionFailed {
+                    message: format!("Failed to connect to WebSocket: {}", e),
+                })?;
 
         log::info!("WebSocket connected successfully");
 
@@ -223,7 +224,7 @@ impl KopiaWebSocket {
     pub async fn disconnect(&self) -> Result<()> {
         let mut conn_guard = self.connection.lock().await;
 
-        if let Some(conn) = conn_guard.take() {
+        if let Some(mut conn) = conn_guard.take() {
             log::info!("Disconnecting WebSocket: {}", conn.url);
 
             // Send shutdown signal for graceful close
@@ -231,11 +232,12 @@ impl KopiaWebSocket {
 
             // Wait for handler to finish (with timeout)
             let timeout = tokio::time::Duration::from_secs(5);
-            match tokio::time::timeout(timeout, conn.handle).await {
+            match tokio::time::timeout(timeout, &mut conn.handle).await {
                 Ok(Ok(())) => log::info!("WebSocket disconnected gracefully"),
                 Ok(Err(e)) => log::warn!("WebSocket handler panicked: {}", e),
                 Err(_) => {
-                    log::warn!("WebSocket disconnect timeout, connection may not be clean");
+                    log::warn!("WebSocket disconnect timeout, aborting task to prevent leak");
+                    conn.handle.abort();
                 }
             }
 

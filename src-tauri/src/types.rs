@@ -164,7 +164,7 @@ pub struct RepositoryCreateOptions {
     pub ecc_overhead_percent: Option<f64>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockFormatOptions {
     pub hash: Option<String>,
@@ -173,7 +173,7 @@ pub struct BlockFormatOptions {
     pub version: Option<String>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectFormatOptions {
     pub splitter: Option<String>,

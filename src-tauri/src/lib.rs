@@ -8,6 +8,32 @@ mod kopia_server;
 mod kopia_websocket;
 mod types;
 
+// Test modules
+#[cfg(test)]
+mod advanced_error_tests;
+#[cfg(test)]
+mod commands_tests;
+#[cfg(test)]
+mod concurrency_tests;
+#[cfg(test)]
+mod error_edge_cases_tests;
+#[cfg(test)]
+mod integration_tests;
+#[cfg(test)]
+mod kopia_commands_tests;
+#[cfg(test)]
+mod kopia_server_tests;
+#[cfg(test)]
+mod kopia_websocket_tests;
+#[cfg(test)]
+mod system_tests;
+#[cfg(test)]
+mod types_advanced_tests;
+#[cfg(test)]
+mod types_tests;
+#[cfg(test)]
+mod types_unit_tests;
+
 use kopia_server::{create_server_state, KopiaServerState};
 use kopia_websocket::KopiaWebSocket;
 use std::sync::Arc;
@@ -75,7 +101,10 @@ async fn auto_start_server(state: KopiaServerState) -> error::Result<()> {
                  Attempting to recover by using the poisoned state..."
             );
             #[cfg(debug_assertions)]
-            log::debug!("Poison recovery stack trace: {:?}", std::backtrace::Backtrace::capture());
+            log::debug!(
+                "Poison recovery stack trace: {:?}",
+                std::backtrace::Backtrace::capture()
+            );
 
             let mut recovered = poisoned.into_inner();
 
@@ -156,13 +185,18 @@ pub fn run() {
             let state = server_state.clone();
             let app_handle = app.app_handle().clone();
             tauri::async_runtime::spawn(async move {
+                // Small delay to let UI initialize before starting server
+                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
                 if let Err(e) = auto_start_server(state).await {
                     log::error!("Failed to auto-start Kopia server: {}", e);
                     log::info!("You can start the server manually from the UI");
 
                     // Notify frontend about auto-start failure
                     let error_message = e.to_string();
-                    if let Err(emit_err) = app_handle.emit("server-autostart-failed", &error_message) {
+                    if let Err(emit_err) =
+                        app_handle.emit("server-autostart-failed", &error_message)
+                    {
                         log::error!("Failed to emit server-autostart-failed event: {}", emit_err);
                     }
                 }
