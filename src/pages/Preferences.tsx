@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useThemeStore } from '@/stores/theme';
 import { useLanguageStore } from '@/stores/language';
 import { useFontSizeStore, type FontSize } from '@/stores/fontSize';
-import { usePreferencesStore } from '@/stores/preferences';
+import { usePreferencesStore, type ByteFormat } from '@/stores/preferences';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Palette, Globe, Bell, Zap, Sun, Moon, Monitor, Type, Mail } from 'lucide-react';
+import { Palette, Globe, Bell, Zap, Sun, Moon, Monitor, Type, Mail, HardDrive } from 'lucide-react';
 import { NotificationProfiles } from '@/components/kopia/notifications/NotificationProfiles';
 
 export function Preferences() {
@@ -27,7 +27,7 @@ export function Preferences() {
   const { theme, setTheme } = useThemeStore();
   const { language, setLanguage } = useLanguageStore();
   const { fontSize, setFontSize } = useFontSizeStore();
-  const { minimizeToTray, setMinimizeToTray } = usePreferencesStore();
+  const { minimizeToTray, setMinimizeToTray, byteFormat, setByteFormat } = usePreferencesStore();
   const [notifications, setNotifications] = useState(true);
   const [autoBackup, setAutoBackup] = useState(false);
   const [soundEffects, setSoundEffects] = useState(true);
@@ -104,6 +104,36 @@ export function Preferences() {
                   <div className="flex items-center gap-2">
                     <Type className="h-5 w-5" />
                     {t('preferences.large')}
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="byteFormat" className="text-sm">
+                {t('preferences.byteFormat')}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {t('preferences.byteFormatDescription')}
+              </p>
+            </div>
+            <Select value={byteFormat} onValueChange={(value: ByteFormat) => setByteFormat(value)}>
+              <SelectTrigger id="byteFormat" className="w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="base2">
+                  <div className="flex items-center gap-2">
+                    <HardDrive className="h-4 w-4" />
+                    {t('preferences.base2')}
+                  </div>
+                </SelectItem>
+                <SelectItem value="base10">
+                  <div className="flex items-center gap-2">
+                    <HardDrive className="h-4 w-4" />
+                    {t('preferences.base10')}
                   </div>
                 </SelectItem>
               </SelectContent>

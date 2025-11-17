@@ -9,6 +9,7 @@
     "disconnect": "Disconnect",
     "connect": "Connect",
     "save": "Save",
+    "saving": "Saving...",
     "edit": "Edit",
     "add": "Add",
     "back": "Back",
@@ -164,6 +165,30 @@
     "cannotBrowseDesc": "This backup does not have browseable content. Try creating a new backup.",
     "cannotRestore": "Cannot restore Backup",
     "cannotRestoreDesc": "This backup does not have restorable content. Try creating a new backup.",
+    "pins": {
+      "pins": "Pins",
+      "managePins": "Manage pins",
+      "manageTitle": "Manage Snapshot Pins",
+      "manageDescription": "Add or remove pins to protect this backup from automatic deletion by retention policies.",
+      "currentPins": "Current Pins",
+      "noPins": "No pins set",
+      "addNew": "Add New Pin",
+      "pinNamePlaceholder": "Enter pin name (e.g., important, year-end)",
+      "pinHint": "Pins prevent backups from being deleted by retention policies",
+      "emptyName": "Pin name cannot be empty",
+      "duplicateName": "Pin already exists",
+      "updateSuccess": "Pins updated successfully"
+    },
+    "retention": {
+      "retention": "Retention"
+    },
+    "deleteSource": {
+      "deleteSource": "Delete Source",
+      "confirmTitle": "Delete Backup Source?",
+      "confirmDescription": "This will permanently delete the backup source and its backup rule. This action cannot be undone.",
+      "warningNoSnapshots": "This folder has no backups. You can delete the source to remove the backup configuration.",
+      "deleteSuccess": "Backup source deleted successfully"
+    },
     "errors": {
       "fetchFailed": "Failed to fetch backups"
     }
@@ -498,6 +523,10 @@
     "small": "Small",
     "medium": "Medium",
     "large": "Large",
+    "byteFormat": "Byte format",
+    "byteFormatDescription": "How file sizes are displayed throughout the app",
+    "base2": "Base-2 (KiB, MiB, GiB)",
+    "base10": "Base-10 (KB, MB, GB)",
     "language": "Language",
     "interfaceLanguage": "Interface language",
     "english": "English",

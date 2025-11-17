@@ -1,6 +1,5 @@
 /// Unit tests for types.rs
 /// Tests Default implementations and other derived traits
-
 #[cfg(test)]
 mod tests {
     use crate::types::*;

@@ -1,18 +1,43 @@
 export { cn } from './cn';
 
+export type ByteFormat = 'base2' | 'base10';
+
 /**
  * Format bytes to human-readable string
+ * @param bytes Number of bytes
+ * @param decimals Number of decimal places (default: 2)
+ * @param format 'base2' (KiB, MiB, GiB with 1024) or 'base10' (KB, MB, GB with 1000)
  */
-export function formatBytes(bytes: number, decimals = 2): string {
+export function formatBytes(bytes: number, decimals = 2, format: ByteFormat = 'base2'): string {
   if (bytes === 0) return '0 B';
 
-  const k = 1024;
+  const k = format === 'base2' ? 1024 : 1000;
   const dm = decimals < 0 ? 0 : decimals;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  const sizes =
+    format === 'base2'
+      ? ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB']
+      : ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
 
   const i = Math.floor(Math.log(bytes) / Math.log(k));
 
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+}
+
+/**
+ * Format bytes with user's preferred format
+ * NOTE: This function should only be used in components that need the user preference.
+ * For utilities/hooks that don't have access to the store, use formatBytes() directly.
+ *
+ * @param bytes Number of bytes
+ * @param decimals Number of decimal places (default: 2)
+ * @param byteFormat User's byte format preference from preferences store
+ */
+export function formatBytesWithPreference(
+  bytes: number,
+  byteFormat: ByteFormat,
+  decimals = 2
+): string {
+  return formatBytes(bytes, decimals, byteFormat);
 }
 
 /**

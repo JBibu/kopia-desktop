@@ -179,7 +179,7 @@ mod tests {
         let ready_waiter = server
             .get_ready_waiter()
             .expect("Failed to get ready waiter");
-        let _ = ready_waiter.await.expect("Server failed to become ready");
+        ready_waiter.await.expect("Server failed to become ready");
 
         // Client should be available when running
         assert!(

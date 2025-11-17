@@ -158,7 +158,7 @@ mod tests {
 
     #[test]
     fn test_multiple_storage_types_distinct() {
-        let types = vec![
+        let types = [
             "filesystem",
             "s3",
             "b2",

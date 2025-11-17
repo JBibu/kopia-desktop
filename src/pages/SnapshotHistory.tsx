@@ -53,14 +53,18 @@ import {
   Plus,
   FolderOpen,
   RotateCcw,
+  Pin,
 } from 'lucide-react';
 import type { Snapshot } from '@/lib/kopia/types';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia/errors';
 import { formatBytes, formatDateTime } from '@/lib/utils';
+import { logger } from '@/lib/utils/logger';
 import { useLanguageStore } from '@/stores/language';
 import { useKopiaStore } from '@/stores/kopia';
 import { navigateToSnapshotBrowse, navigateToSnapshotRestore } from '@/lib/utils/navigation';
+import { PinDialog } from '@/components/kopia/snapshots/PinDialog';
+import { RetentionTags } from '@/components/kopia/snapshots/RetentionTags';
 
 export function SnapshotHistory() {
   const { t } = useTranslation();
@@ -87,9 +91,15 @@ export function SnapshotHistory() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSnapshots, setSelectedSnapshots] = useState<Set<string>>(new Set());
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showDeleteSourceDialog, setShowDeleteSourceDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeletingSource, setIsDeletingSource] = useState(false);
   const [isCreatingSnapshot, setIsCreatingSnapshot] = useState(false);
   const [showAllSnapshots, setShowAllSnapshots] = useState(false);
+  const [pinDialogSnapshot, setPinDialogSnapshot] = useState<{
+    id: string;
+    pins: string[];
+  } | null>(null);
 
   const fetchSnapshots = async () => {
     if (!userName || !host || !path) {
@@ -106,7 +116,7 @@ export function SnapshotHistory() {
       setSnapshots(fetchedSnapshots);
     } catch (err) {
       // Error is already handled by the store
-      console.error(t('snapshots.errors.fetchFailed'), err);
+      logger.error(t('snapshots.errors.fetchFailed'), err);
     }
   };
 
@@ -203,6 +213,24 @@ export function SnapshotHistory() {
     }
   };
 
+  const handleDeleteSource = async () => {
+    if (!userName || !host || !path) return;
+
+    setIsDeletingSource(true);
+    try {
+      // Delete all snapshots (empty array means delete all + source + policy)
+      await storeDeleteSnapshots(userName, host, path, []);
+      toast.success(t('snapshots.deleteSource.deleteSuccess'));
+      setShowDeleteSourceDialog(false);
+      // Navigate back to profiles page after deletion
+      void navigate('/profiles');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setIsDeletingSource(false);
+    }
+  };
+
   const filteredSnapshots = snapshots.filter((snapshot) => {
     return (
       searchQuery === '' ||
@@ -244,28 +272,37 @@ export function SnapshotHistory() {
             <RefreshCw className={`h-4 w-4 mr-2 ${isSnapshotsLoading ? 'animate-spin' : ''}`} />
             {t('common.refresh')}
           </Button>
-          <Button
-            size="sm"
-            onClick={() => void handleSnapshotNow()}
-            disabled={isCreatingSnapshot || isSnapshotsLoading}
-          >
-            {isCreatingSnapshot ? (
-              <>
-                <Spinner className="h-4 w-4 mr-2" />
-                {t('snapshots.creating')}
-              </>
-            ) : (
-              <>
-                <Plus className="h-4 w-4 mr-2" />
-                {t('snapshots.createSnapshotNow')}
-              </>
-            )}
-          </Button>
-          {selectedSnapshots.size > 0 && (
-            <Button variant="destructive" size="sm" onClick={() => setShowDeleteDialog(true)}>
+          {snapshots.length === 0 && !isSnapshotsLoading ? (
+            <Button variant="destructive" size="sm" onClick={() => setShowDeleteSourceDialog(true)}>
               <Trash2 className="h-4 w-4 mr-2" />
-              {t('snapshots.deleteSelected', { count: selectedSnapshots.size })}
+              {t('snapshots.deleteSource.deleteSource')}
             </Button>
+          ) : (
+            <>
+              <Button
+                size="sm"
+                onClick={() => void handleSnapshotNow()}
+                disabled={isCreatingSnapshot || isSnapshotsLoading}
+              >
+                {isCreatingSnapshot ? (
+                  <>
+                    <Spinner className="h-4 w-4 mr-2" />
+                    {t('snapshots.creating')}
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-2" />
+                    {t('snapshots.createSnapshotNow')}
+                  </>
+                )}
+              </Button>
+              {selectedSnapshots.size > 0 && (
+                <Button variant="destructive" size="sm" onClick={() => setShowDeleteDialog(true)}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  {t('snapshots.deleteSelected', { count: selectedSnapshots.size })}
+                </Button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -318,14 +355,24 @@ export function SnapshotHistory() {
               <Spinner className="h-8 w-8" />
             </div>
           ) : filteredSnapshots.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <FolderArchive className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">{t('snapshots.noSnapshotsFound')}</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                {searchQuery
-                  ? t('snapshots.noSnapshotsMatch')
-                  : t('snapshots.noSnapshotsForSource')}
-              </p>
+            <div className="space-y-4">
+              {snapshots.length === 0 && !searchQuery && (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    {t('snapshots.deleteSource.warningNoSnapshots')}
+                  </AlertDescription>
+                </Alert>
+              )}
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <FolderArchive className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">{t('snapshots.noSnapshotsFound')}</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {searchQuery
+                    ? t('snapshots.noSnapshotsMatch')
+                    : t('snapshots.noSnapshotsForSource')}
+                </p>
+              </div>
             </div>
           ) : (
             <Table>
@@ -346,7 +393,9 @@ export function SnapshotHistory() {
                   <TableHead>{t('snapshots.time')}</TableHead>
                   <TableHead className="text-right">{t('snapshots.size')}</TableHead>
                   <TableHead className="text-right">{t('snapshots.files')}</TableHead>
-                  <TableHead className="w-[150px]">{t('snapshots.actions')}</TableHead>
+                  <TableHead>{t('snapshots.pins.pins')}</TableHead>
+                  <TableHead>{t('snapshots.retention.retention')}</TableHead>
+                  <TableHead className="w-[200px]">{t('snapshots.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -389,6 +438,23 @@ export function SnapshotHistory() {
                     </TableCell>
                     <TableCell className="text-right">
                       <Badge variant="secondary">{snapshot.summary?.files || 0}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {snapshot.pins && snapshot.pins.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {snapshot.pins.map((pin) => (
+                            <Badge key={pin} variant="secondary" className="gap-1">
+                              <Pin className="h-3 w-3" />
+                              {pin}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <RetentionTags retention={snapshot.retention} />
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
@@ -442,6 +508,20 @@ export function SnapshotHistory() {
                         >
                           <RotateCcw className="h-4 w-4" />
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            setPinDialogSnapshot({
+                              id: snapshot.id,
+                              pins: snapshot.pins || [],
+                            })
+                          }
+                          title={t('snapshots.pins.managePins')}
+                          aria-label={t('snapshots.pins.managePins')}
+                        >
+                          <Pin className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -488,6 +568,63 @@ export function SnapshotHistory() {
                 <>
                   <Trash2 className="h-4 w-4 mr-2" />
                   {t('snapshots.deleteSnapshots')}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pin Management Dialog */}
+      {pinDialogSnapshot && (
+        <PinDialog
+          open={!!pinDialogSnapshot}
+          onOpenChange={(open) => !open && setPinDialogSnapshot(null)}
+          snapshotId={pinDialogSnapshot.id}
+          currentPins={pinDialogSnapshot.pins}
+          onPinsUpdated={() => void fetchSnapshots()}
+        />
+      )}
+
+      {/* Delete Source Dialog */}
+      <Dialog open={showDeleteSourceDialog} onOpenChange={setShowDeleteSourceDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('snapshots.deleteSource.confirmTitle')}</DialogTitle>
+            <DialogDescription>{t('snapshots.deleteSource.confirmDescription')}</DialogDescription>
+          </DialogHeader>
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              {t('snapshots.deleteWarning')} {t('snapshots.deleteWarningDetail')}
+            </AlertDescription>
+          </Alert>
+          <div className="text-sm text-muted-foreground">
+            <p className="font-medium mb-1">Source to delete:</p>
+            <p className="font-mono text-xs bg-muted p-2 rounded">{sourceLabel}</p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteSourceDialog(false)}
+              disabled={isDeletingSource}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void handleDeleteSource()}
+              disabled={isDeletingSource}
+            >
+              {isDeletingSource ? (
+                <>
+                  <Spinner className="h-4 w-4 mr-2" />
+                  {t('snapshots.deleting')}
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  {t('snapshots.deleteSource.deleteSource')}
                 </>
               )}
             </Button>

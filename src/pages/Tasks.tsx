@@ -45,7 +45,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import type { Task } from '@/lib/kopia/types';
-import { formatDateTime } from '@/lib/utils';
+import { formatDateTime, formatBytes } from '@/lib/utils';
 import { useLanguageStore } from '@/stores/language';
 
 export function Tasks() {
@@ -84,15 +84,6 @@ export function Tasks() {
       .split('_')
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' ');
-  };
-
-  // Format bytes to human-readable size
-  const formatBytes = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
   };
 
   // Calculate progress percentage from task counters

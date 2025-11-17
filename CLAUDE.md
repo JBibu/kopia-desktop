@@ -19,16 +19,20 @@ A React + Tauri application providing a user-friendly interface for managing Kop
 - ✅ Backup profiles system for managing multiple backup configurations
 - ✅ Theme system (light/dark/system) with next-themes + Zustand
 - ✅ Font size preferences with Zustand
+- ✅ Byte format preference (Base-2 vs Base-10) with Zustand
 - ✅ i18n/translations (English + Spanish) with react-i18next
 - ✅ Comprehensive error handling with 46 `KopiaError` variants
 - ✅ Global Kopia state store with Zustand (centralized polling + WebSocket + mount management)
 - ✅ 9 custom hooks (useKopiaServer, useRepository, useSnapshots, usePolicies, useTasks, useMounts, useProviderConfig, useIsMobile, useToast)
 - ✅ Native file/folder pickers via Tauri dialog plugin
 - ✅ 20 shadcn/ui components (accordion, alert, alert-dialog, badge, breadcrumb, button, card, checkbox, collapsible, dialog, input, label, progress, select, separator, sheet, spinner, switch, tabs, textarea, table, sonner)
-- ✅ 51 custom components (layout: 5, Kopia-specific: 21, UI: 20, setup: 13, notifications: 5, policy: 1, profiles: 1)
+- ✅ 53 custom components (layout: 5, Kopia-specific: 23, UI: 20, setup: 13, notifications: 5, policy: 1, profiles: 1, snapshots: 2)
 - ✅ WebSocket support with intelligent fallback to polling
 - ✅ Recharts integration for data visualization (animations disabled to prevent re-renders)
 - ✅ Snapshot cancel functionality
+- ✅ Snapshot pin system (add/remove pins to protect snapshots from deletion)
+- ✅ Retention tags display (color-coded badges for retention policies)
+- ✅ Source deletion when no snapshots remain (delete source + policy)
 - ✅ System tray integration (show/hide window, quit menu)
 - ✅ Desktop notifications for task completion
 - ✅ Snapshot mounting (mount/unmount snapshots as local filesystems)
@@ -36,6 +40,7 @@ A React + Tauri application providing a user-friendly interface for managing Kop
 - ✅ Window close handler with minimize to tray
 - ✅ Comprehensive Rust backend testing (146 passing tests: 136 unit + 10 integration, ~65% coverage)
 - ✅ Kopia API integration tests (10 tests with real Kopia binary)
+- ✅ **Workflow parity with official Kopia HTMLui achieved** (pins, retention tags, source deletion)
 
 **Not Yet Implemented:**
 
@@ -205,6 +210,9 @@ kopia-desktop/
 │   │       │   ├── providers/            # Storage providers (8)
 │   │       │   ├── steps/                # Wizard steps (4)
 │   │       │   └── SetupRepository.tsx
+│   │       ├── snapshots/                # Snapshot components (2)
+│   │       │   ├── PinDialog.tsx         # Pin management dialog
+│   │       │   └── RetentionTags.tsx     # Retention badge display
 │   │       ├── policy/                   # Policy editor (1)
 │   │       ├── profiles/                 # Profile management (1)
 │   │       └── notifications/            # Notification profiles (5)
@@ -503,6 +511,15 @@ KOPIA_PATH=/path/to/bin/kopia-linux-x64 cargo test --lib kopia_api_integration -
 ---
 
 ## Recent Improvements
+
+✅ **Workflow Parity with Official Kopia (November 2025):**
+
+- **Snapshot Pin System** - Add/remove pins to protect snapshots from automatic deletion by retention policies
+- **Retention Tags Display** - Color-coded badges showing retention policies (latest-N, hourly-N, daily-N, etc.)
+- **Source Deletion** - Delete backup source + policy when no snapshots remain
+- **Byte Format Preference** - User choice between Base-2 (KiB, MiB, GiB) and Base-10 (KB, MB, GB)
+- **Files created**: `PinDialog.tsx`, `RetentionTags.tsx`
+- **100% core workflow parity achieved** with official Kopia HTMLui
 
 ✅ **Backup Profiles System:**
 

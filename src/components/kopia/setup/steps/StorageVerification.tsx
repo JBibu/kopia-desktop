@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, CheckCircle2, AlertCircle, ArrowLeft } from 'lucide-react';
 import { repositoryExists } from '@/lib/kopia/client';
+import { getErrorMessage } from '@/lib/kopia/errors';
 import type { StorageConfig } from '@/lib/kopia/types';
 
 interface StorageVerificationProps {
@@ -34,7 +35,7 @@ export function StorageVerification({
       setStatus(exists ? 'exists' : 'not-exists');
     } catch (err) {
       setStatus('error');
-      setError(err instanceof Error ? err.message : String(err));
+      setError(getErrorMessage(err));
     }
   }, [storageConfig]);
 

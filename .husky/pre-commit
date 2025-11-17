@@ -6,4 +6,8 @@ pnpm format:check || exit 1
 echo "Running linter..."
 pnpm lint:check || exit 1
 
+# Run TypeScript type check
+echo "Running TypeScript type check..."
+pnpm typecheck || exit 1
+
 echo "✓ Pre-commit checks passed!"

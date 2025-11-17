@@ -272,7 +272,7 @@ mod tests {
         for error in error_variants {
             let display = format!("{}", error);
             assert!(!display.is_empty());
-            assert!(display.len() > 0);
+            assert!(!display.is_empty());
         }
     }
 

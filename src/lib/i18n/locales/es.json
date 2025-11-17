@@ -9,6 +9,7 @@
     "disconnect": "Desconectar",
     "connect": "Conectar",
     "save": "Guardar",
+    "saving": "Guardando...",
     "edit": "Editar",
     "add": "Agregar",
     "back": "Volver",
@@ -164,6 +165,30 @@
     "cannotBrowseDesc": "Este respaldo no tiene contenido explorable. Intenta crear un nuevo respaldo.",
     "cannotRestore": "No se puede restaurar el respaldo",
     "cannotRestoreDesc": "Este respaldo no tiene contenido restaurable. Intenta crear un nuevo respaldo.",
+    "pins": {
+      "pins": "Marcadores",
+      "managePins": "Gestionar marcadores",
+      "manageTitle": "Gestionar marcadores de respaldo",
+      "manageDescription": "Agrega o elimina marcadores para proteger este respaldo de eliminación automática por las políticas de retención.",
+      "currentPins": "Marcadores actuales",
+      "noPins": "Sin marcadores",
+      "addNew": "Agregar nuevo marcador",
+      "pinNamePlaceholder": "Ingresa el nombre del marcador (ej: importante, fin-de-año)",
+      "pinHint": "Los marcadores previenen que los respaldos sean eliminados por las políticas de retención",
+      "emptyName": "El nombre del marcador no puede estar vacío",
+      "duplicateName": "El marcador ya existe",
+      "updateSuccess": "Marcadores actualizados exitosamente"
+    },
+    "retention": {
+      "retention": "Retención"
+    },
+    "deleteSource": {
+      "deleteSource": "Eliminar origen",
+      "confirmTitle": "¿Eliminar origen de respaldo?",
+      "confirmDescription": "Esto eliminará permanentemente el origen de respaldo y su regla de respaldo. Esta acción no se puede deshacer.",
+      "warningNoSnapshots": "Esta carpeta no tiene respaldos. Puedes eliminar el origen para quitar la configuración de respaldo.",
+      "deleteSuccess": "Origen de respaldo eliminado exitosamente"
+    },
     "errors": {
       "fetchFailed": "Error al obtener respaldos"
     }
@@ -498,6 +523,10 @@
     "small": "Pequeño",
     "medium": "Mediano",
     "large": "Grande",
+    "byteFormat": "Formato de bytes",
+    "byteFormatDescription": "Cómo se muestran los tamaños de archivo en la aplicación",
+    "base2": "Base-2 (KiB, MiB, GiB)",
+    "base10": "Base-10 (KB, MB, GB)",
     "language": "Idioma",
     "interfaceLanguage": "Idioma de la interfaz",
     "english": "English",

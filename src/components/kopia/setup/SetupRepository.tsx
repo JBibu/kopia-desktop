@@ -10,6 +10,7 @@ import {
   disconnectRepository,
   getRepositoryStatus,
 } from '@/lib/kopia/client';
+import { getErrorMessage, parseKopiaError, KopiaErrorCode } from '@/lib/kopia/errors';
 import type { StorageType, StorageConfig } from '@/lib/kopia/types';
 import type { SetupWizardState } from './types';
 import { ProviderSelection } from './steps/ProviderSelection';
@@ -183,25 +184,23 @@ export function SetupRepository() {
       await refreshStatus();
       void navigate('/', { replace: true });
     } catch (error) {
-      // Parse error message for better user feedback
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      let userMessage = errorMessage;
+      // Parse error for better user feedback
+      const kopiaError = parseKopiaError(error);
+      let userMessage = getErrorMessage(error);
 
       // Handle common error cases with user-friendly messages
-      if (errorMessage.includes('ALREADY_CONNECTED')) {
+      if (kopiaError.is(KopiaErrorCode.REPOSITORY_ALREADY_CONNECTED)) {
         // This should be rare now since we auto-disconnect, but handle it gracefully
         userMessage = t('setup.toasts.alreadyConnected');
-      } else if (errorMessage.includes('INVALID_PASSWORD')) {
+      } else if (kopiaError.is(KopiaErrorCode.INVALID_PASSWORD)) {
         userMessage = t('setup.toasts.invalidPassword');
-      } else if (errorMessage.includes('NOT_INITIALIZED')) {
+      } else if (kopiaError.is(KopiaErrorCode.REPOSITORY_NOT_FOUND)) {
         userMessage = t('setup.toasts.notInitialized');
       } else if (
-        errorMessage.includes('connection refused') ||
-        errorMessage.includes('ECONNREFUSED')
+        kopiaError.is(KopiaErrorCode.CONNECTION_REFUSED) ||
+        kopiaError.is(KopiaErrorCode.SERVER_NOT_RUNNING)
       ) {
         userMessage = t('setup.toasts.serverUnavailable');
-      } else if (errorMessage.includes('Failed to disconnect')) {
-        userMessage = errorMessage; // Use the specific disconnect error message
       }
 
       toast({
