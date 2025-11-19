@@ -868,7 +868,9 @@ export const useKopiaStore = create<KopiaStore>()(
       }
 
       if (!serverInfo?.password) {
-        console.error('Cannot connect WebSocket: server password not available');
+        if (import.meta.env.DEV) {
+          console.error('Cannot connect WebSocket: server password not available');
+        }
         return;
       }
 
@@ -921,7 +923,9 @@ export const useKopiaStore = create<KopiaStore>()(
         // Keep task polling running as fallback
         // WebSocket provides real-time updates, polling ensures we don't miss updates
       } catch (error) {
-        console.error('Failed to connect WebSocket:', error);
+        if (import.meta.env.DEV) {
+          console.error('Failed to connect WebSocket:', error);
+        }
         set({ isWebSocketConnected: false });
 
         // Fall back to polling
@@ -959,7 +963,9 @@ export const useKopiaStore = create<KopiaStore>()(
           console.log('WebSocket disconnected');
         }
       } catch (error) {
-        console.error('Failed to disconnect WebSocket:', error);
+        if (import.meta.env.DEV) {
+          console.error('Failed to disconnect WebSocket:', error);
+        }
       }
     },
 

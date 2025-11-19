@@ -5,10 +5,16 @@
  * Shows inheritance from parent policies
  */
 
-import { useNavigate, useSearchParams } from 'react-router';
+import { useNavigate, useSearchParams, Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { Button } from '@/components/ui/button';
-import { ChevronLeft } from 'lucide-react';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 import { PolicyEditor } from '@/components/kopia/policy/PolicyEditor';
 import type { PolicyTarget } from '@/lib/kopia/types';
 
@@ -30,11 +36,20 @@ export function PolicyEdit() {
 
   return (
     <div className="space-y-6">
-      {/* Back button */}
-      <Button variant="ghost" size="sm" onClick={handleClose}>
-        <ChevronLeft className="h-4 w-4 mr-2" />
-        {t('common.back')}
-      </Button>
+      {/* Breadcrumb Navigation */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to="/policies">{t('nav.policies')}</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{t('policies.editPolicy')}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
 
       {/* Editor */}
       <PolicyEditor target={target} onClose={handleClose} />

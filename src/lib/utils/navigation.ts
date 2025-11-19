@@ -18,30 +18,6 @@ export function navigateBack(navigate: NavigateFunction, fallback: string): void
 }
 
 /**
- * Navigate to profile history with proper parameters
- */
-export function navigateToProfileHistory(navigate: NavigateFunction, profileId: string): void {
-  void navigate(`/profiles/${profileId}/history`);
-}
-
-/**
- * Navigate to snapshot history for a specific source
- */
-export function navigateToSnapshotHistory(
-  navigate: NavigateFunction,
-  userName: string,
-  host: string,
-  path: string
-): void {
-  const params = new URLSearchParams({
-    userName,
-    host,
-    path,
-  });
-  void navigate(`/snapshots/history?${params.toString()}`);
-}
-
-/**
  * Navigate to snapshot browse view
  */
 export function navigateToSnapshotBrowse(
@@ -75,28 +51,4 @@ export function navigateToSnapshotRestore(
     path,
   });
   void navigate(`/snapshots/restore?${params.toString()}`);
-}
-
-/**
- * Navigate to snapshot creation for a profile
- */
-export function navigateToSnapshotCreate(navigate: NavigateFunction, profileId: string): void {
-  void navigate(`/snapshots/create?profileId=${profileId}`);
-}
-
-/**
- * Navigate to policy edit page
- */
-export function navigateToPolicyEdit(
-  navigate: NavigateFunction,
-  userName?: string,
-  host?: string,
-  path?: string
-): void {
-  if (userName && host && path) {
-    const params = new URLSearchParams({ userName, host, path });
-    void navigate(`/policies/edit?${params.toString()}`);
-  } else {
-    void navigate('/policies/edit');
-  }
 }

@@ -381,15 +381,11 @@ export function Policies() {
               <Spinner className="h-8 w-8" />
             </div>
           ) : policies.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                <ListTodo className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">{t('policies.noPoliciesFound')}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {t('policies.noPoliciesConfigured')}
-                </p>
-              </CardContent>
-            </Card>
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <ListTodo className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">{t('policies.noPoliciesFound')}</h3>
+              <p className="text-sm text-muted-foreground">{t('policies.noPoliciesConfigured')}</p>
+            </div>
           ) : (
             policies.map((policy, idx) => <PolicyCard key={idx} policyResponse={policy} />)
           )}
@@ -397,13 +393,11 @@ export function Policies() {
 
         <TabsContent value="global" className="space-y-4">
           {globalPolicies.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                <Globe className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">{t('policies.noGlobalPolicies')}</h3>
-                <p className="text-sm text-muted-foreground">{t('policies.noGlobalConfigured')}</p>
-              </CardContent>
-            </Card>
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Globe className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">{t('policies.noGlobalPolicies')}</h3>
+              <p className="text-sm text-muted-foreground">{t('policies.noGlobalConfigured')}</p>
+            </div>
           ) : (
             globalPolicies.map((policy, idx) => <PolicyCard key={idx} policyResponse={policy} />)
           )}
@@ -411,13 +405,11 @@ export function Policies() {
 
         <TabsContent value="host" className="space-y-4">
           {hostPolicies.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                <Monitor className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">{t('policies.noHostPolicies')}</h3>
-                <p className="text-sm text-muted-foreground">{t('policies.noHostConfigured')}</p>
-              </CardContent>
-            </Card>
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Monitor className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">{t('policies.noHostPolicies')}</h3>
+              <p className="text-sm text-muted-foreground">{t('policies.noHostConfigured')}</p>
+            </div>
           ) : (
             hostPolicies.map((policy, idx) => <PolicyCard key={idx} policyResponse={policy} />)
           )}
@@ -425,13 +417,11 @@ export function Policies() {
 
         <TabsContent value="user" className="space-y-4">
           {userPolicies.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                <User className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">{t('policies.noUserPolicies')}</h3>
-                <p className="text-sm text-muted-foreground">{t('policies.noUserConfigured')}</p>
-              </CardContent>
-            </Card>
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <User className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">{t('policies.noUserPolicies')}</h3>
+              <p className="text-sm text-muted-foreground">{t('policies.noUserConfigured')}</p>
+            </div>
           ) : (
             userPolicies.map((policy, idx) => <PolicyCard key={idx} policyResponse={policy} />)
           )}
@@ -439,13 +429,11 @@ export function Policies() {
 
         <TabsContent value="path" className="space-y-4">
           {pathPolicies.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                <FolderTree className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">{t('policies.noPathPolicies')}</h3>
-                <p className="text-sm text-muted-foreground">{t('policies.noPathConfigured')}</p>
-              </CardContent>
-            </Card>
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <FolderTree className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">{t('policies.noPathPolicies')}</h3>
+              <p className="text-sm text-muted-foreground">{t('policies.noPathConfigured')}</p>
+            </div>
           ) : (
             pathPolicies.map((policy, idx) => <PolicyCard key={idx} policyResponse={policy} />)
           )}

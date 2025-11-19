@@ -58,7 +58,7 @@ export function Tasks() {
   // Map language code to locale
   const locale = language === 'es' ? 'es-ES' : 'en-US';
 
-  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
 
@@ -115,7 +115,7 @@ export function Tasks() {
     setIsCancelling(true);
     try {
       await cancelTask(selectedTask.id);
-      setShowCancelDialog(false);
+      setIsCancelDialogOpen(false);
       setSelectedTask(null);
     } catch {
       // Error is handled by the hook
@@ -351,7 +351,7 @@ export function Tasks() {
                               size="sm"
                               onClick={() => {
                                 setSelectedTask(task);
-                                setShowCancelDialog(true);
+                                setIsCancelDialogOpen(true);
                               }}
                               title={t('tasks.cancelTask')}
                             >
@@ -532,7 +532,7 @@ export function Tasks() {
       )}
 
       {/* Cancel Task Dialog */}
-      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+      <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('tasks.cancelTask')}</DialogTitle>
@@ -556,7 +556,7 @@ export function Tasks() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setShowCancelDialog(false)}
+              onClick={() => setIsCancelDialogOpen(false)}
               disabled={isCancelling}
             >
               {t('tasks.close')}

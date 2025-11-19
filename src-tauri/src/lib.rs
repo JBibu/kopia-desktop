@@ -242,8 +242,6 @@ pub fn run() {
             // Utilities
             commands::path_resolve,
             commands::estimate_snapshot,
-            commands::ui_preferences_get,
-            commands::ui_preferences_set,
             // Notifications
             commands::notification_profiles_list,
             commands::notification_profile_create,
@@ -253,12 +251,10 @@ pub fn run() {
             commands::get_system_info,
             commands::get_current_user,
             commands::select_folder,
-            commands::select_file,
             commands::save_file,
             // WebSocket
             commands::websocket_connect,
             commands::websocket_disconnect,
-            commands::websocket_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

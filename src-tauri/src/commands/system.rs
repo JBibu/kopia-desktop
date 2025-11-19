@@ -45,15 +45,6 @@ pub async fn select_folder(app: AppHandle, default_path: Option<String>) -> Resu
     Ok(dialog.blocking_pick_folder().map(|path| path.to_string()))
 }
 
-/// Open file picker dialog
-#[tauri::command]
-pub async fn select_file(app: AppHandle, default_path: Option<String>) -> Result<Option<String>> {
-    use tauri_plugin_dialog::DialogExt;
-
-    let dialog = configure_dialog(app.dialog().file(), default_path);
-    Ok(dialog.blocking_pick_file().map(|path| path.to_string()))
-}
-
 /// Open save file dialog
 #[tauri::command]
 pub async fn save_file(app: AppHandle, default_filename: Option<String>) -> Result<Option<String>> {

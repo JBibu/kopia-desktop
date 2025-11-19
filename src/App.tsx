@@ -9,11 +9,11 @@ import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import { WindowCloseHandler } from './components/layout/WindowCloseHandler';
 import { Overview } from './pages/Overview';
 import { Repository } from './pages/Repository';
+import { Snapshots } from './pages/Snapshots';
 import { SnapshotCreate } from './pages/SnapshotCreate';
 import { SnapshotHistory } from './pages/SnapshotHistory';
 import { SnapshotBrowse } from './pages/SnapshotBrowse';
 import { SnapshotRestore } from './pages/SnapshotRestore';
-import { Profiles } from './pages/Profiles';
 import { ProfileHistory } from './pages/ProfileHistory';
 import { Policies } from './pages/Policies';
 import { PolicyEdit } from './pages/PolicyEdit';
@@ -97,15 +97,15 @@ function App(): React.JSX.Element {
             <Route path="setup" element={<Setup />} />
             <Route path="repository" element={<Repository />} />
             <Route
-              path="profiles"
+              path="snapshots"
               element={
                 <ProtectedRoute>
-                  <Profiles />
+                  <Snapshots />
                 </ProtectedRoute>
               }
             />
             <Route
-              path="profiles/:profileId/history"
+              path="snapshots/:profileId/history"
               element={
                 <ProtectedRoute>
                   <ProfileHistory />

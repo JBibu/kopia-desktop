@@ -64,7 +64,7 @@
     "logicalSize": "Logical size",
     "snapshotActivity": "Backup Activity",
     "snapshots": "Backups",
-    "taskStatus": "Task Status",
+    "taskStatusLabel": "Task Status",
     "recentActivity": "Recent Activity",
     "viewAll": "View all",
     "last7Days": "Last 7 days",
@@ -192,6 +192,27 @@
     "errors": {
       "fetchFailed": "Failed to fetch backups"
     }
+  },
+  "snapshots": {
+    "title": "Backups",
+    "subtitle": "Manage your backup sources and profiles",
+    "all": "All",
+    "profiles": "Profiles",
+    "individualSources": "Individual Sources",
+    "searchPlaceholder": "Search backups...",
+    "newSnapshot": "New Backup",
+    "snapshots": "backups",
+    "viewHistory": "View History",
+    "next": "Next",
+    "idle": "Ready",
+    "pending": "Pending",
+    "uploading": "In Progress",
+    "paused": "Paused",
+    "failed": "Failed",
+    "noBackupsFound": "No backups found. Create your first backup to get started.",
+    "noProfilesFound": "No profiles found. Create a profile to organize your backups.",
+    "noSourcesFound": "No individual backup sources found.",
+    "snapshotStarted": "Backup started successfully"
   },
   "snapshotCreate": {
     "title": "Create Backup",
@@ -442,7 +463,21 @@
     "maxParallelSnapshots": "Max parallel backups",
     "maxParallelSnapshotsHelp": "Maximum number of backups to upload in parallel",
     "maxParallelFileReads": "Max parallel file reads",
-    "maxParallelFileReadsHelp": "Maximum number of files to read in parallel during upload"
+    "maxParallelFileReadsHelp": "Maximum number of files to read in parallel during upload",
+    "timeOfDay": "Times of day",
+    "timeOfDayHelp": "Create backups at specific times (24-hour format, e.g., 09:00, 17:00)",
+    "cron": "Cron expressions",
+    "cronHelp": "Advanced scheduling using UNIX cron syntax (e.g., '0 2 * * *' for daily at 2 AM)",
+    "onlyCompress": "Only compress extensions",
+    "onlyCompressHelp": "Only compress files with these extensions (e.g., .txt, .log, .json)",
+    "neverCompress": "Never compress extensions",
+    "neverCompressHelp": "Never compress files with these extensions (e.g., .jpg, .mp4, .zip)",
+    "dotIgnoreFiles": "Ignore rule files",
+    "dotIgnoreFilesHelp": "Files containing ignore rules (e.g., .kopiaignore, .gitignore)",
+    "noParentIgnore": "No parent ignore rules",
+    "noParentIgnoreHelp": "Don't inherit ignore rules from parent directories",
+    "noParentDotFiles": "No parent ignore files",
+    "noParentDotFilesHelp": "Don't inherit ignore rule files from parent directories"
   },
   "tasks": {
     "title": "Tasks",

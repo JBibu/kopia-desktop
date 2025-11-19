@@ -2,7 +2,6 @@
  * Preferences page
  */
 
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useThemeStore } from '@/stores/theme';
 import { useLanguageStore } from '@/stores/language';
@@ -27,10 +26,18 @@ export function Preferences() {
   const { theme, setTheme } = useThemeStore();
   const { language, setLanguage } = useLanguageStore();
   const { fontSize, setFontSize } = useFontSizeStore();
-  const { minimizeToTray, setMinimizeToTray, byteFormat, setByteFormat } = usePreferencesStore();
-  const [notifications, setNotifications] = useState(true);
-  const [autoBackup, setAutoBackup] = useState(false);
-  const [soundEffects, setSoundEffects] = useState(true);
+  const {
+    minimizeToTray,
+    setMinimizeToTray,
+    byteFormat,
+    setByteFormat,
+    desktopNotifications,
+    setDesktopNotifications,
+    autoStartServer,
+    setAutoStartServer,
+    soundEffects,
+    setSoundEffects,
+  } = usePreferencesStore();
 
   return (
     <div className="space-y-6">
@@ -181,7 +188,11 @@ export function Preferences() {
             <Label htmlFor="notifications" className="text-sm">
               {t('preferences.desktopNotifications')}
             </Label>
-            <Switch id="notifications" checked={notifications} onCheckedChange={setNotifications} />
+            <Switch
+              id="notifications"
+              checked={desktopNotifications}
+              onCheckedChange={setDesktopNotifications}
+            />
           </div>
           <div className="flex items-center justify-between">
             <Label htmlFor="sound" className="text-sm">
@@ -218,7 +229,11 @@ export function Preferences() {
             <Label htmlFor="auto-backup" className="text-sm">
               {t('preferences.autoStartServer')}
             </Label>
-            <Switch id="auto-backup" checked={autoBackup} onCheckedChange={setAutoBackup} />
+            <Switch
+              id="auto-backup"
+              checked={autoStartServer}
+              onCheckedChange={setAutoStartServer}
+            />
           </div>
 
           <div className="flex items-center justify-between">

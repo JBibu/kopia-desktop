@@ -24,23 +24,6 @@ export function formatBytes(bytes: number, decimals = 2, format: ByteFormat = 'b
 }
 
 /**
- * Format bytes with user's preferred format
- * NOTE: This function should only be used in components that need the user preference.
- * For utilities/hooks that don't have access to the store, use formatBytes() directly.
- *
- * @param bytes Number of bytes
- * @param decimals Number of decimal places (default: 2)
- * @param byteFormat User's byte format preference from preferences store
- */
-export function formatBytesWithPreference(
-  bytes: number,
-  byteFormat: ByteFormat,
-  decimals = 2
-): string {
-  return formatBytes(bytes, decimals, byteFormat);
-}
-
-/**
  * Format distance to now (e.g., "2 hours ago", "5 minutes ago")
  */
 export function formatDistanceToNow(date: Date): string {

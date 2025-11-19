@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useNavigate, useSearchParams, Link } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -94,7 +94,10 @@ export function SnapshotRestore() {
           }
         })
         .catch((err) => {
-          console.error('Failed to fetch entry info:', err);
+          // Silently fail - size estimation is optional
+          if (import.meta.env.DEV) {
+            console.error('Failed to fetch entry info:', err);
+          }
         });
     }
   }, [objectId]);
@@ -196,7 +199,7 @@ export function SnapshotRestore() {
   };
 
   const handleBack = () => {
-    navigateBack(navigate, '/profiles');
+    navigateBack(navigate, '/snapshots');
   };
 
   return (
@@ -205,7 +208,9 @@ export function SnapshotRestore() {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink to="/profiles">{t('nav.profiles')}</BreadcrumbLink>
+            <BreadcrumbLink asChild>
+              <Link to="/snapshots">{t('nav.snapshots')}</Link>
+            </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>

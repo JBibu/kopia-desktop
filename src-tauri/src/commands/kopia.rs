@@ -1285,63 +1285,6 @@ pub async fn estimate_snapshot(
     Ok(result)
 }
 
-/// Get UI preferences
-#[tauri::command]
-pub async fn ui_preferences_get(
-    server: State<'_, KopiaServerState>,
-) -> Result<crate::types::UIPreferences> {
-    let (server_url, client) = get_server_client(&server)?;
-
-    let response = client
-        .get(format!("{}/api/v1/ui-preferences", server_url))
-        .send()
-        .await
-        .map_http_error("Failed to get UI preferences")?;
-
-    if !response.status().is_success() {
-        return Err(http_request_failed(
-            "Failed to get UI preferences",
-            response.status().as_u16(),
-        ));
-    }
-
-    let result = response
-        .json()
-        .await
-        .map_http_error("Failed to parse response")?;
-
-    Ok(result)
-}
-
-/// Save UI preferences
-#[tauri::command]
-pub async fn ui_preferences_set(
-    server: State<'_, KopiaServerState>,
-    preferences: crate::types::UIPreferences,
-) -> Result<()> {
-    let (server_url, client) = get_server_client(&server)?;
-
-    let response = client
-        .put(format!("{}/api/v1/ui-preferences", server_url))
-        .json(&preferences)
-        .send()
-        .await
-        .map_http_error("Failed to set UI preferences")?;
-
-    let status = response.status();
-    if !status.is_success() {
-        let error_text = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(http_request_failed(
-            format!("Failed to set UI preferences: {}", error_text),
-            status.as_u16(),
-        ));
-    }
-
-    Ok(())
-}
 
 // ============================================================================
 // Notification Commands

@@ -36,7 +36,11 @@ export function PathPickerField({
         onChange(selected);
       }
     } catch (err) {
-      console.error('Failed to open folder picker:', err);
+      // Silently fail - user likely cancelled the dialog
+      // Only log for debugging purposes
+      if (import.meta.env.DEV) {
+        console.error('Failed to open folder picker:', err);
+      }
     } finally {
       setIsPicking(false);
     }

@@ -35,9 +35,6 @@ export {
   isServerNotRunningError,
   isAuthenticationError,
   getErrorMessage,
-  handleKopiaError,
-  createErrorHandler,
-  retryOnError,
 } from './errors';
 
 // ============================================================================
@@ -119,16 +116,6 @@ export async function selectFolder(defaultPath?: string): Promise<string | null>
 }
 
 /**
- * Open file picker dialog
- *
- * @note Currently unused - only folder picker (selectFolder) is used in the UI
- * File picker may be used for restore/download features in the future
- */
-export async function selectFile(defaultPath?: string): Promise<string | null> {
-  return invoke('select_file', { defaultPath });
-}
-
-/**
  * Open save file dialog
  *
  * Opens a native "Save As" dialog where the user can choose where to save a file
@@ -162,16 +149,6 @@ export async function repositoryExists(storage: import('./types').StorageConfig)
  */
 export async function getAlgorithms(): Promise<import('./types').AlgorithmsResponse> {
   return invoke('repository_get_algorithms');
-}
-
-/**
- * Update repository description
- *
- * @note Currently unused - repository description is set during creation/connection
- * Editing repository description UI is planned for future release
- */
-export async function updateRepositoryDescription(description: string): Promise<void> {
-  return invoke('repository_update_description', { description });
 }
 
 // ============================================================================
@@ -377,16 +354,6 @@ export async function getTask(taskId: string): Promise<import('./types').TaskDet
 }
 
 /**
- * Get task logs
- */
-/**
- * @note Currently unused - planned for task details/logs viewer UI
- */
-export async function getTaskLogs(taskId: string): Promise<string[]> {
-  return invoke('task_logs', { taskId });
-}
-
-/**
  * Cancel a task
  */
 export async function cancelTask(taskId: string): Promise<void> {
@@ -429,53 +396,6 @@ export async function runMaintenance(full = false, safety?: 'none' | 'full'): Pr
  */
 export async function resolvePath(path: string): Promise<import('./types').SourceInfo> {
   return invoke('path_resolve', { path });
-}
-
-/**
- * Estimate snapshot size for a given path
- *
- * Starts an estimation task that calculates file count, total size, and other
- * statistics for a potential snapshot. The returned task ID can be polled
- * using `getTask()` to retrieve the actual estimation results.
- *
- * @param path - The path to estimate (can be relative or absolute)
- * @param maxExamplesPerBucket - Optional limit for examples per bucket
- * @returns Promise resolving to an EstimateResponse with a task ID
- *
- * @example
- * ```ts
- * const result = await estimateSnapshot('/path/to/backup');
- * const task = await getTask(result.id);
- * console.log('Estimated size:', task.counters['Bytes']);
- * ```
- */
-export async function estimateSnapshot(
-  path: string,
-  maxExamplesPerBucket?: number
-): Promise<import('./types').EstimateResponse> {
-  return invoke('estimate_snapshot', { path, maxExamplesPerBucket });
-}
-
-/**
- * Get UI preferences
- *
- * @note Currently unused - preferences are managed via Zustand stores (theme, language, fontSize)
- * This command is for syncing with Kopia's server-side preferences if needed in the future
- */
-export async function getUIPreferences(): Promise<import('./types').UIPreferences> {
-  return invoke('ui_preferences_get');
-}
-
-/**
- * Save UI preferences
- *
- * @note Currently unused - preferences are managed via Zustand stores (theme, language, fontSize)
- * This command is for syncing with Kopia's server-side preferences if needed in the future
- */
-export async function saveUIPreferences(
-  preferences: import('./types').UIPreferences
-): Promise<void> {
-  return invoke('ui_preferences_set', { preferences });
 }
 
 // ============================================================================
@@ -538,17 +458,48 @@ export async function disconnectWebSocket(): Promise<void> {
   return invoke('websocket_disconnect');
 }
 
-/**
- * Check WebSocket connection status
- *
- * @note Currently unused - WebSocket status is managed in Zustand store (isWebSocketConnected)
- * This command is available for debugging or manual status checks
- */
-export async function getWebSocketStatus(): Promise<boolean> {
-  return invoke('websocket_status');
-}
-
 // ============================================================================
 // Error Handling Utilities
 // ============================================================================
 // Error handling utilities are now in errors.ts and re-exported above
+
+// ============================================================================
+// UNUSED COMMANDS - Available but not currently used in UI
+// ============================================================================
+// The following commands are available in the backend but not actively used:
+//
+// 1. selectFile() - File picker for single file selection
+//    Reason: Only folder picker (selectFolder) is needed for backup sources
+//
+// 2. updateRepositoryDescription() - Update repository metadata
+//    Reason: Not exposed in UI yet, low priority feature
+//
+// 3. cancelSnapshot() - Cancel individual snapshot by ID
+//    Reason: Task cancellation (cancelTask) is used instead for broader task management
+//
+// 4. editSnapshot() - Modify snapshot metadata (description, pins)
+//    Reason: Pin management uses specialized API, description editing not prioritized
+//
+// 5. downloadObject() - Download files from snapshots
+//    Reason: Mount + copy workflow preferred over direct download API
+//
+// 6. restoreStart() - Start file restore operation
+//    Reason: Mount-based restore preferred for better user control
+//
+// 7. resolvePolicy() - Get fully resolved policy with inheritance
+//    Reason: Policy editor works with direct policy values, not resolved
+//
+// 8. getTaskLogs() - Retrieve detailed task execution logs
+//    Reason: No task log viewer UI implemented yet
+//
+// 9. UI preference commands - getUIPreferences/setUIPreferences
+//    Reason: Zustand store handles all preferences with localStorage persistence
+//
+// 10. getWebSocketStatus() - Check WebSocket connection state
+//     Reason: WebSocket status managed in Zustand store (isWebSocketConnected)
+//
+// These commands remain in the codebase for:
+// - Future feature implementation
+// - API completeness
+// - Reference implementation
+// - Potential advanced user workflows

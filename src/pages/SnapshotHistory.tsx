@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useNavigate, useSearchParams, Link } from 'react-router';
 import { listen } from '@tauri-apps/api/event';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -90,8 +90,8 @@ export function SnapshotHistory() {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSnapshots, setSelectedSnapshots] = useState<Set<string>>(new Set());
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showDeleteSourceDialog, setShowDeleteSourceDialog] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleteSourceDialogOpen, setIsDeleteSourceDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeletingSource, setIsDeletingSource] = useState(false);
   const [isCreatingSnapshot, setIsCreatingSnapshot] = useState(false);
@@ -184,7 +184,7 @@ export function SnapshotHistory() {
         })
       );
       setSelectedSnapshots(new Set());
-      setShowDeleteDialog(false);
+      setIsDeleteDialogOpen(false);
       await fetchSnapshots();
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -221,9 +221,9 @@ export function SnapshotHistory() {
       // Delete all snapshots (empty array means delete all + source + policy)
       await storeDeleteSnapshots(userName, host, path, []);
       toast.success(t('snapshots.deleteSource.deleteSuccess'));
-      setShowDeleteSourceDialog(false);
-      // Navigate back to profiles page after deletion
-      void navigate('/profiles');
+      setIsDeleteSourceDialogOpen(false);
+      // Navigate back to snapshots page after deletion
+      void navigate('/snapshots');
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -247,7 +247,9 @@ export function SnapshotHistory() {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink to="/profiles">{t('nav.profiles')}</BreadcrumbLink>
+            <BreadcrumbLink asChild>
+              <Link to="/snapshots">{t('nav.snapshots')}</Link>
+            </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
@@ -273,7 +275,11 @@ export function SnapshotHistory() {
             {t('common.refresh')}
           </Button>
           {snapshots.length === 0 && !isSnapshotsLoading ? (
-            <Button variant="destructive" size="sm" onClick={() => setShowDeleteSourceDialog(true)}>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setIsDeleteSourceDialogOpen(true)}
+            >
               <Trash2 className="h-4 w-4 mr-2" />
               {t('snapshots.deleteSource.deleteSource')}
             </Button>
@@ -297,7 +303,7 @@ export function SnapshotHistory() {
                 )}
               </Button>
               {selectedSnapshots.size > 0 && (
-                <Button variant="destructive" size="sm" onClick={() => setShowDeleteDialog(true)}>
+                <Button variant="destructive" size="sm" onClick={() => setIsDeleteDialogOpen(true)}>
                   <Trash2 className="h-4 w-4 mr-2" />
                   {t('snapshots.deleteSelected', { count: selectedSnapshots.size })}
                 </Button>
@@ -533,7 +539,7 @@ export function SnapshotHistory() {
       </Card>
 
       {/* Delete Snapshots Dialog */}
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('snapshots.deleteSnapshots')}</DialogTitle>
@@ -549,7 +555,7 @@ export function SnapshotHistory() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setShowDeleteDialog(false)}
+              onClick={() => setIsDeleteDialogOpen(false)}
               disabled={isDeleting}
             >
               {t('common.cancel')}
@@ -587,7 +593,7 @@ export function SnapshotHistory() {
       )}
 
       {/* Delete Source Dialog */}
-      <Dialog open={showDeleteSourceDialog} onOpenChange={setShowDeleteSourceDialog}>
+      <Dialog open={isDeleteSourceDialogOpen} onOpenChange={setIsDeleteSourceDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('snapshots.deleteSource.confirmTitle')}</DialogTitle>
@@ -606,7 +612,7 @@ export function SnapshotHistory() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setShowDeleteSourceDialog(false)}
+              onClick={() => setIsDeleteSourceDialogOpen(false)}
               disabled={isDeletingSource}
             >
               {t('common.cancel')}

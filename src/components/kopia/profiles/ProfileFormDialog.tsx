@@ -149,7 +149,9 @@ export function ProfileFormDialog({ open, onOpenChange, profile }: ProfileFormDi
       onOpenChange(false);
     } catch (err) {
       toast.error(t('profiles.profileCreationFailed'));
-      console.error('Failed to create/update profile:', err);
+      if (import.meta.env.DEV) {
+        console.error('Failed to create/update profile:', err);
+      }
     }
   };
 

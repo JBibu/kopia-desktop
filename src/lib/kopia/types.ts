@@ -305,30 +305,6 @@ export interface SnapshotEditRequest {
   removePins?: string[];
 }
 
-/**
- * Snapshot estimation request
- *
- * Used to start an estimation task that calculates the size and statistics
- * of a potential snapshot before actually creating it.
- */
-export interface EstimateRequest {
-  /** The root path to estimate */
-  root: string;
-  /** Optional limit for examples per bucket */
-  maxExamplesPerBucket?: number;
-}
-
-/**
- * Snapshot estimation response
- *
- * Returns a task ID that can be polled to get the actual estimation results
- * (file count, size, errors, etc.) via the Tasks API.
- */
-export interface EstimateResponse {
-  /** Task ID to poll for estimation results using getTask() */
-  id: string;
-}
-
 // ============================================================================
 // Directory & File Browsing Types
 // ============================================================================
@@ -384,13 +360,6 @@ export interface RestoreRequest {
     ignoreErrors?: boolean;
     restoreDirEntryAtDepth?: number;
   };
-}
-
-/**
- * Mount response
- */
-export interface MountResponse {
-  path: string;
 }
 
 /**
@@ -634,24 +603,6 @@ export interface MaintenanceRunRequest {
 // ============================================================================
 // Utility Types
 // ============================================================================
-
-/**
- * Path resolve request
- */
-export interface PathResolveRequest {
-  path: string;
-}
-
-/**
- * UI preferences
- */
-export interface UIPreferences {
-  theme?: 'light' | 'dark' | 'system';
-  pageSize?: 10 | 20 | 30 | 40 | 50 | 100;
-  defaultSnapshotViewAll?: boolean;
-  bytesStringBase2?: boolean;
-  profiles?: BackupProfile[]; // Backup profiles stored in preferences
-}
 
 // ============================================================================
 // Backup Profile Types

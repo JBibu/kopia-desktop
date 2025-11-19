@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useNavigate, useSearchParams, Link } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -38,8 +38,6 @@ import {
   HardDrive,
   Calendar,
   AlertCircle,
-  Home,
-  ChevronRight,
   RotateCcw,
   HardDriveDownload,
   HardDriveUpload,
@@ -197,23 +195,6 @@ export function SnapshotBrowse() {
     }
   };
 
-  const handleBreadcrumbClick = (index: number) => {
-    if (index === -1) {
-      // Navigate to root
-      const rootOid = searchParams.get('rootOid') || objectId;
-      setSearchParams({
-        snapshotId,
-        oid: rootOid,
-        path: '/',
-      });
-    } else {
-      // Navigate to specific path segment
-      // Note: We can't easily navigate up without storing the parent OID
-      // This would require enhanced breadcrumb tracking
-      toast.info(t('browse.breadcrumbNavInfo'));
-    }
-  };
-
   const getFileTypeIcon = (type: string) => {
     switch (type) {
       case 'd':
@@ -260,7 +241,9 @@ export function SnapshotBrowse() {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink to="/profiles">{t('nav.profiles')}</BreadcrumbLink>
+            <BreadcrumbLink asChild>
+              <Link to="/snapshots">{t('nav.snapshots')}</Link>
+            </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
@@ -273,31 +256,9 @@ export function SnapshotBrowse() {
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight">{t('browse.title')}</h1>
-          <div className="pl-10">
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 px-2"
-                onClick={() => handleBreadcrumbClick(-1)}
-              >
-                <Home className="h-3 w-3" />
-              </Button>
-              {currentPath.map((segment, index) => (
-                <div key={index} className="flex items-center gap-1">
-                  <ChevronRight className="h-3 w-3" />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-sm"
-                    onClick={() => handleBreadcrumbClick(index)}
-                  >
-                    {segment}
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            {currentPath.length === 0 ? '/' : `/${currentPath.join('/')}`}
+          </p>
         </div>
         <div className="flex gap-2">
           <Button onClick={handleRestore}>

@@ -799,15 +799,6 @@ pub struct EstimateResponse {
     pub id: String, // Task ID to poll for results
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UIPreferences {
-    pub theme: Option<String>,
-    pub page_size: Option<i64>,
-    pub default_snapshot_view_all: Option<bool>,
-    pub bytes_string_base2: Option<bool>,
-}
-
 // ============================================================================
 // Notification Types
 // ============================================================================

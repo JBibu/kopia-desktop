@@ -46,29 +46,21 @@ export function Repository() {
 
       {/* Connection Status */}
       {isLoading && !isConnected ? (
-        <Card>
-          <CardContent className="flex items-center gap-2 py-8">
-            <Spinner className="h-4 w-4" />
-            <span className="text-sm text-muted-foreground">{t('common.checking')}</span>
-          </CardContent>
-        </Card>
+        <div className="flex items-center justify-center py-12">
+          <Spinner className="h-8 w-8" />
+        </div>
       ) : !isConnected ? (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">{t('repository.connectionStatus')}</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <XCircle className="h-12 w-12 text-destructive mb-4" />
-            <h3 className="text-lg font-medium mb-2">{t('common.notConnected')}</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              {t('repository.notConnectedDescription')}
-            </p>
-            <Button size="sm" onClick={() => void navigate('/setup')}>
-              <Settings className="mr-2 h-4 w-4" />
-              {t('repository.goToSetup')}
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <XCircle className="h-12 w-12 text-destructive mb-4" />
+          <h3 className="text-lg font-medium mb-2">{t('common.notConnected')}</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            {t('repository.notConnectedDescription')}
+          </p>
+          <Button size="sm" onClick={() => void navigate('/setup')}>
+            <Settings className="mr-2 h-4 w-4" />
+            {t('repository.goToSetup')}
+          </Button>
+        </div>
       ) : (
         status && (
           <>

@@ -353,19 +353,17 @@ export function Overview() {
       {isServerRunning && isRepoConnected && !snapshotsLoading && (
         <>
           {!snapshotStats ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <FolderArchive className="h-16 w-16 text-muted-foreground mb-4" />
-                <h3 className="text-xl font-semibold mb-2">{t('overview.noSnapshotsYet')}</h3>
-                <p className="text-sm text-muted-foreground text-center mb-6 max-w-md">
-                  {t('overview.createFirstSnapshot')}
-                </p>
-                <Button onClick={() => void navigate('/snapshots')}>
-                  <FolderArchive className="mr-2 h-4 w-4" />
-                  {t('overview.goToSnapshots')}
-                </Button>
-              </CardContent>
-            </Card>
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <FolderArchive className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">{t('overview.noSnapshotsYet')}</h3>
+              <p className="text-sm text-muted-foreground mb-4 max-w-md">
+                {t('overview.createFirstSnapshot')}
+              </p>
+              <Button onClick={() => void navigate('/snapshots/create')}>
+                <FolderArchive className="mr-2 h-4 w-4" />
+                {t('overview.createSnapshot')}
+              </Button>
+            </div>
           ) : (
             <>
               {/* Snapshot Activity Chart */}
@@ -431,7 +429,7 @@ export function Overview() {
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base flex items-center gap-2">
                       <Activity className="h-4 w-4" />
-                      {t('overview.taskStatus')}
+                      {t('overview.taskStatusLabel')}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>

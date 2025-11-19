@@ -45,11 +45,3 @@ pub async fn websocket_disconnect(ws_state: State<'_, WebSocketState>) -> Result
     ws.disconnect().await
 }
 
-/// Check WebSocket connection status
-///
-/// Returns `true` if WebSocket is currently connected, `false` otherwise.
-#[tauri::command]
-pub async fn websocket_status(ws_state: State<'_, WebSocketState>) -> Result<bool> {
-    let ws = ws_state.lock().await;
-    Ok(ws.is_connected().await)
-}

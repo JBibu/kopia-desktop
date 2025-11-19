@@ -11,7 +11,7 @@ import {
   Home,
   ListChecks,
   HardDrive,
-  FolderTree,
+  FolderArchive,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { StatusIndicator } from './StatusIndicator';
@@ -28,7 +28,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { nameKey: 'nav.overview', path: '/', icon: Home },
   { nameKey: 'nav.repository', path: '/repository', icon: Database },
-  { nameKey: 'nav.profiles', path: '/profiles', icon: FolderTree },
+  { nameKey: 'nav.snapshots', path: '/snapshots', icon: FolderArchive },
   { nameKey: 'nav.policies', path: '/policies', icon: ListTodo },
   { nameKey: 'nav.tasks', path: '/tasks', icon: ListChecks },
   { nameKey: 'nav.mounts', path: '/mounts', icon: HardDrive },

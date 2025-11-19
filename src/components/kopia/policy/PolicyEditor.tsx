@@ -117,7 +117,9 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
           setIsNew(true);
         } else {
           // Only set error for actual failures (not missing policies)
-          console.error('Error fetching policy:', message, err);
+          if (import.meta.env.DEV) {
+            console.error('Error fetching policy:', message, err);
+          }
           setError(message);
         }
       } finally {
@@ -137,10 +139,12 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
         const resolved = await resolvePolicy(target.userName, target.host, target.path);
         setResolvedPolicy(resolved);
       } catch (err) {
-        // Log the full error for debugging
-        console.error('Policy resolution failed:', err);
-        console.error('Error message:', getErrorMessage(err));
-        console.error('Target:', target);
+        // Log the full error for debugging in development
+        if (import.meta.env.DEV) {
+          console.error('Policy resolution failed:', err);
+          console.error('Error message:', getErrorMessage(err));
+          console.error('Target:', target);
+        }
         // Silently fail - resolution is optional and enhances UX but isn't required
         // Common scenarios where this fails:
         // - Server not running
@@ -234,34 +238,11 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h2 className="text-3xl font-bold tracking-tight">
-            {isNew ? t('policies.createPolicy') : t('policies.editPolicy')}
-          </h2>
-          <p className="text-sm text-muted-foreground">{targetStr}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {!isNew && !isGlobalPolicy && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => void handleDelete()}
-              disabled={isSaving || isDeleting}
-            >
-              {isDeleting ? (
-                <Spinner className="h-4 w-4 mr-2" />
-              ) : (
-                <Trash2 className="h-4 w-4 mr-2" />
-              )}
-              {t('common.delete')}
-            </Button>
-          )}
-          <Button size="sm" onClick={() => void handleSave()} disabled={isSaving || isDeleting}>
-            {isSaving ? <Spinner className="h-4 w-4 mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-            {t('common.save')}
-          </Button>
-        </div>
+      <div className="space-y-1">
+        <h2 className="text-3xl font-bold tracking-tight">
+          {isNew ? t('policies.createPolicy') : t('policies.editPolicy')}
+        </h2>
+        <p className="text-sm text-muted-foreground">{targetStr}</p>
       </div>
 
       {/* Global Policy Warning */}
@@ -387,6 +368,24 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
                 effectiveValue={resolvedPolicy?.effective.scheduling?.intervalSeconds}
                 help={t('policies.intervalSecondsHelp')}
               />
+              <PolicyArrayField
+                label={t('policies.timeOfDay')}
+                value={policy.scheduling?.timeOfDay}
+                onChange={(val) => updatePolicy('scheduling', 'timeOfDay', val)}
+                isDefined={isDefined('scheduling', 'timeOfDay')}
+                effectiveValue={resolvedPolicy?.effective.scheduling?.timeOfDay}
+                placeholder="e.g., 09:00, 17:00"
+                help={t('policies.timeOfDayHelp')}
+              />
+              <PolicyArrayField
+                label={t('policies.cron')}
+                value={policy.scheduling?.cron}
+                onChange={(val) => updatePolicy('scheduling', 'cron', val)}
+                isDefined={isDefined('scheduling', 'cron')}
+                effectiveValue={resolvedPolicy?.effective.scheduling?.cron}
+                placeholder="e.g., 0 2 * * *"
+                help={t('policies.cronHelp')}
+              />
               <PolicyBooleanField
                 label={t('policies.manual')}
                 value={policy.scheduling?.manual}
@@ -425,6 +424,31 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
                 effectiveValue={resolvedPolicy?.effective.files?.ignore}
                 placeholder={t('policies.ignoreRulesPlaceholder')}
                 help={t('policies.ignoreRulesHelp')}
+              />
+              <PolicyArrayField
+                label={t('policies.dotIgnoreFiles')}
+                value={policy.files?.dotIgnoreFiles}
+                onChange={(val) => updatePolicy('files', 'dotIgnoreFiles', val)}
+                isDefined={isDefined('files', 'dotIgnoreFiles')}
+                effectiveValue={resolvedPolicy?.effective.files?.dotIgnoreFiles}
+                placeholder="e.g., .kopiaignore, .gitignore"
+                help={t('policies.dotIgnoreFilesHelp')}
+              />
+              <PolicyBooleanField
+                label={t('policies.noParentIgnore')}
+                value={policy.files?.noParentIgnore}
+                onChange={(val) => updatePolicy('files', 'noParentIgnore', val)}
+                isDefined={isDefined('files', 'noParentIgnore')}
+                effectiveValue={resolvedPolicy?.effective.files?.noParentIgnore}
+                help={t('policies.noParentIgnoreHelp')}
+              />
+              <PolicyBooleanField
+                label={t('policies.noParentDotFiles')}
+                value={policy.files?.noParentDotFiles}
+                onChange={(val) => updatePolicy('files', 'noParentDotFiles', val)}
+                isDefined={isDefined('files', 'noParentDotFiles')}
+                effectiveValue={resolvedPolicy?.effective.files?.noParentDotFiles}
+                help={t('policies.noParentDotFilesHelp')}
               />
               <PolicyBooleanField
                 label={t('policies.oneFileSystem')}
@@ -488,6 +512,24 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
                 isDefined={isDefined('compression', 'maxSize')}
                 effectiveValue={resolvedPolicy?.effective.compression?.maxSize}
                 help={t('policies.compressionMaxSizeHelp')}
+              />
+              <PolicyArrayField
+                label={t('policies.onlyCompress')}
+                value={policy.compression?.onlyCompress}
+                onChange={(val) => updatePolicy('compression', 'onlyCompress', val)}
+                isDefined={isDefined('compression', 'onlyCompress')}
+                effectiveValue={resolvedPolicy?.effective.compression?.onlyCompress}
+                placeholder="e.g., .txt, .log, .json"
+                help={t('policies.onlyCompressHelp')}
+              />
+              <PolicyArrayField
+                label={t('policies.neverCompress')}
+                value={policy.compression?.neverCompress}
+                onChange={(val) => updatePolicy('compression', 'neverCompress', val)}
+                isDefined={isDefined('compression', 'neverCompress')}
+                effectiveValue={resolvedPolicy?.effective.compression?.neverCompress}
+                placeholder="e.g., .jpg, .mp4, .zip"
+                help={t('policies.neverCompressHelp')}
               />
             </div>
           </AccordionContent>
@@ -553,6 +595,31 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+
+      {/* Action Buttons */}
+      <div className="flex justify-end gap-2 pt-4">
+        <Button variant="outline" onClick={onClose} disabled={isSaving || isDeleting}>
+          {t('common.cancel')}
+        </Button>
+        {!isNew && !isGlobalPolicy && (
+          <Button
+            variant="destructive"
+            onClick={() => void handleDelete()}
+            disabled={isSaving || isDeleting}
+          >
+            {isDeleting ? (
+              <Spinner className="h-4 w-4 mr-2" />
+            ) : (
+              <Trash2 className="h-4 w-4 mr-2" />
+            )}
+            {t('common.delete')}
+          </Button>
+        )}
+        <Button onClick={() => void handleSave()} disabled={isSaving || isDeleting}>
+          {isSaving ? <Spinner className="h-4 w-4 mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+          {t('common.save')}
+        </Button>
+      </div>
     </div>
   );
 }

@@ -9,21 +9,6 @@ import {
 } from '@tauri-apps/plugin-notification';
 
 /**
- * Check if notification permission is granted
- */
-export async function checkNotificationPermission(): Promise<boolean> {
-  return await isPermissionGranted();
-}
-
-/**
- * Request notification permission from the user
- */
-export async function requestNotificationPermission(): Promise<boolean> {
-  const permission = await requestPermission();
-  return permission === 'granted';
-}
-
-/**
  * Send a native desktop notification
  * Automatically requests permission if not granted
  */

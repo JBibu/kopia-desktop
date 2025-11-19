@@ -26,7 +26,6 @@ import {
   createRepository,
   repositoryExists,
   getAlgorithms,
-  updateRepositoryDescription,
   // Snapshot sources
   listSources,
   createSnapshot,
@@ -51,7 +50,6 @@ import {
   // Tasks
   listTasks,
   getTask,
-  getTaskLogs,
   cancelTask,
   getTasksSummary,
   // Maintenance
@@ -59,9 +57,6 @@ import {
   runMaintenance,
   // Utilities
   resolvePath,
-  estimateSnapshot,
-  getUIPreferences,
-  saveUIPreferences,
   // Notifications
   listNotificationProfiles,
   createNotificationProfile,
@@ -70,12 +65,10 @@ import {
   // WebSocket
   connectWebSocket,
   disconnectWebSocket,
-  getWebSocketStatus,
   // System
   getCurrentUser,
   getSystemInfo,
   selectFolder,
-  selectFile,
   saveFile,
   // Error handling
   parseKopiaError,
@@ -463,18 +456,6 @@ describe('Kopia Client - Repository Creation', () => {
       expect(mockInvoke).toHaveBeenCalledWith('repository_get_algorithms');
       expect(result.defaultHash).toBe('BLAKE2B-256-128');
       expect(result.hash).toHaveLength(2);
-    });
-  });
-
-  describe('updateRepositoryDescription', () => {
-    it('updates repository description', async () => {
-      mockInvoke.mockResolvedValue(undefined);
-
-      await updateRepositoryDescription('Updated description');
-
-      expect(mockInvoke).toHaveBeenCalledWith('repository_update_description', {
-        description: 'Updated description',
-      });
     });
   });
 });
@@ -896,18 +877,6 @@ describe('Kopia Client - Tasks', () => {
     });
   });
 
-  describe('getTaskLogs', () => {
-    it('gets task logs', async () => {
-      const mockLogs = ['Starting snapshot...', 'Processing files...', 'Snapshot complete'];
-      mockInvoke.mockResolvedValue(mockLogs);
-
-      const result = await getTaskLogs('task1');
-
-      expect(mockInvoke).toHaveBeenCalledWith('task_logs', { taskId: 'task1' });
-      expect(result).toHaveLength(3);
-    });
-  });
-
   describe('cancelTask', () => {
     it('cancels a task', async () => {
       mockInvoke.mockResolvedValue(undefined);
@@ -1000,55 +969,6 @@ describe('Kopia Client - Utilities', () => {
 
       expect(mockInvoke).toHaveBeenCalledWith('path_resolve', { path: '/home/javi/documents' });
       expect(result.userName).toBe('javi');
-    });
-  });
-
-  describe('estimateSnapshot', () => {
-    it('estimates snapshot size', async () => {
-      const mockEstimate = { id: 'task123' };
-      mockInvoke.mockResolvedValue(mockEstimate);
-
-      const result = await estimateSnapshot('/home/javi/documents');
-
-      expect(mockInvoke).toHaveBeenCalledWith('estimate_snapshot', {
-        path: '/home/javi/documents',
-        maxExamplesPerBucket: undefined,
-      });
-      expect(result.id).toBe('task123');
-    });
-
-    it('estimates with max examples limit', async () => {
-      mockInvoke.mockResolvedValue({ id: 'task456' });
-
-      await estimateSnapshot('/home/javi/documents', 100);
-
-      expect(mockInvoke).toHaveBeenCalledWith('estimate_snapshot', {
-        path: '/home/javi/documents',
-        maxExamplesPerBucket: 100,
-      });
-    });
-  });
-
-  describe('getUIPreferences', () => {
-    it('gets UI preferences', async () => {
-      const mockPrefs = { theme: 'dark', pageSize: 100 };
-      mockInvoke.mockResolvedValue(mockPrefs);
-
-      const result = await getUIPreferences();
-
-      expect(mockInvoke).toHaveBeenCalledWith('ui_preferences_get');
-      expect(result.theme).toBe('dark');
-    });
-  });
-
-  describe('saveUIPreferences', () => {
-    it('saves UI preferences', async () => {
-      const prefs = { theme: 'light' as const, pageSize: 50 as const };
-      mockInvoke.mockResolvedValue(undefined);
-
-      await saveUIPreferences(prefs);
-
-      expect(mockInvoke).toHaveBeenCalledWith('ui_preferences_set', { preferences: prefs });
     });
   });
 });
@@ -1168,25 +1088,6 @@ describe('Kopia Client - WebSocket', () => {
       expect(mockInvoke).toHaveBeenCalledWith('websocket_disconnect');
     });
   });
-
-  describe('getWebSocketStatus', () => {
-    it('returns connected status', async () => {
-      mockInvoke.mockResolvedValue(true);
-
-      const result = await getWebSocketStatus();
-
-      expect(mockInvoke).toHaveBeenCalledWith('websocket_status');
-      expect(result).toBe(true);
-    });
-
-    it('returns disconnected status', async () => {
-      mockInvoke.mockResolvedValue(false);
-
-      const result = await getWebSocketStatus();
-
-      expect(result).toBe(false);
-    });
-  });
 });
 
 describe('Kopia Client - System Utilities', () => {
@@ -1225,25 +1126,6 @@ describe('Kopia Client - System Utilities', () => {
       mockInvoke.mockResolvedValue(null);
 
       const result = await selectFolder();
-
-      expect(result).toBeNull();
-    });
-  });
-
-  describe('selectFile', () => {
-    it('opens file picker', async () => {
-      mockInvoke.mockResolvedValue('/home/javi/file.txt');
-
-      const result = await selectFile('/home/javi');
-
-      expect(mockInvoke).toHaveBeenCalledWith('select_file', { defaultPath: '/home/javi' });
-      expect(result).toBe('/home/javi/file.txt');
-    });
-
-    it('returns null when cancelled', async () => {
-      mockInvoke.mockResolvedValue(null);
-
-      const result = await selectFile();
 
       expect(result).toBeNull();
     });

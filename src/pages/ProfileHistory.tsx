@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams, Link } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -38,6 +38,7 @@ import {
   XCircle,
   FolderOpen,
   RotateCcw,
+  Pin,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatBytes, formatDateTime } from '@/lib/utils';
@@ -45,6 +46,8 @@ import { useLanguageStore } from '@/stores/language';
 import { useKopiaStore } from '@/stores/kopia';
 import { useProfilesStore } from '@/stores/profiles';
 import { navigateToSnapshotBrowse, navigateToSnapshotRestore } from '@/lib/utils/navigation';
+import { PinDialog } from '@/components/kopia/snapshots/PinDialog';
+import { RetentionTags } from '@/components/kopia/snapshots/RetentionTags';
 
 export function ProfileHistory() {
   const { t } = useTranslation();
@@ -62,6 +65,10 @@ export function ProfileHistory() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pinDialogSnapshot, setPinDialogSnapshot] = useState<{
+    id: string;
+    pins: string[];
+  } | null>(null);
 
   // Filter snapshots that belong to this profile's directories
   const profileSnapshots = storeSnapshots.filter((snapshot) => {
@@ -106,7 +113,7 @@ export function ProfileHistory() {
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{t('profiles.profileNotFound')}</AlertDescription>
         </Alert>
-        <Button onClick={() => void navigate('/profiles')}>{t('profiles.backToProfiles')}</Button>
+        <Button onClick={() => void navigate('/snapshots')}>{t('profiles.backToProfiles')}</Button>
       </div>
     );
   }
@@ -117,7 +124,9 @@ export function ProfileHistory() {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink to="/profiles">{t('nav.profiles')}</BreadcrumbLink>
+            <BreadcrumbLink asChild>
+              <Link to="/snapshots">{t('nav.snapshots')}</Link>
+            </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
@@ -224,7 +233,9 @@ export function ProfileHistory() {
                   <TableHead>{t('snapshots.time')}</TableHead>
                   <TableHead className="text-right">{t('snapshots.size')}</TableHead>
                   <TableHead className="text-right">{t('snapshots.files')}</TableHead>
-                  <TableHead className="w-[150px]">{t('snapshots.actions')}</TableHead>
+                  <TableHead>{t('snapshots.pins.pins')}</TableHead>
+                  <TableHead>{t('snapshots.retention.retention')}</TableHead>
+                  <TableHead className="w-[200px]">{t('snapshots.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -266,6 +277,23 @@ export function ProfileHistory() {
                     </TableCell>
                     <TableCell className="text-right">
                       <Badge variant="secondary">{snapshot.summary?.files || 0}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {snapshot.pins && snapshot.pins.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {snapshot.pins.map((pin) => (
+                            <Badge key={pin} variant="secondary" className="gap-1">
+                              <Pin className="h-3 w-3" />
+                              {pin}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <RetentionTags retention={snapshot.retention} />
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
@@ -319,6 +347,20 @@ export function ProfileHistory() {
                         >
                           <RotateCcw className="h-4 w-4" />
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            setPinDialogSnapshot({
+                              id: snapshot.id,
+                              pins: snapshot.pins || [],
+                            })
+                          }
+                          title={t('snapshots.pins.managePins')}
+                          aria-label={t('snapshots.pins.managePins')}
+                        >
+                          <Pin className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -328,6 +370,17 @@ export function ProfileHistory() {
           )}
         </CardContent>
       </Card>
+
+      {/* Pin Management Dialog */}
+      {pinDialogSnapshot && (
+        <PinDialog
+          open={!!pinDialogSnapshot}
+          onOpenChange={(open) => !open && setPinDialogSnapshot(null)}
+          snapshotId={pinDialogSnapshot.id}
+          currentPins={pinDialogSnapshot.pins}
+          onPinsUpdated={() => void refreshSnapshots()}
+        />
+      )}
     </div>
   );
 }
