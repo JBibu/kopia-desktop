@@ -144,6 +144,7 @@ impl KopiaServer {
             "--tls-generate-cert",               // Generate self-signed TLS certificate
             "--tls-generate-cert-name=localhost", // Certificate for localhost
             "--disable-csrf-token-checks",        // CSRF not needed for localhost-only
+            "--async-repo-connect",               // Connect to repository asynchronously (allows server to start even with invalid repo)
             "--server-username",
             SERVER_USERNAME,
             "--server-password",
