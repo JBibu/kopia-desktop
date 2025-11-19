@@ -350,6 +350,7 @@
     "policyDescription": "This backup rule will be applied to all directories in the profile",
     "policyApplied": "Backup rule applied to all profile directories",
     "policyApplicationFailed": "Failed to apply backup rule to directories",
+    "profileCreationFailed": "Failed to create/update profile",
     "noPolicy": "No backup rule",
     "unknownPolicy": "Unknown backup rule",
     "dragDropHint": "Or drag and drop folders here",

@@ -350,6 +350,7 @@
     "policyDescription": "Esta regla de respaldo se aplicará a todos los directorios del perfil",
     "policyApplied": "Regla de respaldo aplicada a todos los directorios del perfil",
     "policyApplicationFailed": "Error al aplicar la regla de respaldo a los directorios",
+    "profileCreationFailed": "Error al crear/actualizar el perfil",
     "noPolicy": "Sin regla de respaldo",
     "unknownPolicy": "Regla de respaldo desconocida",
     "dragDropHint": "O arrastra y suelta carpetas aquí",

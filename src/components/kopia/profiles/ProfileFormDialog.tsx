@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { listen } from '@tauri-apps/api/event';
 import { useProfilesStore } from '@/stores/profiles';
 import { useKopiaStore } from '@/stores/kopia';
-import { selectFolder, setPolicy, getCurrentUser } from '@/lib/kopia/client';
+import { selectFolder, getCurrentUser } from '@/lib/kopia/client';
 import {
   Dialog,
   DialogContent,
@@ -111,7 +111,7 @@ export function ProfileFormDialog({ open, onOpenChange, profile }: ProfileFormDi
     setDirectories(directories.filter((d) => d !== directory));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!name.trim()) {
@@ -146,30 +146,10 @@ export function ProfileFormDialog({ open, onOpenChange, profile }: ProfileFormDi
         toast.success(t('profiles.profileCreated', { name: name.trim() }));
       }
 
-      // Apply policy to all directories if a policy is selected
-      if (policyId) {
-        const selectedPolicy = policies.find((p) => p.id === policyId);
-        if (selectedPolicy) {
-          const currentUser = await getCurrentUser();
-
-          // Apply policy to each directory
-          for (const directory of directories) {
-            await setPolicy(
-              selectedPolicy.policy,
-              currentUser.username,
-              currentUser.hostname,
-              directory
-            );
-          }
-
-          toast.success(t('profiles.policyApplied'));
-        }
-      }
-
       onOpenChange(false);
     } catch (err) {
-      toast.error(t('profiles.policyApplicationFailed'));
-      console.error('Failed to apply policy:', err);
+      toast.error(t('profiles.profileCreationFailed'));
+      console.error('Failed to create/update profile:', err);
     }
   };
 
@@ -204,7 +184,7 @@ export function ProfileFormDialog({ open, onOpenChange, profile }: ProfileFormDi
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={(e) => void handleSubmit(e)}>
+        <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-2 gap-6 py-4">
             {/* Left Column - Profile Details */}
             <div className="space-y-4">

@@ -95,13 +95,19 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
           }
         }
 
+        // Check error type directly (language-independent)
+        const errorType =
+          typeof err === 'object' && err !== null && 'type' in err ? (err.type as string) : '';
+
         // Treat NOT_FOUND, 404, HTTP failures, deserialization errors, and "not found" as new policy scenarios
         // This is expected behavior when creating a new policy
         const isNotFoundError =
+          errorType === 'HTTP_REQUEST_FAILED' ||
           message.includes('NOT_FOUND') ||
           message.includes('not found') ||
           message.includes('404') ||
           message.includes('HTTP request failed') ||
+          message.includes('La solicitud HTTP falló') ||
           errorData.includes('missing field') ||
           errorData.includes('error decoding response body') ||
           message.toLowerCase().includes('not found');

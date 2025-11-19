@@ -2,7 +2,7 @@
  * Tasks page - Monitor and manage background tasks
  */
 
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTasks } from '@/hooks/useTasks';
 import { useSnapshots } from '@/hooks/useSnapshots';
@@ -283,8 +283,8 @@ export function Tasks() {
               </TableHeader>
               <TableBody>
                 {tasks.map((task) => (
-                  <>
-                    <TableRow key={task.id}>
+                  <Fragment key={task.id}>
+                    <TableRow>
                       <TableCell className="font-mono text-xs">{task.id.slice(0, 8)}...</TableCell>
                       <TableCell>
                         <Badge variant="outline">{task.kind || t('tasks.unknown')}</Badge>
@@ -432,7 +432,7 @@ export function Tasks() {
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </Fragment>
                 ))}
               </TableBody>
             </Table>

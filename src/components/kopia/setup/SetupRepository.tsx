@@ -221,7 +221,7 @@ export function SetupRepository() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-full py-8">
+    <div className="flex items-center justify-center min-h-full">
       <Card className="w-full max-w-3xl">
         <CardContent className="p-6">
           {state.step === 'provider' && <ProviderSelection onSelect={handleProviderSelect} />}
