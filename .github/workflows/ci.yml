@@ -56,6 +56,10 @@ jobs:
         with:
           workspaces: src-tauri
 
+      - name: Download Kopia binaries
+        shell: bash
+        run: PLATFORM_ONLY=1 bash scripts/download-kopia.sh
+
       - name: Run clippy
         working-directory: src-tauri
         run: cargo clippy --all-targets --all-features -- -D warnings
