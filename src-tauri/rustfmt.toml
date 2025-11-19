@@ -1,5 +1,6 @@
 # Rust formatting configuration for Kopia Desktop
 # https://rust-lang.github.io/rustfmt/
+# Using only stable features
 
 # Edition
 edition = "2021"
@@ -9,35 +10,10 @@ max_width = 100
 hard_tabs = false
 tab_spaces = 4
 
-# Imports
-imports_granularity = "Crate"
-group_imports = "StdExternalCrate"
-
 # Formatting
 newline_style = "Unix"
 use_small_heuristics = "Default"
-binop_separator = "Front"
-overflow_delimited_expr = true
-
-# Comments
-normalize_comments = true
-wrap_comments = true
-comment_width = 80
-
-# Functions
-fn_single_line = false
-where_single_line = false
-
-# Structs and Enums
-struct_field_align_threshold = 0
-enum_discrim_align_threshold = 0
-
-# Control Flow
-control_brace_style = "AlwaysSameLine"
-brace_style = "SameLineWhere"
 
 # Misc
-trailing_comma = "Vertical"
-trailing_semicolon = true
 use_field_init_shorthand = true
 use_try_shorthand = true

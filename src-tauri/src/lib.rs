@@ -41,7 +41,8 @@ use kopia_websocket::KopiaWebSocket;
 use std::sync::Arc;
 use tauri::{
     menu::{Menu, MenuItem},
-    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}, Manager,
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    Manager,
 };
 use tokio::sync::Mutex;
 
