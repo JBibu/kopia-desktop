@@ -39,9 +39,8 @@ use std::time::{Duration, SystemTime};
 const SERVER_USERNAME: &str = "kopia-desktop";
 const DEFAULT_PORT: u16 = 51515;
 const PORT_SEARCH_RANGE: u16 = 10;
-/// Delay before checking if server process started successfully (500ms)
-/// This gives Kopia time to detect repository errors and exit
-const STARTUP_CHECK_DELAY_MS: u64 = 500;
+/// Delay before checking if server process started successfully (100ms)
+const STARTUP_CHECK_DELAY_MS: u64 = 100;
 /// Number of retries when waiting for server to become ready (40 * 500ms = 20s total)
 const HEALTH_CHECK_RETRIES: u32 = 40;
 /// Interval between health check retries (500ms)
@@ -177,24 +176,6 @@ impl KopiaServer {
         std::thread::sleep(Duration::from_millis(STARTUP_CHECK_DELAY_MS));
         if let Ok(Some(status)) = child.try_wait() {
             let stderr = self.read_stderr(&mut child);
-
-            // Check if error is related to repository access/path issues
-            let is_repo_error = stderr.contains("cannot access storage path")
-                || stderr.contains("cannot open storage")
-                || (stderr.contains("stat") && stderr.contains("no such file or directory"));
-
-            if is_repo_error {
-                log::warn!("Repository path error detected: {}", stderr);
-                return Err(KopiaError::RepositoryOperationFailed {
-                    operation: "Start server".to_string(),
-                    message: format!(
-                        "Cannot access repository storage path. The configured repository location may not exist or is not accessible. \
-                         Please disconnect and reconnect to a valid repository.\n\nDetails: {}",
-                        stderr.trim()
-                    ),
-                });
-            }
-
             return Err(KopiaError::ServerStartFailed {
                 message: format!("Server process exited immediately with status: {}", status),
                 details: Some(stderr),

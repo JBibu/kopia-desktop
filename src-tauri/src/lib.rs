@@ -185,47 +185,13 @@ pub fn run() {
 
             // Auto-start Kopia server on app launch
             let state = server_state.clone();
-            let app_handle = app.app_handle().clone();
             tauri::async_runtime::spawn(async move {
                 // Small delay to let UI initialize before starting server
                 tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
                 if let Err(e) = auto_start_server(state).await {
                     log::error!("Failed to auto-start Kopia server: {}", e);
-
-                    // Check if error is repository-related (invalid path, cannot access storage)
-                    let is_repo_error = matches!(
-                        e,
-                        error::KopiaError::RepositoryOperationFailed { .. }
-                    );
-
-                    if is_repo_error {
-                        log::warn!(
-                            "Repository configuration error detected. \
-                             The configured repository may not be accessible. \
-                             User should disconnect and reconnect."
-                        );
-                    } else {
-                        log::info!("You can start the server manually from the UI");
-                    }
-
-                    // Notify frontend about auto-start failure
-                    #[derive(serde::Serialize)]
-                    struct AutoStartError {
-                        message: String,
-                        is_repo_error: bool,
-                    }
-
-                    let error_payload = AutoStartError {
-                        message: e.to_string(),
-                        is_repo_error,
-                    };
-
-                    if let Err(emit_err) =
-                        app_handle.emit("server-autostart-failed", &error_payload)
-                    {
-                        log::error!("Failed to emit server-autostart-failed event: {}", emit_err);
-                    }
+                    log::info!("You can start the server manually from the UI");
                 }
             });
             Ok(())

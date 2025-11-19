@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
-import { listen } from '@tauri-apps/api/event';
 import { useThemeStore } from './stores/theme';
 import { useLanguageStore } from './stores/language';
 import { useFontSizeStore } from './stores/fontSize';
@@ -24,7 +23,6 @@ import { Preferences } from './pages/Preferences';
 import { Setup } from './pages/Setup';
 import { NotFound } from './pages/NotFound';
 import { useRepository } from './hooks/useRepository';
-import { toast } from 'sonner';
 import './lib/i18n/config';
 import './styles/globals.css';
 
@@ -46,59 +44,6 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   return <>{children}</>;
-}
-
-interface AutoStartError {
-  message: string;
-  is_repo_error: boolean;
-}
-
-function AppEventListener(): null {
-  const disconnectRepo = useKopiaStore((state) => state.disconnectRepo);
-
-  useEffect(() => {
-    const setupListener = async () => {
-      const unlisten = await listen<AutoStartError>('server-autostart-failed', (event) => {
-        const { is_repo_error } = event.payload;
-
-        if (is_repo_error) {
-          // Repository path error - automatically disconnect and show error
-          toast.error('Repository Configuration Error', {
-            description:
-              'The configured repository location is not accessible. The repository has been disconnected. Please reconnect to a valid repository.',
-            duration: 10000,
-          });
-
-          // Automatically disconnect the invalid repository
-          void disconnectRepo().catch(() => {
-            // Silent failure - user will see they're disconnected via UI state
-            // Error already logged in disconnectRepo
-          });
-        } else {
-          // Generic server start error
-          toast.error('Server Start Failed', {
-            description:
-              'Failed to start Kopia server. You can try starting it manually from the UI.',
-            duration: 8000,
-          });
-        }
-      });
-
-      return unlisten;
-    };
-
-    let unlistenFn: (() => void) | undefined;
-
-    void setupListener().then((fn) => {
-      unlistenFn = fn;
-    });
-
-    return () => {
-      unlistenFn?.();
-    };
-  }, [disconnectRepo]);
-
-  return null;
 }
 
 function App(): React.JSX.Element {
@@ -137,7 +82,6 @@ function App(): React.JSX.Element {
   return (
     <ErrorBoundary>
       <WindowCloseHandler />
-      <AppEventListener />
       <BrowserRouter>
         <Routes>
           {/* All app routes (with layout) */}
