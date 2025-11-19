@@ -192,12 +192,37 @@ pub fn run() {
 
                 if let Err(e) = auto_start_server(state).await {
                     log::error!("Failed to auto-start Kopia server: {}", e);
-                    log::info!("You can start the server manually from the UI");
+
+                    // Check if error is repository-related (invalid path, cannot access storage)
+                    let is_repo_error = matches!(
+                        e,
+                        error::KopiaError::RepositoryOperationFailed { .. }
+                    );
+
+                    if is_repo_error {
+                        log::warn!(
+                            "Repository configuration error detected. \
+                             The configured repository may not be accessible. \
+                             User should disconnect and reconnect."
+                        );
+                    } else {
+                        log::info!("You can start the server manually from the UI");
+                    }
 
                     // Notify frontend about auto-start failure
-                    let error_message = e.to_string();
+                    #[derive(serde::Serialize)]
+                    struct AutoStartError {
+                        message: String,
+                        is_repo_error: bool,
+                    }
+
+                    let error_payload = AutoStartError {
+                        message: e.to_string(),
+                        is_repo_error,
+                    };
+
                     if let Err(emit_err) =
-                        app_handle.emit("server-autostart-failed", &error_message)
+                        app_handle.emit("server-autostart-failed", &error_payload)
                     {
                         log::error!("Failed to emit server-autostart-failed event: {}", emit_err);
                     }
