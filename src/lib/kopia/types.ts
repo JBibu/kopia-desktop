@@ -779,10 +779,10 @@ export interface TaskProgressEvent {
     percentage: number;
   };
   counters: {
-    hashed_files: number;
-    hashed_bytes: number;
-    cached_files: number;
-    cached_bytes: number;
+    hashedFiles: number;
+    hashedBytes: number;
+    cachedFiles: number;
+    cachedBytes: number;
   };
 }
 

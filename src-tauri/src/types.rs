@@ -544,7 +544,7 @@ pub struct SchedulingPolicy {
 #[serde(rename_all = "camelCase")]
 pub struct FilesPolicy {
     pub ignore: Option<Vec<String>>,
-    #[serde(rename = "dotIgnore")]
+    #[serde(rename = "dotIgnoreFiles")]
     pub ignore_dot_files: Option<Vec<String>>,
     pub one_file_system: Option<bool>,
     pub no_parent_ignore: Option<bool>,

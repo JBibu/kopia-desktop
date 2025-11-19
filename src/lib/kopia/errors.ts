@@ -10,9 +10,13 @@ import i18n from '@/lib/i18n/config';
 /**
  * Error codes matching the Rust KopiaError enum
  * These match the SCREAMING_SNAKE_CASE serialization from the backend
+ *
+ * IMPORTANT: Keep this synchronized with src-tauri/src/error.rs
  */
 export enum KopiaErrorCode {
+  // ============================================================================
   // Server Lifecycle Errors
+  // ============================================================================
   SERVER_START_FAILED = 'SERVER_START_FAILED',
   SERVER_STOP_FAILED = 'SERVER_STOP_FAILED',
   SERVER_NOT_RUNNING = 'SERVER_NOT_RUNNING',
@@ -21,66 +25,93 @@ export enum KopiaErrorCode {
   BINARY_NOT_FOUND = 'BINARY_NOT_FOUND',
   BINARY_EXECUTION_FAILED = 'BINARY_EXECUTION_FAILED',
 
+  // ============================================================================
   // Repository Errors
+  // ============================================================================
   REPOSITORY_CONNECTION_FAILED = 'REPOSITORY_CONNECTION_FAILED',
   REPOSITORY_NOT_CONNECTED = 'REPOSITORY_NOT_CONNECTED',
-  REPOSITORY_ALREADY_CONNECTED = 'REPOSITORY_ALREADY_CONNECTED',
-  REPOSITORY_NOT_FOUND = 'REPOSITORY_NOT_FOUND',
-  REPOSITORY_INITIALIZATION_FAILED = 'REPOSITORY_INITIALIZATION_FAILED',
-  INVALID_PASSWORD = 'INVALID_PASSWORD',
+  REPOSITORY_CREATION_FAILED = 'REPOSITORY_CREATION_FAILED',
   REPOSITORY_OPERATION_FAILED = 'REPOSITORY_OPERATION_FAILED',
+  REPOSITORY_ALREADY_EXISTS = 'REPOSITORY_ALREADY_EXISTS',
+  INVALID_REPOSITORY_CONFIG = 'INVALID_REPOSITORY_CONFIG',
 
-  // Storage Errors
-  STORAGE_CONNECTION_FAILED = 'STORAGE_CONNECTION_FAILED',
-  INVALID_STORAGE_CONFIG = 'INVALID_STORAGE_CONFIG',
-  STORAGE_ACCESS_DENIED = 'STORAGE_ACCESS_DENIED',
-
+  // ============================================================================
   // Snapshot Errors
+  // ============================================================================
   SNAPSHOT_CREATION_FAILED = 'SNAPSHOT_CREATION_FAILED',
   SNAPSHOT_NOT_FOUND = 'SNAPSHOT_NOT_FOUND',
-  SNAPSHOT_OPERATION_FAILED = 'SNAPSHOT_OPERATION_FAILED',
-  PATH_RESOLUTION_FAILED = 'PATH_RESOLUTION_FAILED',
+  SNAPSHOT_DELETION_FAILED = 'SNAPSHOT_DELETION_FAILED',
+  SNAPSHOT_EDIT_FAILED = 'SNAPSHOT_EDIT_FAILED',
 
+  // ============================================================================
   // Policy Errors
+  // ============================================================================
   POLICY_NOT_FOUND = 'POLICY_NOT_FOUND',
-  POLICY_OPERATION_FAILED = 'POLICY_OPERATION_FAILED',
+  POLICY_UPDATE_FAILED = 'POLICY_UPDATE_FAILED',
   INVALID_POLICY_CONFIG = 'INVALID_POLICY_CONFIG',
 
+  // ============================================================================
   // Task Errors
+  // ============================================================================
   TASK_NOT_FOUND = 'TASK_NOT_FOUND',
-  TASK_OPERATION_FAILED = 'TASK_OPERATION_FAILED',
+  TASK_CANCELLATION_FAILED = 'TASK_CANCELLATION_FAILED',
 
-  // Restore Errors
+  // ============================================================================
+  // Restore/Mount Errors
+  // ============================================================================
   RESTORE_FAILED = 'RESTORE_FAILED',
   MOUNT_FAILED = 'MOUNT_FAILED',
+  UNMOUNT_FAILED = 'UNMOUNT_FAILED',
+  MOUNT_NOT_FOUND = 'MOUNT_NOT_FOUND',
 
+  // ============================================================================
+  // Maintenance Errors
+  // ============================================================================
+  MAINTENANCE_FAILED = 'MAINTENANCE_FAILED',
+
+  // ============================================================================
   // WebSocket Errors
+  // ============================================================================
   WEBSOCKET_CONNECTION_FAILED = 'WEBSOCKET_CONNECTION_FAILED',
   WEBSOCKET_ALREADY_CONNECTED = 'WEBSOCKET_ALREADY_CONNECTED',
   WEBSOCKET_NOT_CONNECTED = 'WEBSOCKET_NOT_CONNECTED',
+  WEBSOCKET_MESSAGE_PARSE_FAILED = 'WEBSOCKET_MESSAGE_PARSE_FAILED',
 
-  // Network Errors
+  // ============================================================================
+  // HTTP/API Errors
+  // ============================================================================
   HTTP_REQUEST_FAILED = 'HTTP_REQUEST_FAILED',
-  TIMEOUT = 'TIMEOUT',
-  CONNECTION_REFUSED = 'CONNECTION_REFUSED',
-
-  // Validation Errors
-  INVALID_INPUT = 'INVALID_INPUT',
-  MISSING_FIELD = 'MISSING_FIELD',
-
-  // Filesystem Errors
-  FILE_NOT_FOUND = 'FILE_NOT_FOUND',
-  PERMISSION_DENIED = 'PERMISSION_DENIED',
-  IO_ERROR = 'IO_ERROR',
-
-  // System Errors
-  CONFIG_ERROR = 'CONFIG_ERROR',
-  ENVIRONMENT_ERROR = 'ENVIRONMENT_ERROR',
-  INTERNAL_ERROR = 'INTERNAL_ERROR',
-
-  // Parsing Errors
-  JSON_PARSE_ERROR = 'JSON_PARSE_ERROR',
   RESPONSE_PARSE_ERROR = 'RESPONSE_PARSE_ERROR',
+  API_ERROR = 'API_ERROR',
+  AUTHENTICATION_FAILED = 'AUTHENTICATION_FAILED',
+  UNAUTHORIZED = 'UNAUTHORIZED',
+  NOT_FOUND = 'NOT_FOUND',
+
+  // ============================================================================
+  // File System Errors
+  // ============================================================================
+  FILE_IO_ERROR = 'FILE_IO_ERROR',
+  INVALID_PATH = 'INVALID_PATH',
+  PATH_NOT_FOUND = 'PATH_NOT_FOUND',
+  PERMISSION_DENIED = 'PERMISSION_DENIED',
+  PATH_RESOLUTION_FAILED = 'PATH_RESOLUTION_FAILED',
+
+  // ============================================================================
+  // Notification Errors
+  // ============================================================================
+  NOTIFICATION_PROFILE_CREATION_FAILED = 'NOTIFICATION_PROFILE_CREATION_FAILED',
+  NOTIFICATION_PROFILE_DELETION_FAILED = 'NOTIFICATION_PROFILE_DELETION_FAILED',
+  NOTIFICATION_TEST_FAILED = 'NOTIFICATION_TEST_FAILED',
+
+  // ============================================================================
+  // General Errors
+  // ============================================================================
+  JSON_ERROR = 'JSON_ERROR',
+  INVALID_INPUT = 'INVALID_INPUT',
+  INTERNAL_ERROR = 'INTERNAL_ERROR',
+  ENVIRONMENT_ERROR = 'ENVIRONMENT_ERROR',
+  TIMEOUT = 'TIMEOUT',
+  CANCELLED = 'CANCELLED',
 }
 
 /**
@@ -112,9 +143,7 @@ export class KopiaError extends Error {
     return (
       this.is(KopiaErrorCode.REPOSITORY_NOT_CONNECTED) ||
       this.is(KopiaErrorCode.SERVER_NOT_RUNNING) ||
-      this.is(KopiaErrorCode.CONNECTION_REFUSED) ||
       this.is(KopiaErrorCode.WEBSOCKET_NOT_CONNECTED) ||
-      this.is(KopiaErrorCode.STORAGE_CONNECTION_FAILED) ||
       this.statusCode === 0
     );
   }
@@ -124,7 +153,10 @@ export class KopiaError extends Error {
    */
   isAuthError(): boolean {
     return (
-      this.is(KopiaErrorCode.INVALID_PASSWORD) || this.statusCode === 401 || this.statusCode === 403
+      this.is(KopiaErrorCode.AUTHENTICATION_FAILED) ||
+      this.is(KopiaErrorCode.UNAUTHORIZED) ||
+      this.statusCode === 401 ||
+      this.statusCode === 403
     );
   }
 
@@ -253,19 +285,15 @@ export function isNotConnectedError(error: unknown): boolean {
  */
 export function isServerNotRunningError(error: unknown): boolean {
   const kopiaError = parseKopiaError(error);
-  return (
-    kopiaError.is(KopiaErrorCode.SERVER_NOT_RUNNING) ||
-    kopiaError.is(KopiaErrorCode.CONNECTION_REFUSED) ||
-    kopiaError.statusCode === 0
-  );
+  return kopiaError.is(KopiaErrorCode.SERVER_NOT_RUNNING) || kopiaError.statusCode === 0;
 }
 
 /**
- * Check if error is invalid password
+ * Check if error is authentication failure
  */
-export function isInvalidPasswordError(error: unknown): boolean {
+export function isAuthenticationError(error: unknown): boolean {
   const kopiaError = parseKopiaError(error);
-  return kopiaError.is(KopiaErrorCode.INVALID_PASSWORD);
+  return kopiaError.isAuthError();
 }
 
 /**
@@ -390,8 +418,8 @@ export async function retryOnError<T>(
       if (
         lastError.isAuthError() ||
         lastError.is(KopiaErrorCode.REPOSITORY_NOT_CONNECTED) ||
-        lastError.is(KopiaErrorCode.INVALID_PASSWORD) ||
-        lastError.is(KopiaErrorCode.INVALID_STORAGE_CONFIG) ||
+        lastError.is(KopiaErrorCode.INVALID_REPOSITORY_CONFIG) ||
+        lastError.is(KopiaErrorCode.INVALID_POLICY_CONFIG) ||
         lastError.is(KopiaErrorCode.INVALID_INPUT)
       ) {
         throw lastError;

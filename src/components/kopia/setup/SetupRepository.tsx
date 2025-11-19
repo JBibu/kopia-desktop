@@ -189,17 +189,13 @@ export function SetupRepository() {
       let userMessage = getErrorMessage(error);
 
       // Handle common error cases with user-friendly messages
-      if (kopiaError.is(KopiaErrorCode.REPOSITORY_ALREADY_CONNECTED)) {
-        // This should be rare now since we auto-disconnect, but handle it gracefully
+      if (kopiaError.is(KopiaErrorCode.REPOSITORY_ALREADY_EXISTS)) {
         userMessage = t('setup.toasts.alreadyConnected');
-      } else if (kopiaError.is(KopiaErrorCode.INVALID_PASSWORD)) {
+      } else if (kopiaError.isAuthError()) {
         userMessage = t('setup.toasts.invalidPassword');
-      } else if (kopiaError.is(KopiaErrorCode.REPOSITORY_NOT_FOUND)) {
+      } else if (kopiaError.is(KopiaErrorCode.REPOSITORY_NOT_CONNECTED)) {
         userMessage = t('setup.toasts.notInitialized');
-      } else if (
-        kopiaError.is(KopiaErrorCode.CONNECTION_REFUSED) ||
-        kopiaError.is(KopiaErrorCode.SERVER_NOT_RUNNING)
-      ) {
+      } else if (kopiaError.is(KopiaErrorCode.SERVER_NOT_RUNNING)) {
         userMessage = t('setup.toasts.serverUnavailable');
       }
 

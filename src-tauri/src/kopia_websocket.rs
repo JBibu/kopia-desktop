@@ -63,6 +63,7 @@ pub struct ProgressInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CountersInfo {
     pub hashed_files: i64,
     pub hashed_bytes: i64,
@@ -71,12 +72,10 @@ pub struct CountersInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UploadInfo {
-    #[serde(rename = "hashedFiles")]
     pub hashed_files: i64,
-    #[serde(rename = "hashedBytes")]
     pub hashed_bytes: i64,
-    #[serde(rename = "estimatedBytes")]
     pub estimated_bytes: Option<i64>,
     pub directory: String,
 }

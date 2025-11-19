@@ -33,7 +33,7 @@ export {
   parseKopiaError,
   isNotConnectedError,
   isServerNotRunningError,
-  isInvalidPasswordError,
+  isAuthenticationError,
   getErrorMessage,
   handleKopiaError,
   createErrorHandler,

@@ -81,7 +81,7 @@ import {
   parseKopiaError,
   isServerNotRunningError,
   isNotConnectedError,
-  isInvalidPasswordError,
+  isAuthenticationError,
 } from '@/lib/kopia/client';
 
 // Mock Tauri invoke
@@ -301,12 +301,12 @@ describe('Kopia Client - Error Handling', () => {
         type: 'SERVER_NOT_RUNNING',
         data: { message: 'Server is not running' },
       };
-      const connectionRefusedError = {
-        type: 'CONNECTION_REFUSED',
-        data: { message: 'Connection refused' },
+      const httpRequestFailed = {
+        type: 'HTTP_REQUEST_FAILED',
+        data: { message: 'Connection refused', status_code: 0 },
       };
       expect(isServerNotRunningError(serverNotRunningError)).toBe(true);
-      expect(isServerNotRunningError(connectionRefusedError)).toBe(true);
+      expect(isServerNotRunningError(httpRequestFailed)).toBe(true);
     });
 
     it('returns false for other errors', () => {
@@ -332,18 +332,26 @@ describe('Kopia Client - Error Handling', () => {
     });
   });
 
-  describe('isInvalidPasswordError', () => {
-    it('detects invalid password error', () => {
-      const invalidPasswordError = {
-        type: 'INVALID_PASSWORD',
-        data: { message: 'Invalid password' },
+  describe('isAuthenticationError', () => {
+    it('detects authentication failure error', () => {
+      const authError = {
+        type: 'AUTHENTICATION_FAILED',
+        data: { message: 'Authentication failed' },
       };
-      expect(isInvalidPasswordError(invalidPasswordError)).toBe(true);
+      expect(isAuthenticationError(authError)).toBe(true);
+    });
+
+    it('detects unauthorized error', () => {
+      const unauthorizedError = {
+        type: 'UNAUTHORIZED',
+        data: { resource: 'repository' },
+      };
+      expect(isAuthenticationError(unauthorizedError)).toBe(true);
     });
 
     it('returns false for other errors', () => {
-      expect(isInvalidPasswordError(new Error('Server not running'))).toBe(false);
-      expect(isInvalidPasswordError(new Error('Connection timeout'))).toBe(false);
+      expect(isAuthenticationError(new Error('Server not running'))).toBe(false);
+      expect(isAuthenticationError(new Error('Connection timeout'))).toBe(false);
     });
   });
 });
