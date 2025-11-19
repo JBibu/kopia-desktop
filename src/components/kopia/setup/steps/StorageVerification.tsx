@@ -34,6 +34,7 @@ export function StorageVerification({
       const exists = await repositoryExists(storageConfig);
       setStatus(exists ? 'exists' : 'not-exists');
     } catch (err) {
+      // Show error in Alert component only - don't propagate to avoid duplicate toasts
       setStatus('error');
       setError(getErrorMessage(err));
     }
