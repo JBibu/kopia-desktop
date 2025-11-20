@@ -10,31 +10,7 @@ mod types;
 
 // Test modules
 #[cfg(test)]
-mod advanced_error_tests;
-#[cfg(test)]
-mod commands_tests;
-#[cfg(test)]
-mod concurrency_tests;
-#[cfg(test)]
-mod error_edge_cases_tests;
-#[cfg(test)]
-mod integration_tests;
-#[cfg(test)]
-mod kopia_api_integration_tests; // NEW: Actual Kopia binary API integration tests
-#[cfg(test)]
-mod kopia_commands_tests;
-#[cfg(test)]
-mod kopia_server_tests;
-#[cfg(test)]
-mod kopia_websocket_tests;
-#[cfg(test)]
-mod system_tests;
-#[cfg(test)]
-mod types_advanced_tests;
-#[cfg(test)]
-mod types_tests;
-#[cfg(test)]
-mod types_unit_tests;
+mod tests;
 
 use kopia_server::{create_server_state, KopiaServerState};
 use kopia_websocket::KopiaWebSocket;

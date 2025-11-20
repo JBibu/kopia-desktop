@@ -16,6 +16,12 @@ macro_rules! lock_server {
 }
 
 /// Start the Kopia server
+///
+/// Spawns the Kopia server process with a random password and waits for it to become ready.
+/// The server listens on a random available port (localhost-only) with TLS enabled.
+///
+/// # Returns
+/// `KopiaServerInfo` containing server URL, username, password, and CSRF token
 #[tauri::command]
 pub async fn kopia_server_start(server: State<'_, KopiaServerState>) -> Result<KopiaServerInfo> {
     let config_dir = get_default_config_dir()?;
@@ -32,12 +38,17 @@ pub async fn kopia_server_start(server: State<'_, KopiaServerState>) -> Result<K
 }
 
 /// Stop the Kopia server
+///
+/// Gracefully terminates the Kopia server process and cleans up resources.
 #[tauri::command]
 pub async fn kopia_server_stop(server: State<'_, KopiaServerState>) -> Result<()> {
     lock_server!(server).stop()
 }
 
 /// Get Kopia server status
+///
+/// Returns the current status of the Kopia server including whether it's running,
+/// server URL (if running), and uptime.
 #[tauri::command]
 pub async fn kopia_server_status(server: State<'_, KopiaServerState>) -> Result<KopiaServerStatus> {
     Ok(lock_server!(server).status())
@@ -85,6 +96,9 @@ pub fn get_default_config_dir() -> Result<String> {
 // ============================================================================
 
 /// Get repository status
+///
+/// Returns information about the connected repository including storage configuration,
+/// connection status, and repository description.
 #[tauri::command]
 pub async fn repository_status(server: State<'_, KopiaServerState>) -> Result<RepositoryStatus> {
     let (server_url, client) = get_server_client(&server)?;
@@ -211,6 +225,9 @@ pub async fn repository_exists(
 }
 
 /// Get available algorithms
+///
+/// Returns the list of available compression, encryption, and hashing algorithms
+/// supported by the Kopia server for repository creation.
 #[tauri::command]
 pub async fn repository_get_algorithms(
     server: State<'_, KopiaServerState>,
@@ -249,6 +266,9 @@ pub async fn repository_update_description(
 // ============================================================================
 
 /// List all snapshot sources
+///
+/// Returns information about all backup sources in the repository, including last snapshot
+/// time, upload progress, next scheduled snapshot, and source path.
 #[tauri::command]
 pub async fn sources_list(
     server: State<'_, KopiaServerState>,
@@ -609,6 +629,9 @@ pub async fn mount_snapshot(server: State<'_, KopiaServerState>, root: String) -
 }
 
 /// List all mounted snapshots
+///
+/// Returns all currently mounted snapshots with their mount paths and root object IDs.
+/// Mounted snapshots appear as local filesystems for easy file browsing and restoration.
 #[tauri::command]
 pub async fn mounts_list(
     server: State<'_, KopiaServerState>,
@@ -643,6 +666,9 @@ pub async fn mount_unmount(server: State<'_, KopiaServerState>, object_id: Strin
 // ============================================================================
 
 /// List all policies
+///
+/// Returns all backup policies in the repository with their inheritance hierarchy.
+/// Policies control retention, scheduling, compression, and other backup behavior.
 #[tauri::command]
 pub async fn policies_list(
     server: State<'_, KopiaServerState>,
@@ -769,6 +795,9 @@ pub async fn policy_delete(
 // ============================================================================
 
 /// List all tasks
+///
+/// Returns all active and recent tasks including snapshots, maintenance, and restore operations.
+/// Each task includes status, progress, start time, and error information (if failed).
 #[tauri::command]
 pub async fn tasks_list(
     server: State<'_, KopiaServerState>,
