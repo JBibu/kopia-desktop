@@ -203,6 +203,13 @@ export function SnapshotBrowse() {
           targetPath,
           overwriteFiles: false,
           overwriteDirectories: false,
+          ignorePermissionErrors: true,
+        },
+        options: {
+          incremental: false,
+          ignoreErrors: false,
+          restoreDirEntryAtDepth: 2147483647, // Max int32 - never use shallow restore
+          minSizeForPlaceholder: 2147483647, // Max int32 - never create placeholder files
         },
       });
 

@@ -69,7 +69,9 @@ export function SnapshotRestore() {
   const [skipOwners, setSkipOwners] = useState(false);
   const [skipPermissions, setSkipPermissions] = useState(false);
   const [skipTimes, setSkipTimes] = useState(false);
-  const [writeFilesAtomically, setWriteFilesAtomically] = useState(true);
+  const [ignorePermissionErrors, setIgnorePermissionErrors] = useState(true); // Critical: prevents chown errors
+  const [writeFilesAtomically, setWriteFilesAtomically] = useState(false); // Matches official Kopia UI
+  const [writeSparseFiles, setWriteSparseFiles] = useState(false);
 
   // General restore options
   const [ignoreErrors, setIgnoreErrors] = useState(false);
@@ -172,7 +174,9 @@ export function SnapshotRestore() {
           ...(skipOwners && { skipOwners }),
           ...(skipPermissions && { skipPermissions }),
           ...(skipTimes && { skipTimes }),
+          ...(ignorePermissionErrors && { ignorePermissionErrors }),
           ...(writeFilesAtomically && { writeFilesAtomically }),
+          ...(writeSparseFiles && { writeSparseFiles }),
         };
       } else if (mode === 'zip') {
         request.zipFile = zipFilePath;
@@ -183,13 +187,13 @@ export function SnapshotRestore() {
         request.tarFile = tarFilePath;
       }
 
-      // Add general options only if needed
-      if (ignoreErrors || incremental) {
-        request.options = {
-          ...(ignoreErrors && { ignoreErrors }),
-          ...(incremental && { incremental }),
-        };
-      }
+      // Always add options - CRITICAL to prevent shallow restore with placeholder files
+      request.options = {
+        incremental: incremental,
+        ignoreErrors: ignoreErrors,
+        restoreDirEntryAtDepth: 2147483647, // Max int32 - never use shallow restore
+        minSizeForPlaceholder: 2147483647, // Max int32 - never create placeholder files
+      };
 
       const taskId = await restoreStart(request);
       setRestoreTaskId(taskId);
@@ -376,12 +380,35 @@ export function SnapshotRestore() {
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox
+                        id="ignorePermissionErrors"
+                        checked={ignorePermissionErrors}
+                        onCheckedChange={(checked) => setIgnorePermissionErrors(checked === true)}
+                      />
+                      <Label
+                        htmlFor="ignorePermissionErrors"
+                        className="font-normal cursor-pointer"
+                      >
+                        {t('restore.ignorePermissionErrors')}
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
                         id="writeFilesAtomically"
                         checked={writeFilesAtomically}
                         onCheckedChange={(checked) => setWriteFilesAtomically(checked === true)}
                       />
                       <Label htmlFor="writeFilesAtomically" className="font-normal cursor-pointer">
                         {t('restore.writeFilesAtomically')}
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="writeSparseFiles"
+                        checked={writeSparseFiles}
+                        onCheckedChange={(checked) => setWriteSparseFiles(checked === true)}
+                      />
+                      <Label htmlFor="writeSparseFiles" className="font-normal cursor-pointer">
+                        {t('restore.writeSparseFiles')}
                       </Label>
                     </div>
                   </div>
