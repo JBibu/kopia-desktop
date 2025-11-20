@@ -45,9 +45,15 @@ export function Policies() {
   const error = useKopiaStore((state) => state.policiesError);
   const fetchPolicies = useKopiaStore((state) => state.refreshPolicies);
   const [selectedTab, setSelectedTab] = useState('all');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRefresh = async () => {
-    await fetchPolicies();
+    setIsRefreshing(true);
+    try {
+      await fetchPolicies();
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   // Helper to get target string
@@ -285,9 +291,9 @@ export function Policies() {
             variant="outline"
             size="sm"
             onClick={() => void handleRefresh()}
-            disabled={isLoading}
+            disabled={isRefreshing}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
             {t('common.refresh')}
           </Button>
           <Button size="sm" onClick={handleCreateGlobalPolicy}>

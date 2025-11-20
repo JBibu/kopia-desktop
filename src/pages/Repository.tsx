@@ -28,6 +28,23 @@ export function Repository() {
     void navigate('/setup');
   };
 
+  // Helper to get translated repository description
+  const getRepositoryDescription = (): string => {
+    if (!status?.description) {
+      return t('repository.connectedToRepository');
+    }
+
+    // Parse Kopia's default description format: "Repository in <Provider>: <Path>"
+    const match = status.description.match(/^Repository in (.+?): (.+)$/);
+    if (match) {
+      const [, provider, path] = match;
+      return t('repository.repositoryIn', { provider, path });
+    }
+
+    // If it's a custom description or doesn't match the pattern, return as-is
+    return status.description;
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -73,9 +90,7 @@ export function Repository() {
                 <div className="flex items-center gap-3 mb-6">
                   <CheckCircle className="h-6 w-6 text-success" />
                   <div>
-                    <h3 className="text-lg font-medium">
-                      {status.description || t('repository.connectedToRepository')}
-                    </h3>
+                    <h3 className="text-lg font-medium">{getRepositoryDescription()}</h3>
                     {status.username && status.hostname && (
                       <p className="text-sm text-muted-foreground">
                         {status.username}@{status.hostname}

@@ -98,6 +98,7 @@ export function SnapshotHistory() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeletingSource, setIsDeletingSource] = useState(false);
   const [isCreatingSnapshot, setIsCreatingSnapshot] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [showAllSnapshots, setShowAllSnapshots] = useState(false);
   const [pinDialogSnapshot, setPinDialogSnapshot] = useState<{
     id: string;
@@ -152,7 +153,12 @@ export function SnapshotHistory() {
   }, [userName, host, path]);
 
   const handleRefresh = async () => {
-    await fetchSnapshots();
+    setIsRefreshing(true);
+    try {
+      await fetchSnapshots();
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleSelectAll = () => {
@@ -272,9 +278,9 @@ export function SnapshotHistory() {
             variant="outline"
             size="sm"
             onClick={() => void handleRefresh()}
-            disabled={isSnapshotsLoading}
+            disabled={isRefreshing}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isSnapshotsLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
             {t('common.refresh')}
           </Button>
           {snapshots.length === 0 && !isSnapshotsLoading ? (

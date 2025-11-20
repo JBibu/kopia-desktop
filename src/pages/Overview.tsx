@@ -390,7 +390,7 @@ export function Overview() {
                         <SelectItem value="7">{t('overview.last7Days')}</SelectItem>
                         <SelectItem value="14">{t('overview.last14Days')}</SelectItem>
                         <SelectItem value="30">{t('overview.last30Days')}</SelectItem>
-                        <SelectItem value="90">{t('overview.last90Days')}</SelectItem>
+                        <SelectItem value="60">{t('overview.last60Days')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

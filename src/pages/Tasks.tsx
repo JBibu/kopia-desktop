@@ -69,12 +69,18 @@ export function Tasks() {
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Task details state
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
 
   const handleRefresh = async () => {
-    await refreshAll();
+    setIsRefreshing(true);
+    try {
+      await refreshAll();
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleToggleDetails = (taskId: string) => {
@@ -191,10 +197,10 @@ export function Tasks() {
           variant="outline"
           size="sm"
           onClick={() => void handleRefresh()}
-          disabled={isLoading}
+          disabled={isRefreshing}
           title={isWebSocketConnected ? t('tasks.manualRefresh') : t('tasks.pollingMode')}
         >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
           {t('common.refresh')}
         </Button>
       </div>

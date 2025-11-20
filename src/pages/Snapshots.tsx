@@ -284,39 +284,55 @@ export function Snapshots() {
     const { totalSnapshots, lastSnapshot } = getProfileStats(profile);
 
     return (
-      <Card className="hover:bg-accent/50 transition-colors relative shadow-lg">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center justify-between gap-2">
+      <Card className="hover:shadow-md hover:border-muted-foreground/20 transition-all duration-200 relative overflow-hidden group">
+        <CardHeader className="pb-3 space-y-1">
+          <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              <GripVertical className="h-4 w-4 text-muted-foreground" />
-              <FolderTree className="h-4 w-4 text-primary shrink-0" />
-              <span className="truncate">{profile.name}</span>
+              <GripVertical className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <div className="p-1.5 rounded-md bg-muted/50 group-hover:bg-muted transition-colors">
+                  <FolderTree className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <CardTitle className="text-base font-semibold truncate">{profile.name}</CardTitle>
+              </div>
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              <Pin className={`h-3.5 w-3.5 ${profile.pinned ? 'fill-current text-primary' : ''}`} />
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              {profile.pinned && <Pin className="h-3.5 w-3.5 fill-current text-muted-foreground" />}
+              <ChevronRight className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
             </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
+          </div>
           {profile.description && (
-            <p className="text-xs text-muted-foreground line-clamp-2">{profile.description}</p>
+            <p className="text-sm text-muted-foreground line-clamp-2 pl-10">
+              {profile.description}
+            </p>
           )}
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Folder className="h-3 w-3" />
-              {profile.directories.length}
-            </span>
-            <span className="flex items-center gap-1">
-              <FolderArchive className="h-3 w-3" />
-              {totalSnapshots}
-            </span>
+        </CardHeader>
+        <CardContent className="pt-0 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-center gap-2 text-sm">
+              <div className="p-1 rounded bg-muted/30">
+                <Folder className="h-3.5 w-3.5 text-muted-foreground" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs text-muted-foreground">Directories</span>
+                <span className="font-medium">{profile.directories.length}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <div className="p-1 rounded bg-muted/30">
+                <FolderArchive className="h-3.5 w-3.5 text-muted-foreground" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs text-muted-foreground">Backups</span>
+                <span className="font-medium">{totalSnapshots}</span>
+              </div>
+            </div>
           </div>
           {lastSnapshot && (
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {formatDistanceToNow(new Date(lastSnapshot))}
-            </p>
+            <div className="flex items-center gap-2 pt-2 border-t text-xs text-muted-foreground">
+              <Clock className="h-3.5 w-3.5" />
+              <span>Last backup {formatDistanceToNow(new Date(lastSnapshot))}</span>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -330,38 +346,58 @@ export function Snapshots() {
     const isPinned = sourcePreferences[sourceId]?.pinned;
 
     return (
-      <Card className="hover:bg-accent/50 transition-colors shadow-lg">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center justify-between">
-            <span className="flex items-center gap-2 min-w-0">
-              <GripVertical className="h-4 w-4 text-muted-foreground" />
-              <Folder className="h-4 w-4 text-primary shrink-0" />
-              <span className="truncate">{source.source.path}</span>
-            </span>
-            <div className="flex items-center gap-1 shrink-0">
-              <Pin className={`h-3.5 w-3.5 ${isPinned ? 'fill-current text-primary' : ''}`} />
+      <Card className="hover:shadow-md hover:border-muted-foreground/20 transition-all duration-200 overflow-hidden group">
+        <CardHeader className="pb-3 space-y-1">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <GripVertical className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <div className="p-1.5 rounded-md bg-muted/50 group-hover:bg-muted transition-colors">
+                  <Folder className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <CardTitle className="text-base font-semibold truncate">
+                  {source.source.path}
+                </CardTitle>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {isPinned && <Pin className="h-3.5 w-3.5 fill-current text-muted-foreground" />}
               <StatusBadge status={source.status} />
             </div>
-          </CardTitle>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <FolderArchive className="h-3 w-3" />
-              {snapshotCount} {t('snapshots.snapshots')}
-            </span>
+        <CardContent className="pt-0 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-center gap-2 text-sm">
+              <div className="p-1 rounded bg-muted/30">
+                <FolderArchive className="h-3.5 w-3.5 text-muted-foreground" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs text-muted-foreground">Backups</span>
+                <span className="font-medium">{snapshotCount}</span>
+              </div>
+            </div>
             {source.lastSnapshot && (
-              <span className="flex items-center gap-1">
-                <HardDrive className="h-3 w-3" />
-                {formatBytes(source.lastSnapshot.stats?.totalSize || 0, 2, byteFormat)}
-              </span>
+              <div className="flex items-center gap-2 text-sm">
+                <div className="p-1 rounded bg-muted/30">
+                  <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xs text-muted-foreground">Size</span>
+                  <span className="font-medium truncate">
+                    {formatBytes(source.lastSnapshot.stats?.totalSize || 0, 1, byteFormat)}
+                  </span>
+                </div>
+              </div>
             )}
           </div>
           {source.lastSnapshot && (
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {formatDistanceToNow(new Date(source.lastSnapshot.startTime))}
-            </p>
+            <div className="flex items-center gap-2 pt-2 border-t text-xs text-muted-foreground">
+              <Clock className="h-3.5 w-3.5" />
+              <span>
+                Last backup {formatDistanceToNow(new Date(source.lastSnapshot.startTime))}
+              </span>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -385,9 +421,12 @@ export function Snapshots() {
 
     return (
       <div ref={setNodeRef} style={style}>
-        <Card className="hover:bg-accent/50 transition-colors relative">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center justify-between gap-2">
+        <Card className="hover:shadow-md hover:border-muted-foreground/20 transition-all duration-200 relative overflow-hidden group cursor-pointer">
+          <CardHeader
+            className="pb-3 space-y-1"
+            onClick={() => void navigate(`/snapshots/${profile.id}/history`)}
+          >
+            <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <div
                   {...attributes}
@@ -396,22 +435,22 @@ export function Snapshots() {
                   role="button"
                   aria-label={t('common.dragToReorder')}
                   tabIndex={0}
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <GripVertical className="h-4 w-4 text-muted-foreground" />
+                  <GripVertical className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
                 </div>
-                <FolderTree className="h-4 w-4 text-primary shrink-0" />
-                <span
-                  className="truncate cursor-pointer hover:text-primary transition-colors"
-                  onClick={() => void navigate(`/snapshots/${profile.id}/history`)}
-                >
-                  {profile.name}
-                </span>
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <div className="p-1.5 rounded-md bg-muted/50 group-hover:bg-muted transition-colors">
+                    <FolderTree className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <CardTitle className="text-base font-semibold truncate">{profile.name}</CardTitle>
+                </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 p-0"
+                  className="h-6 w-6 p-0 hover:bg-muted"
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleProfilePin(profile.id);
@@ -420,32 +459,44 @@ export function Snapshots() {
                   title={profile.pinned ? t('common.unpin') : t('common.pin')}
                 >
                   <Pin
-                    className={`h-3.5 w-3.5 ${profile.pinned ? 'fill-current text-primary' : ''}`}
+                    className={`h-3.5 w-3.5 ${profile.pinned ? 'fill-current text-muted-foreground' : 'text-muted-foreground/30'}`}
                   />
                 </Button>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
               </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
+            </div>
             {profile.description && (
-              <p className="text-xs text-muted-foreground line-clamp-2">{profile.description}</p>
+              <p className="text-sm text-muted-foreground line-clamp-2 pl-10">
+                {profile.description}
+              </p>
             )}
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Folder className="h-3 w-3" />
-                {profile.directories.length}
-              </span>
-              <span className="flex items-center gap-1">
-                <FolderArchive className="h-3 w-3" />
-                {totalSnapshots}
-              </span>
+          </CardHeader>
+          <CardContent className="pt-0 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex items-center gap-2 text-sm">
+                <div className="p-1 rounded bg-muted/30">
+                  <Folder className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xs text-muted-foreground">Directories</span>
+                  <span className="font-medium">{profile.directories.length}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <div className="p-1 rounded bg-muted/30">
+                  <FolderArchive className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xs text-muted-foreground">Backups</span>
+                  <span className="font-medium">{totalSnapshots}</span>
+                </div>
+              </div>
             </div>
             {lastSnapshot && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                {formatDistanceToNow(new Date(lastSnapshot))}
-              </p>
+              <div className="flex items-center gap-2 pt-2 border-t text-xs text-muted-foreground">
+                <Clock className="h-3.5 w-3.5" />
+                <span>Last backup {formatDistanceToNow(new Date(lastSnapshot))}</span>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -472,10 +523,10 @@ export function Snapshots() {
 
     return (
       <div ref={setNodeRef} style={style}>
-        <Card className="hover:bg-accent/50 transition-colors">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center justify-between">
-              <span className="flex items-center gap-2 min-w-0">
+        <Card className="hover:shadow-md hover:border-muted-foreground/20 transition-all duration-200 overflow-hidden group">
+          <CardHeader className="pb-3 space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
                 <div
                   {...attributes}
                   {...listeners}
@@ -484,16 +535,22 @@ export function Snapshots() {
                   aria-label={t('common.dragToReorder')}
                   tabIndex={0}
                 >
-                  <GripVertical className="h-4 w-4 text-muted-foreground" />
+                  <GripVertical className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
                 </div>
-                <Folder className="h-4 w-4 text-primary shrink-0" />
-                <span className="truncate">{source.source.path}</span>
-              </span>
-              <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <div className="p-1.5 rounded-md bg-muted/50 group-hover:bg-muted transition-colors">
+                    <Folder className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <CardTitle className="text-base font-semibold truncate">
+                    {source.source.path}
+                  </CardTitle>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 p-0"
+                  className="h-6 w-6 p-0 hover:bg-muted"
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleSourcePin(sourceId);
@@ -501,36 +558,52 @@ export function Snapshots() {
                   aria-label={isPinned ? t('common.unpin') : t('common.pin')}
                   title={isPinned ? t('common.unpin') : t('common.pin')}
                 >
-                  <Pin className={`h-3.5 w-3.5 ${isPinned ? 'fill-current text-primary' : ''}`} />
+                  <Pin
+                    className={`h-3.5 w-3.5 ${isPinned ? 'fill-current text-muted-foreground' : 'text-muted-foreground/30'}`}
+                  />
                 </Button>
                 <StatusBadge status={source.status} />
               </div>
-            </CardTitle>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <FolderArchive className="h-3 w-3" />
-                {snapshotCount} {t('snapshots.snapshots')}
-              </span>
+          <CardContent className="pt-0 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex items-center gap-2 text-sm">
+                <div className="p-1 rounded bg-muted/30">
+                  <FolderArchive className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xs text-muted-foreground">Backups</span>
+                  <span className="font-medium">{snapshotCount}</span>
+                </div>
+              </div>
               {source.lastSnapshot && (
-                <span className="flex items-center gap-1">
-                  <HardDrive className="h-3 w-3" />
-                  {formatBytes(source.lastSnapshot.stats?.totalSize || 0, 2, byteFormat)}
-                </span>
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="p-1 rounded bg-muted/30">
+                    <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs text-muted-foreground">Size</span>
+                    <span className="font-medium truncate">
+                      {formatBytes(source.lastSnapshot.stats?.totalSize || 0, 1, byteFormat)}
+                    </span>
+                  </div>
+                </div>
               )}
             </div>
             {source.lastSnapshot && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                {formatDistanceToNow(new Date(source.lastSnapshot.startTime))}
-              </p>
+              <div className="flex items-center gap-2 pt-2 border-t text-xs text-muted-foreground">
+                <Clock className="h-3.5 w-3.5" />
+                <span>
+                  Last backup {formatDistanceToNow(new Date(source.lastSnapshot.startTime))}
+                </span>
+              </div>
             )}
             {source.nextSnapshotTime && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
-                {t('snapshots.next')}: {formatDistanceToNow(new Date(source.nextSnapshotTime))}
-              </p>
+              <div className="flex items-center gap-2 pt-2 border-t text-xs text-muted-foreground">
+                <Calendar className="h-3.5 w-3.5" />
+                <span>Next: {formatDistanceToNow(new Date(source.nextSnapshotTime))}</span>
+              </div>
             )}
             <div className="flex gap-2 pt-2">
               <Button
@@ -579,14 +652,17 @@ export function Snapshots() {
             <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
             {t('common.refresh')}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setIsProfileDialogOpen(true)}>
-            <FolderTree className="h-4 w-4 mr-2" />
-            {t('profiles.createProfile')}
-          </Button>
-          <Button size="sm" onClick={() => void navigate('/snapshots/create')}>
-            <Plus className="h-4 w-4 mr-2" />
-            {t('snapshots.newSnapshot')}
-          </Button>
+          {activeTab === 'profiles' ? (
+            <Button size="sm" onClick={() => setIsProfileDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              {t('profiles.createProfile')}
+            </Button>
+          ) : (
+            <Button size="sm" onClick={() => void navigate('/snapshots/create')}>
+              <Plus className="h-4 w-4 mr-2" />
+              {t('snapshots.newSnapshot')}
+            </Button>
+          )}
         </div>
       </div>
 
