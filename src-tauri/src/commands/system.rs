@@ -1,3 +1,8 @@
+//! System utility command handlers for Tauri
+//!
+//! Provides system-level utility commands for file/folder selection, system information,
+//! and user detection.
+
 use crate::error::{KopiaError, Result};
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;

@@ -1,3 +1,8 @@
+//! Kopia API command handlers for Tauri
+//!
+//! Provides 40+ Tauri commands that wrap the Kopia REST API for repository management,
+//! snapshots, policies, tasks, maintenance, and notifications.
+
 use crate::error::{HttpResultExt, IoResultExt, JsonResultExt, KopiaError, Result};
 use crate::kopia_server::{KopiaServerInfo, KopiaServerState, KopiaServerStatus};
 use crate::types::{RepositoryConnectRequest, RepositoryStatus, StorageConfig};
