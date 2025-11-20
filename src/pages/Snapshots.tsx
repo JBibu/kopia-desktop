@@ -314,7 +314,7 @@ export function Snapshots() {
                 <Folder className="h-3.5 w-3.5 text-muted-foreground" />
               </div>
               <div className="flex flex-col">
-                <span className="text-xs text-muted-foreground">Directories</span>
+                <span className="text-xs text-muted-foreground">{t('snapshots.directories')}</span>
                 <span className="font-medium">{profile.directories.length}</span>
               </div>
             </div>
@@ -323,7 +323,7 @@ export function Snapshots() {
                 <FolderArchive className="h-3.5 w-3.5 text-muted-foreground" />
               </div>
               <div className="flex flex-col">
-                <span className="text-xs text-muted-foreground">Backups</span>
+                <span className="text-xs text-muted-foreground">{t('snapshots.backups')}</span>
                 <span className="font-medium">{totalSnapshots}</span>
               </div>
             </div>
@@ -331,7 +331,9 @@ export function Snapshots() {
           {lastSnapshot && (
             <div className="flex items-center gap-2 pt-2 border-t text-xs text-muted-foreground">
               <Clock className="h-3.5 w-3.5" />
-              <span>Last backup {formatDistanceToNow(new Date(lastSnapshot))}</span>
+              <span>
+                {t('snapshots.lastBackup')} {formatDistanceToNow(new Date(lastSnapshot))}
+              </span>
             </div>
           )}
         </CardContent>
@@ -373,7 +375,7 @@ export function Snapshots() {
                 <FolderArchive className="h-3.5 w-3.5 text-muted-foreground" />
               </div>
               <div className="flex flex-col">
-                <span className="text-xs text-muted-foreground">Backups</span>
+                <span className="text-xs text-muted-foreground">{t('snapshots.backups')}</span>
                 <span className="font-medium">{snapshotCount}</span>
               </div>
             </div>
@@ -383,7 +385,7 @@ export function Snapshots() {
                   <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-xs text-muted-foreground">Size</span>
+                  <span className="text-xs text-muted-foreground">{t('snapshots.size')}</span>
                   <span className="font-medium truncate">
                     {formatBytes(source.lastSnapshot.stats?.totalSize || 0, 1, byteFormat)}
                   </span>
@@ -395,7 +397,8 @@ export function Snapshots() {
             <div className="flex items-center gap-2 pt-2 border-t text-xs text-muted-foreground">
               <Clock className="h-3.5 w-3.5" />
               <span>
-                Last backup {formatDistanceToNow(new Date(source.lastSnapshot.startTime))}
+                {t('snapshots.lastBackup')}{' '}
+                {formatDistanceToNow(new Date(source.lastSnapshot.startTime))}
               </span>
             </div>
           )}
@@ -478,7 +481,9 @@ export function Snapshots() {
                   <Folder className="h-3.5 w-3.5 text-muted-foreground" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-xs text-muted-foreground">Directories</span>
+                  <span className="text-xs text-muted-foreground">
+                    {t('snapshots.directories')}
+                  </span>
                   <span className="font-medium">{profile.directories.length}</span>
                 </div>
               </div>
@@ -487,7 +492,7 @@ export function Snapshots() {
                   <FolderArchive className="h-3.5 w-3.5 text-muted-foreground" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-xs text-muted-foreground">Backups</span>
+                  <span className="text-xs text-muted-foreground">{t('snapshots.backups')}</span>
                   <span className="font-medium">{totalSnapshots}</span>
                 </div>
               </div>
@@ -495,7 +500,9 @@ export function Snapshots() {
             {lastSnapshot && (
               <div className="flex items-center gap-2 pt-2 border-t text-xs text-muted-foreground">
                 <Clock className="h-3.5 w-3.5" />
-                <span>Last backup {formatDistanceToNow(new Date(lastSnapshot))}</span>
+                <span>
+                  {t('snapshots.lastBackup')} {formatDistanceToNow(new Date(lastSnapshot))}
+                </span>
               </div>
             )}
           </CardContent>
@@ -583,7 +590,7 @@ export function Snapshots() {
                     <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-xs text-muted-foreground">Size</span>
+                    <span className="text-xs text-muted-foreground">{t('snapshots.size')}</span>
                     <span className="font-medium truncate">
                       {formatBytes(source.lastSnapshot.stats?.totalSize || 0, 1, byteFormat)}
                     </span>
@@ -595,14 +602,17 @@ export function Snapshots() {
               <div className="flex items-center gap-2 pt-2 border-t text-xs text-muted-foreground">
                 <Clock className="h-3.5 w-3.5" />
                 <span>
-                  Last backup {formatDistanceToNow(new Date(source.lastSnapshot.startTime))}
+                  {t('snapshots.lastBackup')}{' '}
+                  {formatDistanceToNow(new Date(source.lastSnapshot.startTime))}
                 </span>
               </div>
             )}
             {source.nextSnapshotTime && (
               <div className="flex items-center gap-2 pt-2 border-t text-xs text-muted-foreground">
                 <Calendar className="h-3.5 w-3.5" />
-                <span>Next: {formatDistanceToNow(new Date(source.nextSnapshotTime))}</span>
+                <span>
+                  {t('snapshots.next')}: {formatDistanceToNow(new Date(source.nextSnapshotTime))}
+                </span>
               </div>
             )}
             <div className="flex gap-2 pt-2">
