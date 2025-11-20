@@ -113,18 +113,7 @@ pub async fn repository_connect(
         .await
         .map_http_error("Failed to connect to repository")?;
 
-    if !response.status().is_success() {
-        let status = response.status();
-        let error_text = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(KopiaError::from_api_response(
-            status.as_u16(),
-            &error_text,
-            "Connect to repository",
-        ));
-    }
+    handle_empty_response(response, "Connect to repository").await?;
 
     // Return updated status
     repository_status(server).await
@@ -275,13 +264,14 @@ pub async fn sources_list(
     handle_response(response, "List sources").await
 }
 
-/// Create a snapshot
+/// Create a snapshot source and optionally start a snapshot
 #[tauri::command]
 pub async fn snapshot_create(
     server: State<'_, KopiaServerState>,
     path: String,
     user_name: Option<String>,
     host: Option<String>,
+    create_snapshot: Option<bool>,
 ) -> Result<crate::types::SourceInfo> {
     let (server_url, client) = get_server_client(&server)?;
 
@@ -328,13 +318,17 @@ pub async fn snapshot_create(
     let final_user_name = user_name.unwrap_or(source_info.user_name.clone());
     let final_host = host.unwrap_or(source_info.host.clone());
 
-    // Create source and start snapshot
+    // Create source and optionally start snapshot
+    let should_create_snapshot = create_snapshot.unwrap_or(false); // Default to false - user must explicitly opt-in
     let mut payload = serde_json::Map::new();
     payload.insert(
         "path".to_string(),
         serde_json::json!(source_info.path.clone()),
     );
-    payload.insert("createSnapshot".to_string(), serde_json::json!(true));
+    payload.insert(
+        "createSnapshot".to_string(),
+        serde_json::json!(should_create_snapshot),
+    );
     payload.insert(
         "userName".to_string(),
         serde_json::json!(final_user_name.clone()),
@@ -386,7 +380,8 @@ pub async fn snapshot_create(
         .await
         .map_http_error("Failed to parse response")?;
 
-    if !result.snapshotted {
+    // Only check if snapshot was started if we requested it
+    if should_create_snapshot && !result.snapshotted {
         return Err(KopiaError::SnapshotCreationFailed {
             message: "Snapshot was not started by server".to_string(),
             snapshot_source: None,
@@ -418,14 +413,7 @@ pub async fn snapshot_cancel(
         .await
         .map_http_error("Failed to cancel snapshot")?;
 
-    if !response.status().is_success() {
-        return Err(http_request_failed(
-            "Failed to cancel snapshot",
-            response.status().as_u16(),
-        ));
-    }
-
-    Ok(())
+    handle_empty_response(response, "Cancel snapshot").await
 }
 
 // ============================================================================
@@ -455,19 +443,7 @@ pub async fn snapshots_list(
         .await
         .map_http_error("Failed to list snapshots")?;
 
-    if !response.status().is_success() {
-        return Err(http_request_failed(
-            "Failed to list snapshots",
-            response.status().as_u16(),
-        ));
-    }
-
-    let result = response
-        .json()
-        .await
-        .map_http_error("Failed to parse response")?;
-
-    Ok(result)
+    handle_response(response, "List snapshots").await
 }
 
 /// Edit snapshot metadata
@@ -485,20 +461,7 @@ pub async fn snapshot_edit(
         .await
         .map_http_error("Failed to edit snapshot")?;
 
-    if !response.status().is_success() {
-        let status = response.status();
-        let error_text = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(KopiaError::from_api_response(
-            status.as_u16(),
-            &error_text,
-            "Edit snapshot",
-        ));
-    }
-
-    Ok(())
+    handle_empty_response(response, "Edit snapshot").await
 }
 
 /// Delete snapshots
@@ -530,28 +493,12 @@ pub async fn snapshot_delete(
         .await
         .map_http_error("Failed to delete snapshots")?;
 
-    if !response.status().is_success() {
-        let status = response.status();
-        let error_text = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(KopiaError::from_api_response(
-            status.as_u16(),
-            &error_text,
-            "Delete snapshots",
-        ));
-    }
-
     #[derive(Deserialize)]
     struct DeleteResponse {
         deleted: i64,
     }
 
-    let result: DeleteResponse = response
-        .json()
-        .await
-        .map_http_error("Failed to parse response")?;
+    let result: DeleteResponse = handle_response(response, "Delete snapshots").await?;
 
     Ok(result.deleted)
 }
@@ -574,19 +521,7 @@ pub async fn object_browse(
         .await
         .map_http_error("Failed to browse object")?;
 
-    if !response.status().is_success() {
-        return Err(http_request_failed(
-            "Failed to browse object",
-            response.status().as_u16(),
-        ));
-    }
-
-    let result = response
-        .json()
-        .await
-        .map_http_error("Failed to parse response")?;
-
-    Ok(result)
+    handle_response(response, "Browse object").await
 }
 
 /// Download a single file from a snapshot
@@ -610,10 +545,12 @@ pub async fn object_download(
         .await
         .map_http_error("Failed to download object")?;
 
-    if !response.status().is_success() {
+    // Check status before reading bytes
+    let status = response.status();
+    if !status.is_success() {
         return Err(http_request_failed(
             "Failed to download object",
-            response.status().as_u16(),
+            status.as_u16(),
         ));
     }
 
@@ -644,27 +581,12 @@ pub async fn restore_start(
         .await
         .map_http_error("Failed to start restore")?;
 
-    let status = response.status();
-    if !status.is_success() {
-        let error_text = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(http_request_failed(
-            format!("Failed to start restore: {}", error_text),
-            status.as_u16(),
-        ));
-    }
-
     #[derive(Deserialize)]
     struct RestoreResponse {
         id: String,
     }
 
-    let result: RestoreResponse = response
-        .json()
-        .await
-        .map_http_error("Failed to parse response")?;
+    let result: RestoreResponse = handle_response(response, "Start restore").await?;
 
     Ok(result.id)
 }
@@ -681,22 +603,7 @@ pub async fn mount_snapshot(server: State<'_, KopiaServerState>, root: String) -
         .await
         .map_http_error("Failed to mount snapshot")?;
 
-    let status = response.status();
-    if !status.is_success() {
-        let error_text = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(http_request_failed(
-            format!("Failed to mount snapshot: {}", error_text),
-            status.as_u16(),
-        ));
-    }
-
-    let result: crate::types::MountResponse = response
-        .json()
-        .await
-        .map_http_error("Failed to parse response")?;
+    let result: crate::types::MountResponse = handle_response(response, "Mount snapshot").await?;
 
     Ok(result.path)
 }
@@ -714,19 +621,7 @@ pub async fn mounts_list(
         .await
         .map_http_error("Failed to list mounts")?;
 
-    if !response.status().is_success() {
-        return Err(http_request_failed(
-            "Failed to list mounts",
-            response.status().as_u16(),
-        ));
-    }
-
-    let result = response
-        .json()
-        .await
-        .map_http_error("Failed to parse response")?;
-
-    Ok(result)
+    handle_response(response, "List mounts").await
 }
 
 /// Unmount a snapshot
@@ -740,14 +635,7 @@ pub async fn mount_unmount(server: State<'_, KopiaServerState>, object_id: Strin
         .await
         .map_http_error("Failed to unmount snapshot")?;
 
-    if !response.status().is_success() {
-        return Err(http_request_failed(
-            "Failed to unmount snapshot",
-            response.status().as_u16(),
-        ));
-    }
-
-    Ok(())
+    handle_empty_response(response, "Unmount snapshot").await
 }
 
 // ============================================================================
@@ -767,22 +655,7 @@ pub async fn policies_list(
         .await
         .map_http_error("Failed to list policies")?;
 
-    if !response.status().is_success() {
-        let status = response.status();
-        let body = response.text().await.unwrap_or_default();
-        return Err(KopiaError::from_api_response(
-            status.as_u16(),
-            &body,
-            "List policies",
-        ));
-    }
-
-    let result = response
-        .json()
-        .await
-        .map_http_error("Failed to parse policies response")?;
-
-    Ok(result)
+    handle_response(response, "List policies").await
 }
 
 /// Get policy for a specific target
@@ -803,19 +676,7 @@ pub async fn policy_get(
         .await
         .map_http_error("Failed to get policy")?;
 
-    if !response.status().is_success() {
-        return Err(http_request_failed(
-            "Failed to get policy",
-            response.status().as_u16(),
-        ));
-    }
-
-    let result = response
-        .json()
-        .await
-        .map_http_error("Failed to parse response")?;
-
-    Ok(result)
+    handle_response(response, "Get policy").await
 }
 
 /// Resolve effective policy with inheritance
@@ -856,24 +717,7 @@ pub async fn policy_resolve(
         .await
         .map_http_error("Failed to resolve policy")?;
 
-    let status = response.status();
-    if !status.is_success() {
-        let error_text = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(http_request_failed(
-            format!("Failed to resolve policy: {}", error_text),
-            status.as_u16(),
-        ));
-    }
-
-    let result: crate::types::ResolvedPolicyResponse = response
-        .json()
-        .await
-        .map_http_error("Failed to parse response")?;
-
-    Ok(result)
+    handle_response(response, "Resolve policy").await
 }
 
 /// Set/update policy
@@ -896,19 +740,7 @@ pub async fn policy_set(
         .await
         .map_http_error("Failed to set policy")?;
 
-    let status = response.status();
-    if !status.is_success() {
-        let error_text = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(http_request_failed(
-            format!("Failed to set policy: {}", error_text),
-            status.as_u16(),
-        ));
-    }
-
-    Ok(())
+    handle_empty_response(response, "Set policy").await
 }
 
 /// Delete policy (revert to inherited)
@@ -929,14 +761,7 @@ pub async fn policy_delete(
         .await
         .map_http_error("Failed to delete policy")?;
 
-    if !response.status().is_success() {
-        return Err(http_request_failed(
-            "Failed to delete policy",
-            response.status().as_u16(),
-        ));
-    }
-
-    Ok(())
+    handle_empty_response(response, "Delete policy").await
 }
 
 // ============================================================================
@@ -956,19 +781,7 @@ pub async fn tasks_list(
         .await
         .map_http_error("Failed to list tasks")?;
 
-    if !response.status().is_success() {
-        return Err(http_request_failed(
-            "Failed to list tasks",
-            response.status().as_u16(),
-        ));
-    }
-
-    let result = response
-        .json()
-        .await
-        .map_http_error("Failed to parse response")?;
-
-    Ok(result)
+    handle_response(response, "List tasks").await
 }
 
 /// Get task details
@@ -985,19 +798,7 @@ pub async fn task_get(
         .await
         .map_http_error("Failed to get task")?;
 
-    if !response.status().is_success() {
-        return Err(http_request_failed(
-            "Failed to get task",
-            response.status().as_u16(),
-        ));
-    }
-
-    let result: crate::types::TaskDetail = response
-        .json()
-        .await
-        .map_http_error("Failed to parse response")?;
-
-    Ok(result)
+    handle_response(response, "Get task").await
 }
 
 /// Get task logs
@@ -1014,22 +815,12 @@ pub async fn task_logs(
         .await
         .map_http_error("Failed to get task logs")?;
 
-    if !response.status().is_success() {
-        return Err(http_request_failed(
-            "Failed to get task logs",
-            response.status().as_u16(),
-        ));
-    }
-
     #[derive(Deserialize)]
     struct LogsResponse {
         logs: Vec<String>,
     }
 
-    let result: LogsResponse = response
-        .json()
-        .await
-        .map_http_error("Failed to parse response")?;
+    let result: LogsResponse = handle_response(response, "Get task logs").await?;
 
     Ok(result.logs)
 }
@@ -1045,14 +836,7 @@ pub async fn task_cancel(server: State<'_, KopiaServerState>, task_id: String) -
         .await
         .map_http_error("Failed to cancel task")?;
 
-    if !response.status().is_success() {
-        return Err(http_request_failed(
-            "Failed to cancel task",
-            response.status().as_u16(),
-        ));
-    }
-
-    Ok(())
+    handle_empty_response(response, "Cancel task").await
 }
 
 /// Get task summary
@@ -1068,20 +852,7 @@ pub async fn tasks_summary(
         .await
         .map_http_error("Failed to get tasks summary")?;
 
-    if !response.status().is_success() {
-        let status = response.status();
-        return Err(http_request_failed(
-            "Failed to get tasks summary",
-            status.as_u16(),
-        ));
-    }
-
-    let result = response
-        .json()
-        .await
-        .map_http_error("Failed to parse response")?;
-
-    Ok(result)
+    handle_response(response, "Get tasks summary").await
 }
 
 // ============================================================================
@@ -1101,19 +872,7 @@ pub async fn maintenance_info(
         .await
         .map_http_error("Failed to get maintenance info")?;
 
-    if !response.status().is_success() {
-        return Err(http_request_failed(
-            "Failed to get maintenance info",
-            response.status().as_u16(),
-        ));
-    }
-
-    let result = response
-        .json()
-        .await
-        .map_http_error("Failed to parse response")?;
-
-    Ok(result)
+    handle_response(response, "Get maintenance info").await
 }
 
 /// Run maintenance
@@ -1138,27 +897,12 @@ pub async fn maintenance_run(
         .await
         .map_http_error("Failed to run maintenance")?;
 
-    let status = response.status();
-    if !status.is_success() {
-        let error_text = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(http_request_failed(
-            format!("Failed to run maintenance: {}", error_text),
-            status.as_u16(),
-        ));
-    }
-
     #[derive(Deserialize)]
     struct MaintenanceResponse {
         id: String,
     }
 
-    let result: MaintenanceResponse = response
-        .json()
-        .await
-        .map_http_error("Failed to parse response")?;
+    let result: MaintenanceResponse = handle_response(response, "Run maintenance").await?;
 
     Ok(result.id)
 }
@@ -1226,28 +970,13 @@ pub async fn estimate_snapshot(
             .await
             .map_http_error("Failed to resolve path")?;
 
-        let status = resolve_response.status();
-        if !status.is_success() {
-            let error_text = resolve_response
-                .text()
-                .await
-                .unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(http_request_failed(
-                format!("Failed to resolve path: {}", error_text),
-                status.as_u16(),
-            ));
-        }
-
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct ResolveResponse {
             source: crate::types::SourceInfo,
         }
 
-        let resolve_result: ResolveResponse = resolve_response
-            .json()
-            .await
-            .map_http_error("Failed to parse resolve response")?;
+        let resolve_result: ResolveResponse = handle_response(resolve_response, "Resolve path").await?;
 
         resolve_result.source.path
     };
@@ -1265,26 +994,8 @@ pub async fn estimate_snapshot(
         .await
         .map_http_error("Failed to estimate snapshot")?;
 
-    let status = response.status();
-    if !status.is_success() {
-        let error_text = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(http_request_failed(
-            format!("Failed to estimate snapshot: {}", error_text),
-            status.as_u16(),
-        ));
-    }
-
-    let result: crate::types::EstimateResponse = response
-        .json()
-        .await
-        .map_http_error("Failed to parse estimate response")?;
-
-    Ok(result)
+    handle_response(response, "Estimate snapshot").await
 }
-
 
 // ============================================================================
 // Notification Commands
@@ -1340,19 +1051,7 @@ pub async fn notification_profile_create(
         .await
         .map_http_error("Failed to create notification profile")?;
 
-    let status = response.status();
-    if !status.is_success() {
-        let error_text = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(http_request_failed(
-            format!("Failed to create notification profile: {}", error_text),
-            status.as_u16(),
-        ));
-    }
-
-    Ok(())
+    handle_empty_response(response, "Create notification profile").await
 }
 
 /// Delete notification profile
@@ -1372,14 +1071,7 @@ pub async fn notification_profile_delete(
         .await
         .map_http_error("Failed to delete notification profile")?;
 
-    if !response.status().is_success() {
-        return Err(http_request_failed(
-            "Failed to delete notification profile",
-            response.status().as_u16(),
-        ));
-    }
-
-    Ok(())
+    handle_empty_response(response, "Delete notification profile").await
 }
 
 /// Test notification profile (send test notification)
@@ -1397,19 +1089,7 @@ pub async fn notification_profile_test(
         .await
         .map_http_error("Failed to test notification profile")?;
 
-    let status = response.status();
-    if !status.is_success() {
-        let error_text = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(http_request_failed(
-            format!("Failed to test notification profile: {}", error_text),
-            status.as_u16(),
-        ));
-    }
-
-    Ok(())
+    handle_empty_response(response, "Test notification profile").await
 }
 
 // ============================================================================
