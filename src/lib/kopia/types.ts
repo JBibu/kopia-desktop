@@ -609,6 +609,8 @@ export interface BackupProfile {
   directories: string[]; // List of directory paths to backup
   policyId?: string; // Policy ID to apply to all directories in this profile
   enabled: boolean;
+  pinned?: boolean; // Whether this profile is pinned
+  order?: number; // Custom order for sorting
   createdAt: string; // ISO8601
   updatedAt: string; // ISO8601
 }

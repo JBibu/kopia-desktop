@@ -25,6 +25,12 @@ interface ProfilesStore {
 
   // Toggle enabled state
   toggleProfile: (id: string) => void;
+
+  // Pin/Unpin profiles
+  togglePin: (id: string) => void;
+
+  // Reorder profiles
+  reorderProfiles: (profileIds: string[]) => void;
 }
 
 export const useProfilesStore = create<ProfilesStore>()(
@@ -108,6 +114,57 @@ export const useProfilesStore = create<ProfilesStore>()(
               : profile
           ),
         }));
+      },
+
+      /**
+       * Toggle pin state for a profile
+       * Pinned profiles appear first in the sorted list
+       */
+      togglePin: (id) => {
+        set((state) => ({
+          profiles: state.profiles.map((profile) =>
+            profile.id === id
+              ? {
+                  ...profile,
+                  pinned: !profile.pinned,
+                  updatedAt: new Date().toISOString(),
+                }
+              : profile
+          ),
+        }));
+      },
+
+      /**
+       * Reorder profiles based on drag-and-drop
+       * Updates the order field for all profiles to maintain sort order
+       */
+      reorderProfiles: (profileIds) => {
+        set((state) => {
+          const profileMap = new Map(state.profiles.map((p) => [p.id, p]));
+          const reordered: BackupProfile[] = [];
+
+          profileIds.forEach((id, index) => {
+            const profile = profileMap.get(id);
+            if (profile) {
+              reordered.push({
+                ...profile,
+                order: index,
+                updatedAt: new Date().toISOString(),
+              });
+            }
+          });
+
+          // Add any profiles not in the reorder list (shouldn't happen, but for safety)
+          const reorderedIds = new Set(profileIds);
+          const remaining = state.profiles
+            .filter((p) => !reorderedIds.has(p.id))
+            .map((p, index) => ({
+              ...p,
+              order: reordered.length + index,
+            }));
+
+          return { profiles: [...reordered, ...remaining] };
+        });
       },
     }),
     {

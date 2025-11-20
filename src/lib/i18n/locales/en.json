@@ -26,7 +26,10 @@
     "test": "Test",
     "optional": "Optional",
     "home": "Home",
-    "tryAgain": "Try again"
+    "tryAgain": "Try again",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "dragToReorder": "Drag to reorder"
   },
   "errorBoundary": {
     "title": "Something went wrong",

@@ -26,7 +26,10 @@
     "test": "Probar",
     "optional": "Opcional",
     "home": "Inicio",
-    "tryAgain": "Intentar de nuevo"
+    "tryAgain": "Intentar de nuevo",
+    "pin": "Fijar",
+    "unpin": "Desfijar",
+    "dragToReorder": "Arrastrar para reordenar"
   },
   "errorBoundary": {
     "title": "Algo salió mal",
