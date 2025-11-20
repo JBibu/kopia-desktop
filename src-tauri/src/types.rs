@@ -440,7 +440,11 @@ pub struct FilesystemOutput {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub skip_times: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub ignore_permission_errors: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub write_files_atomically: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub write_sparse_files: Option<bool>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -452,6 +456,8 @@ pub struct RestoreOptions {
     pub ignore_errors: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub restore_dir_entry_at_depth: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_size_for_placeholder: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -499,44 +505,68 @@ pub struct PolicyTarget {
     pub path: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PolicyDefinition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub no_parent: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub retention: Option<RetentionPolicy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub scheduling: Option<SchedulingPolicy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub files: Option<FilesPolicy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub compression: Option<CompressionPolicy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata_compression: Option<CompressionPolicy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub splitter: Option<SplitterPolicy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub actions: Option<ActionsPolicy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub os_snapshots: Option<OsSnapshotsPolicy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub error_handling: Option<ErrorHandlingPolicy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub upload: Option<UploadPolicy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub logging: Option<LoggingPolicy>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RetentionPolicy {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub keep_latest: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub keep_hourly: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub keep_daily: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub keep_weekly: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub keep_monthly: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub keep_annual: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub ignore_identical_snapshots: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SchedulingPolicy {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub interval_seconds: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub time_of_day: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub no_parent_time_of_day: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub manual: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub cron: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub run_missed: Option<bool>,
 }
 

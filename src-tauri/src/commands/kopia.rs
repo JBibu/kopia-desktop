@@ -297,6 +297,7 @@ pub async fn snapshot_create(
     user_name: Option<String>,
     host: Option<String>,
     create_snapshot: Option<bool>,
+    policy: Option<crate::types::PolicyDefinition>,
 ) -> Result<crate::types::SourceInfo> {
     let (server_url, client) = get_server_client(&server)?;
 
@@ -359,8 +360,11 @@ pub async fn snapshot_create(
         serde_json::json!(final_user_name.clone()),
     );
     payload.insert("host".to_string(), serde_json::json!(final_host.clone()));
-    // Add empty policy to use defaults (required by Kopia API)
-    payload.insert("policy".to_string(), serde_json::json!({}));
+    // Add policy (use provided policy or empty object for defaults)
+    payload.insert(
+        "policy".to_string(),
+        serde_json::json!(policy.unwrap_or_default()),
+    );
 
     log::info!(
         "Creating snapshot for {}@{}:{}",
@@ -1061,13 +1065,13 @@ pub async fn notification_profiles_list(
         ));
     }
 
-    // Parse response - propagate parse errors instead of swallowing them
-    let result: Vec<crate::types::NotificationProfile> = response
+    // Parse response - handle null as empty array (Kopia returns null when no profiles)
+    let result: Option<Vec<crate::types::NotificationProfile>> = response
         .json()
         .await
         .map_http_error("Failed to parse notification profiles response")?;
 
-    Ok(result)
+    Ok(result.unwrap_or_default())
 }
 
 /// Create notification profile

@@ -169,18 +169,21 @@ export async function listSources(): Promise<import('./types').SourcesResponse> 
  * @param userName - Optional username (defaults to current user)
  * @param host - Optional hostname (defaults to current host)
  * @param createSnapshot - Whether to immediately start a snapshot (defaults to false)
+ * @param policy - Optional policy override to apply to this snapshot
  */
 export async function createSnapshot(
   path: string,
   userName?: string,
   host?: string,
-  createSnapshot?: boolean
+  createSnapshot?: boolean,
+  policy?: import('./types').PolicyDefinition
 ): Promise<import('./types').SourceInfo> {
   return await invoke<import('./types').SourceInfo>('snapshot_create', {
     path,
     userName,
     host,
     createSnapshot,
+    policy,
   });
 }
 

@@ -6,7 +6,6 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { listen } from '@tauri-apps/api/event';
 import { useProfilesStore } from '@/stores/profiles';
-import { useKopiaStore } from '@/stores/kopia';
 import { selectFolder, getCurrentUser } from '@/lib/kopia/client';
 import {
   Dialog,
@@ -16,13 +15,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -41,12 +33,10 @@ interface ProfileFormDialogProps {
 export function ProfileFormDialog({ open, onOpenChange, profile }: ProfileFormDialogProps) {
   const { t } = useTranslation();
   const { createProfile, updateProfile } = useProfilesStore();
-  const policies = useKopiaStore((state) => state.policies);
 
   const [name, setName] = useState(() => profile?.name || '');
   const [description, setDescription] = useState(() => profile?.description || '');
   const [directories, setDirectories] = useState<string[]>(() => profile?.directories || []);
-  const [policyId, setPolicyId] = useState<string | undefined>(() => profile?.policyId);
   const [isDragging, setIsDragging] = useState(false);
 
   // Reset form when profile or open changes
@@ -56,7 +46,6 @@ export function ProfileFormDialog({ open, onOpenChange, profile }: ProfileFormDi
     setName(profile?.name || '');
     setDescription(profile?.description || '');
     setDirectories(profile?.directories || []);
-    setPolicyId(profile?.policyId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, profile?.id]);
 
@@ -131,7 +120,6 @@ export function ProfileFormDialog({ open, onOpenChange, profile }: ProfileFormDi
           name: name.trim(),
           description: description.trim() || undefined,
           directories,
-          policyId,
         });
         toast.success(t('profiles.profileUpdated', { name: name.trim() }));
       } else {
@@ -140,7 +128,6 @@ export function ProfileFormDialog({ open, onOpenChange, profile }: ProfileFormDi
           name: name.trim(),
           description: description.trim() || undefined,
           directories,
-          policyId,
           enabled: true,
         });
         toast.success(t('profiles.profileCreated', { name: name.trim() }));
@@ -214,31 +201,6 @@ export function ProfileFormDialog({ open, onOpenChange, profile }: ProfileFormDi
                   placeholder={t('profiles.descriptionPlaceholder')}
                   rows={2}
                 />
-              </div>
-
-              {/* Policy Selection */}
-              <div className="space-y-2">
-                <Label htmlFor="policy">{t('profiles.policy')}</Label>
-                <Select
-                  value={policyId || 'none'}
-                  onValueChange={(value) => setPolicyId(value === 'none' ? undefined : value)}
-                >
-                  <SelectTrigger id="policy">
-                    <SelectValue placeholder={t('profiles.selectPolicy')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">{t('profiles.noPolicyDefault')}</SelectItem>
-                    {policies
-                      .filter((p) => p.id)
-                      .map((policy) => (
-                        <SelectItem key={policy.id} value={policy.id!}>
-                          {policy.target.userName || '*'}@{policy.target.host || '*'}:
-                          {policy.target.path || '*'}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">{t('profiles.policyDescription')}</p>
               </div>
 
               {/* Directories */}

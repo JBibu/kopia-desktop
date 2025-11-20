@@ -350,7 +350,9 @@ export interface RestoreRequest {
     skipOwners?: boolean;
     skipPermissions?: boolean;
     skipTimes?: boolean;
+    ignorePermissionErrors?: boolean;
     writeFilesAtomically?: boolean;
+    writeSparseFiles?: boolean;
   };
   zipFile?: string;
   uncompressedZip?: boolean;
@@ -359,6 +361,7 @@ export interface RestoreRequest {
     incremental?: boolean;
     ignoreErrors?: boolean;
     restoreDirEntryAtDepth?: number;
+    minSizeForPlaceholder?: number;
   };
 }
 
@@ -607,7 +610,7 @@ export interface BackupProfile {
   name: string;
   description?: string;
   directories: string[]; // List of directory paths to backup
-  policyId?: string; // Policy ID to apply to all directories in this profile
+  policy?: PolicyDefinition; // Policy override to apply to all directories in this profile
   enabled: boolean;
   pinned?: boolean; // Whether this profile is pinned
   order?: number; // Custom order for sorting

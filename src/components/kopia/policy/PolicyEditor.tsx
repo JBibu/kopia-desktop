@@ -257,9 +257,21 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription>
-          {t('policies.editorInfo')}
-          <br />
-          <span className="text-xs text-muted-foreground">{t('policies.inheritanceInfo')}</span>
+          {isGlobalPolicy ? (
+            <>
+              {t('policies.globalEditorInfo')}
+              <br />
+              <span className="text-xs text-muted-foreground">
+                {t('policies.globalInheritanceInfo')}
+              </span>
+            </>
+          ) : (
+            <>
+              {t('policies.editorInfo')}
+              <br />
+              <span className="text-xs text-muted-foreground">{t('policies.inheritanceInfo')}</span>
+            </>
+          )}
         </AlertDescription>
       </Alert>
 

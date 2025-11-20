@@ -123,7 +123,11 @@ interface KopiaStore {
   // Snapshots actions
   refreshSnapshots: () => Promise<void>;
   refreshSources: () => Promise<void>;
-  createSnapshot: (path: string, createSnapshot?: boolean) => Promise<void>;
+  createSnapshot: (
+    path: string,
+    createSnapshot?: boolean,
+    policy?: PolicyDefinition
+  ) => Promise<void>;
   deleteSnapshots: (
     userName: string,
     host: string,
@@ -453,10 +457,10 @@ export const useKopiaStore = create<KopiaStore>()(
       }
     },
 
-    createSnapshot: async (path: string, createSnapshot?: boolean) => {
+    createSnapshot: async (path: string, createSnapshot?: boolean, policy?: PolicyDefinition) => {
       set({ isSnapshotsLoading: true, snapshotsError: null });
       try {
-        await apiCreateSnapshot(path, undefined, undefined, createSnapshot);
+        await apiCreateSnapshot(path, undefined, undefined, createSnapshot, policy);
         // Refresh both snapshots and sources to update UI
         await Promise.all([get().refreshSnapshots(), get().refreshSources()]);
         set({ isSnapshotsLoading: false });
