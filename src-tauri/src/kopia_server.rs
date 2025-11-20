@@ -46,8 +46,7 @@ const HEALTH_CHECK_RETRIES: u32 = 40;
 /// Interval between health check retries (500ms)
 const HEALTH_CHECK_INTERVAL_MS: u64 = 500;
 /// Maximum timeout for HTTP operations (5 minutes)
-/// This is used for error reporting in the error module
-pub const HTTP_OPERATION_TIMEOUT_SECS: u64 = 300;
+const HTTP_OPERATION_TIMEOUT_SECS: u64 = 300;
 /// Timeout for establishing HTTP connections (10 seconds)
 const HTTP_CONNECT_TIMEOUT_SECS: u64 = 10;
 
@@ -487,7 +486,7 @@ impl KopiaServer {
     ///
     /// This method is primarily used by integration tests to verify server URLs.
     #[cfg(test)]
-    pub fn get_server_url(&self) -> Option<String> {
+    pub(crate) fn get_server_url(&self) -> Option<String> {
         self.info.as_ref().map(|info| info.server_url.clone())
     }
 }

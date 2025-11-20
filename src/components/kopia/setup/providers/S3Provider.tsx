@@ -1,5 +1,4 @@
-import { RequiredField } from '@/components/kopia/setup/fields/RequiredField';
-import { OptionalField } from '@/components/kopia/setup/fields/OptionalField';
+import { FormField } from '@/components/kopia/setup/fields/FormField';
 import type { ProviderFormProps } from '@/components/kopia/setup/types';
 import type { S3StorageConfig } from '@/lib/kopia/types';
 import { useProviderConfig } from '@/hooks/useProviderConfig';
@@ -12,17 +11,18 @@ export function S3Provider({ config, onChange }: ProviderFormProps) {
 
   return (
     <div className="space-y-4">
-      <RequiredField
+      <FormField
         label={t('setup.fields.common.bucket')}
         name="bucket"
         value={s3Config.bucket || ''}
         onChange={(v) => handleChange('bucket', v)}
         placeholder="my-backup-bucket"
         helpText={t('setup.fields.s3.bucketHelp')}
+        required
         autoFocus
       />
 
-      <OptionalField
+      <FormField
         label={t('setup.fields.s3.endpoint')}
         name="endpoint"
         value={s3Config.endpoint || ''}
@@ -31,7 +31,7 @@ export function S3Provider({ config, onChange }: ProviderFormProps) {
         helpText={t('setup.fields.s3.endpointHelp')}
       />
 
-      <OptionalField
+      <FormField
         label={t('setup.fields.s3.region')}
         name="region"
         value={s3Config.region || ''}
@@ -40,16 +40,17 @@ export function S3Provider({ config, onChange }: ProviderFormProps) {
         helpText={t('setup.fields.s3.regionHelp')}
       />
 
-      <RequiredField
+      <FormField
         label={t('setup.fields.s3.accessKeyID')}
         name="accessKeyID"
         value={s3Config.accessKeyID || ''}
         onChange={(v) => handleChange('accessKeyID', v)}
         placeholder="AKIAIOSFODNN7EXAMPLE"
         helpText={t('setup.fields.s3.accessKeyIDHelp')}
+        required
       />
 
-      <RequiredField
+      <FormField
         label={t('setup.fields.s3.secretAccessKey')}
         name="secretAccessKey"
         value={s3Config.secretAccessKey || ''}
@@ -57,9 +58,10 @@ export function S3Provider({ config, onChange }: ProviderFormProps) {
         placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
         type="password"
         helpText={t('setup.fields.s3.secretAccessKeyHelp')}
+        required
       />
 
-      <OptionalField
+      <FormField
         label={t('setup.fields.s3.sessionToken')}
         name="sessionToken"
         value={s3Config.sessionToken || ''}
@@ -69,7 +71,7 @@ export function S3Provider({ config, onChange }: ProviderFormProps) {
         type="password"
       />
 
-      <OptionalField
+      <FormField
         label={t('setup.fields.common.prefix')}
         name="prefix"
         value={s3Config.prefix || ''}

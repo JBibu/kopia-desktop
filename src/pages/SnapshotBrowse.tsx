@@ -51,6 +51,7 @@ import {
   FolderOpen,
   FileArchive,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 import type { DirectoryEntry } from '@/lib/kopia/types';
 import {
   browseObject,
@@ -63,19 +64,19 @@ import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia/errors';
 import { formatBytes, formatDateTime } from '@/lib/utils';
 import { useLanguageStore } from '@/stores/language';
-import { useMounts } from '@/hooks/useMounts';
+import { usePreferencesStore } from '@/stores/preferences';
+import { useKopiaStore } from '@/stores/kopia';
 
 export function SnapshotBrowse() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { language } = useLanguageStore();
-  const {
-    getMountForObject,
-    mountSnapshot,
-    unmountSnapshot,
-    isLoading: isMountLoading,
-  } = useMounts();
+  const byteFormat = usePreferencesStore((state) => state.byteFormat);
+  const getMountForObject = useKopiaStore((state) => state.getMountForObject);
+  const mountSnapshot = useKopiaStore((state) => state.mountSnapshot);
+  const unmountSnapshot = useKopiaStore((state) => state.unmountSnapshot);
+  const isMountLoading = useKopiaStore((state) => state.isMountsLoading);
 
   // Map language code to locale
   const locale = language === 'es' ? 'es-ES' : 'en-US';
@@ -494,11 +495,11 @@ export function SnapshotBrowse() {
               <Spinner className="h-8 w-8" />
             </div>
           ) : sortedEntries.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <FolderArchive className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">{t('browse.emptyDirectory')}</h3>
-              <p className="text-sm text-muted-foreground">{t('browse.emptyDirectoryDesc')}</p>
-            </div>
+            <EmptyState
+              icon={FolderArchive}
+              title={t('browse.emptyDirectory')}
+              description={t('browse.emptyDirectoryDesc')}
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -541,7 +542,9 @@ export function SnapshotBrowse() {
                       ) : (
                         <div className="flex items-center justify-end gap-2">
                           <HardDrive className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-sm">{formatBytes(entry.size ?? 0)}</span>
+                          <span className="text-sm">
+                            {formatBytes(entry.size ?? 0, 2, byteFormat)}
+                          </span>
                         </div>
                       )}
                     </TableCell>

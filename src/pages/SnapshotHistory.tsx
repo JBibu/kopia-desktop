@@ -61,8 +61,10 @@ import { getErrorMessage } from '@/lib/kopia/errors';
 import { formatBytes, formatDateTime } from '@/lib/utils';
 import { logger } from '@/lib/utils/logger';
 import { useLanguageStore } from '@/stores/language';
+import { usePreferencesStore } from '@/stores/preferences';
 import { useKopiaStore } from '@/stores/kopia';
 import { navigateToSnapshotBrowse, navigateToSnapshotRestore } from '@/lib/utils/navigation';
+import { EmptyState } from '@/components/ui/empty-state';
 import { PinDialog } from '@/components/kopia/snapshots/PinDialog';
 import { RetentionTags } from '@/components/kopia/snapshots/RetentionTags';
 
@@ -71,6 +73,7 @@ export function SnapshotHistory() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { language } = useLanguageStore();
+  const byteFormat = usePreferencesStore((state) => state.byteFormat);
 
   // Map language code to locale
   const locale = language === 'es' ? 'es-ES' : 'en-US';
@@ -370,15 +373,15 @@ export function SnapshotHistory() {
                   </AlertDescription>
                 </Alert>
               )}
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <FolderArchive className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">{t('snapshots.noSnapshotsFound')}</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {searchQuery
+              <EmptyState
+                icon={FolderArchive}
+                title={t('snapshots.noSnapshotsFound')}
+                description={
+                  searchQuery
                     ? t('snapshots.noSnapshotsMatch')
-                    : t('snapshots.noSnapshotsForSource')}
-                </p>
-              </div>
+                    : t('snapshots.noSnapshotsForSource')
+                }
+              />
             </div>
           ) : (
             <Table>
@@ -439,7 +442,9 @@ export function SnapshotHistory() {
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         <HardDrive className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-sm">{formatBytes(snapshot.summary?.size || 0)}</span>
+                        <span className="text-sm">
+                          {formatBytes(snapshot.summary?.size || 0, 2, byteFormat)}
+                        </span>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">

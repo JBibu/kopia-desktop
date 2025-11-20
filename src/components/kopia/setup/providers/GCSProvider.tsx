@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { RequiredField } from '@/components/kopia/setup/fields/RequiredField';
-import { OptionalField } from '@/components/kopia/setup/fields/OptionalField';
+import { FormField } from '@/components/kopia/setup/fields/FormField';
 import { PathPickerField } from '@/components/kopia/setup/fields/PathPickerField';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -28,13 +27,14 @@ export function GCSProvider({ config, onChange }: ProviderFormProps) {
 
   return (
     <div className="space-y-4">
-      <RequiredField
+      <FormField
         label={t('setup.fields.common.bucket')}
         name="bucket"
         value={gcsConfig.bucket || ''}
         onChange={(v) => handleChange('bucket', v)}
         placeholder="my-backup-bucket"
         helpText={t('setup.fields.gcs.bucketHelp')}
+        required
         autoFocus
       />
 
@@ -73,7 +73,7 @@ export function GCSProvider({ config, onChange }: ProviderFormProps) {
         )}
       </div>
 
-      <OptionalField
+      <FormField
         label={t('setup.fields.common.prefix')}
         name="prefix"
         value={gcsConfig.prefix || ''}

@@ -113,7 +113,10 @@ pub fn run() {
     let server_state = create_server_state();
     let websocket_state = create_websocket_state();
 
-    tauri::Builder::default()
+    // Clone server state for the exit handler (before it's moved into setup closure)
+    let exit_server_state = server_state.clone();
+
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
@@ -137,14 +140,27 @@ pub fn run() {
                 })?
                 .clone();
 
+            // Clone server state for tray menu handler
+            let tray_server_state = server_state.clone();
+
             let _tray = TrayIconBuilder::new()
                 .icon(icon)
                 .menu(&menu)
                 .show_menu_on_left_click(false)
-                .on_menu_event(|app, event| match event.id.as_ref() {
+                .on_menu_event(move |app, event| match event.id.as_ref() {
                     "show" => restore_main_window(app),
                     "hide" => hide_main_window(app),
-                    "quit" => app.exit(0),
+                    "quit" => {
+                        log::info!("Quit requested from tray menu, stopping server...");
+                        // Stop the Kopia server before exiting
+                        if let Err(e) = tray_server_state.lock().unwrap_or_else(|poisoned| {
+                            log::warn!("Mutex poisoned during quit, recovering...");
+                            poisoned.into_inner()
+                        }).stop() {
+                            log::error!("Failed to stop server during quit: {}", e);
+                        }
+                        app.exit(0);
+                    }
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
@@ -232,6 +248,23 @@ pub fn run() {
             commands::websocket_connect,
             commands::websocket_disconnect,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    // Run the app with cleanup handling
+    app.run(move |_app_handle, event| {
+        if let tauri::RunEvent::ExitRequested { .. } = event {
+            log::info!("App exit requested, stopping Kopia server...");
+
+            // Stop the Kopia server before exit
+            if let Err(e) = exit_server_state.lock().unwrap_or_else(|poisoned| {
+                log::warn!("Mutex poisoned during shutdown, recovering...");
+                poisoned.into_inner()
+            }).stop() {
+                log::error!("Failed to stop Kopia server during shutdown: {}", e);
+            } else {
+                log::info!("Kopia server stopped successfully");
+            }
+        }
+    });
 }

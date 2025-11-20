@@ -5,10 +5,6 @@
 import { useEffect, useRef, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { useKopiaServer } from '@/hooks/useKopiaServer';
-import { useRepository } from '@/hooks/useRepository';
-import { useSnapshots } from '@/hooks/useSnapshots';
-import { useTasks } from '@/hooks/useTasks';
 import { useKopiaStore } from '@/stores/kopia';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,6 +29,7 @@ import {
   TrendingUp,
   Activity,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
   AreaChart,
   Area,
@@ -48,6 +45,7 @@ import {
 } from 'recharts';
 import { formatBytes, formatDistanceToNow, formatShortDate } from '@/lib/utils';
 import { useLanguageStore } from '@/stores/language';
+import { usePreferencesStore } from '@/stores/preferences';
 
 const CHART_COLORS = {
   primary: 'hsl(var(--primary))',
@@ -66,10 +64,16 @@ export function Overview() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { language } = useLanguageStore();
-  const { serverStatus, isLoading: serverLoading, startServer } = useKopiaServer();
-  const { status: repoStatus, isLoading: repoLoading } = useRepository();
-  const { snapshots, isLoading: snapshotsLoading } = useSnapshots();
-  const { tasks, summary: tasksSummary } = useTasks();
+  const byteFormat = usePreferencesStore((state) => state.byteFormat);
+  const serverStatus = useKopiaStore((state) => state.serverStatus);
+  const serverLoading = useKopiaStore((state) => state.isServerLoading);
+  const startServer = useKopiaStore((state) => state.startServer);
+  const repoStatus = useKopiaStore((state) => state.repositoryStatus);
+  const repoLoading = useKopiaStore((state) => state.isRepositoryLoading);
+  const snapshots = useKopiaStore((state) => state.snapshots);
+  const snapshotsLoading = useKopiaStore((state) => state.isSnapshotsLoading);
+  const tasks = useKopiaStore((state) => state.tasks);
+  const tasksSummary = useKopiaStore((state) => state.tasksSummary);
   const maintenanceInfo = useKopiaStore((state) => state.maintenanceInfo);
   const hasTriedToStart = useRef(false);
   const [timeRange, setTimeRange] = useState<7 | 14 | 30 | 90>(7);
@@ -131,7 +135,7 @@ export function Overview() {
         date: formatShortDate(date, locale),
         count: periodSnapshots.length,
         size: totalSize,
-        sizeFormatted: formatBytes(totalSize),
+        sizeFormatted: formatBytes(totalSize, 2, byteFormat),
       };
     });
 
@@ -153,7 +157,7 @@ export function Overview() {
       complete: snapshots.length - incompleteCount,
       byPeriod: snapshotsByPeriod,
     };
-  }, [snapshots, locale, timeRange]);
+  }, [snapshots, locale, timeRange, byteFormat]);
 
   // Task status distribution
   const taskStatusData = useMemo(() => {
@@ -305,7 +309,7 @@ export function Overview() {
               <div className="space-y-2">
                 <div>
                   <div className="text-2xl font-bold">
-                    {formatBytes(maintenanceInfo.stats.totalBlobSize)}
+                    {formatBytes(maintenanceInfo.stats.totalBlobSize, 2, byteFormat)}
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {maintenanceInfo.stats.blobCount.toLocaleString()} {t('overview.blobs')}
@@ -315,7 +319,7 @@ export function Overview() {
                 </div>
                 <div className="pt-1 border-t">
                   <div className="text-base font-medium text-muted-foreground">
-                    {formatBytes(snapshotStats.totalSize)}
+                    {formatBytes(snapshotStats.totalSize, 2, byteFormat)}
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {snapshotStats.totalFiles.toLocaleString()} {t('overview.files')}
@@ -327,7 +331,7 @@ export function Overview() {
             ) : maintenanceInfo?.stats ? (
               <div className="space-y-1">
                 <div className="text-2xl font-bold">
-                  {formatBytes(maintenanceInfo.stats.totalBlobSize)}
+                  {formatBytes(maintenanceInfo.stats.totalBlobSize, 2, byteFormat)}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {maintenanceInfo.stats.blobCount.toLocaleString()} {t('overview.blobs')}
@@ -337,7 +341,9 @@ export function Overview() {
               </div>
             ) : snapshotStats ? (
               <div className="space-y-1">
-                <div className="text-2xl font-bold">{formatBytes(snapshotStats.totalSize)}</div>
+                <div className="text-2xl font-bold">
+                  {formatBytes(snapshotStats.totalSize, 2, byteFormat)}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   {snapshotStats.totalFiles.toLocaleString()} {t('overview.files')}
                 </p>
@@ -353,17 +359,16 @@ export function Overview() {
       {isServerRunning && isRepoConnected && !snapshotsLoading && (
         <>
           {!snapshotStats ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <FolderArchive className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">{t('overview.noSnapshotsYet')}</h3>
-              <p className="text-sm text-muted-foreground mb-4 max-w-md">
-                {t('overview.createFirstSnapshot')}
-              </p>
-              <Button onClick={() => void navigate('/snapshots/create')}>
-                <FolderArchive className="mr-2 h-4 w-4" />
-                {t('overview.createSnapshot')}
-              </Button>
-            </div>
+            <EmptyState
+              icon={FolderArchive}
+              title={t('overview.noSnapshotsYet')}
+              description={t('overview.createFirstSnapshot')}
+              action={{
+                label: t('overview.createSnapshot'),
+                onClick: () => void navigate('/snapshots/create'),
+                icon: FolderArchive,
+              }}
+            />
           ) : (
             <>
               {/* Snapshot Activity Chart */}

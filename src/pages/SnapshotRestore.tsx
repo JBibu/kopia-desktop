@@ -40,6 +40,7 @@ import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia/errors';
 import { formatBytes } from '@/lib/utils';
 import { useKopiaStore } from '@/stores/kopia';
+import { usePreferencesStore } from '@/stores/preferences';
 import { navigateBack } from '@/lib/utils/navigation';
 
 type RestoreMode = 'filesystem' | 'zip' | 'tar';
@@ -48,6 +49,7 @@ export function SnapshotRestore() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const byteFormat = usePreferencesStore((state) => state.byteFormat);
 
   const snapshotId = searchParams.get('snapshotId') || '';
   const objectId = searchParams.get('oid') || '';
@@ -249,7 +251,7 @@ export function SnapshotRestore() {
             {estimatedSize > 0 && (
               <div>
                 <span className="text-muted-foreground">{t('restore.estimatedSize')}:</span>
-                <span className="ml-2">{formatBytes(estimatedSize)}</span>
+                <span className="ml-2">{formatBytes(estimatedSize, 2, byteFormat)}</span>
               </div>
             )}
           </div>

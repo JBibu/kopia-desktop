@@ -1,5 +1,4 @@
-import { RequiredField } from '@/components/kopia/setup/fields/RequiredField';
-import { OptionalField } from '@/components/kopia/setup/fields/OptionalField';
+import { FormField } from '@/components/kopia/setup/fields/FormField';
 import type { ProviderFormProps } from '@/components/kopia/setup/types';
 import type { WebDAVStorageConfig } from '@/lib/kopia/types';
 import { useProviderConfig } from '@/hooks/useProviderConfig';
@@ -12,26 +11,28 @@ export function WebDAVProvider({ config, onChange }: ProviderFormProps) {
 
   return (
     <div className="space-y-4">
-      <RequiredField
+      <FormField
         label={t('setup.fields.common.url')}
         name="url"
         value={webdavConfig.url || ''}
         onChange={(v) => handleChange('url', v)}
         placeholder="https://webdav.example.com/backup"
         helpText={t('setup.fields.webdav.urlHelp')}
+        required
         autoFocus
       />
 
-      <RequiredField
+      <FormField
         label={t('setup.fields.common.username')}
         name="username"
         value={webdavConfig.username || ''}
         onChange={(v) => handleChange('username', v)}
         placeholder="user"
         helpText={t('setup.fields.webdav.usernameHelp')}
+        required
       />
 
-      <RequiredField
+      <FormField
         label={t('setup.fields.common.password')}
         name="password"
         type="password"
@@ -39,9 +40,10 @@ export function WebDAVProvider({ config, onChange }: ProviderFormProps) {
         onChange={(v) => handleChange('password', v)}
         placeholder="Your WebDAV password"
         helpText={t('setup.fields.webdav.passwordHelp')}
+        required
       />
 
-      <OptionalField
+      <FormField
         label={t('setup.fields.webdav.certificateFingerprint')}
         name="trustedServerCertificateFingerprint"
         value={webdavConfig.trustedServerCertificateFingerprint || ''}

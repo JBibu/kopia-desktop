@@ -4,18 +4,22 @@
 
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { useRepository } from '@/hooks/useRepository';
+import { useKopiaStore } from '@/stores/kopia';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
+import { EmptyState } from '@/components/ui/empty-state';
 import { CheckCircle, XCircle, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function Repository() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { status, isLoading, isConnected, disconnect } = useRepository();
+  const status = useKopiaStore((state) => state.repositoryStatus);
+  const isLoading = useKopiaStore((state) => state.isRepositoryLoading);
+  const isConnected = useKopiaStore((state) => state.isRepoConnected());
+  const disconnect = useKopiaStore((state) => state.disconnectRepo);
 
   const handleDisconnect = async () => {
     await disconnect();
@@ -50,17 +54,16 @@ export function Repository() {
           <Spinner className="h-8 w-8" />
         </div>
       ) : !isConnected ? (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <XCircle className="h-12 w-12 text-destructive mb-4" />
-          <h3 className="text-lg font-medium mb-2">{t('common.notConnected')}</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            {t('repository.notConnectedDescription')}
-          </p>
-          <Button size="sm" onClick={() => void navigate('/setup')}>
-            <Settings className="mr-2 h-4 w-4" />
-            {t('repository.goToSetup')}
-          </Button>
-        </div>
+        <EmptyState
+          icon={XCircle}
+          title={t('common.notConnected')}
+          description={t('repository.notConnectedDescription')}
+          action={{
+            label: t('repository.goToSetup'),
+            onClick: () => void navigate('/setup'),
+            icon: Settings,
+          }}
+        />
       ) : (
         status && (
           <>

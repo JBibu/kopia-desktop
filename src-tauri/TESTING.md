@@ -378,9 +378,7 @@ async fn wait_for_server_health(server: &KopiaServer, max_attempts: u32) -> bool
 
 ```toml
 [dev-dependencies]
-mockito = "1.5"      # HTTP mocking (for future use)
 tempfile = "3.13"    # Temporary directories (used in integration tests)
-serial_test = "3.2"  # Serial execution (for future use)
 ```
 
 ### Writing New Tests

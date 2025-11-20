@@ -592,18 +592,6 @@ export interface MaintenanceInfo {
   };
 }
 
-/**
- * Maintenance run request
- */
-export interface MaintenanceRunRequest {
-  full?: boolean;
-  safety?: 'none' | 'full';
-}
-
-// ============================================================================
-// Utility Types
-// ============================================================================
-
 // ============================================================================
 // Backup Profile Types
 // ============================================================================
@@ -778,26 +766,6 @@ export type WebSocketEvent =
   | SnapshotProgressEvent
   | ErrorEvent
   | NotificationEvent;
-
-// ============================================================================
-// Error Types
-// ============================================================================
-
-/**
- * API error response
- */
-export interface ErrorResponse {
-  error: string;
-  code?: string;
-  details?: string;
-}
-
-export interface KopiaServerConfig {
-  serverUrl: string;
-  port: number;
-  password: string;
-  tlsCert?: string;
-}
 
 // ============================================================================
 // Kopia Server Lifecycle Types

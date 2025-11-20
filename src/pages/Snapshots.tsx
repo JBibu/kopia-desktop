@@ -31,11 +31,13 @@ import {
 import { formatBytes, formatDistanceToNow } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia/errors';
+import { usePreferencesStore } from '@/stores/preferences';
 import { ProfileFormDialog } from '@/components/kopia/profiles/ProfileFormDialog';
 
 export function Snapshots() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const byteFormat = usePreferencesStore((state) => state.byteFormat);
 
   const profiles = useProfilesStore((state) => state.profiles);
   const sourcesResponse = useKopiaStore((state) => state.sourcesResponse);
@@ -292,7 +294,11 @@ export function Snapshots() {
                             {source.lastSnapshot && (
                               <span className="flex items-center gap-1">
                                 <HardDrive className="h-3 w-3" />
-                                {formatBytes(source.lastSnapshot.stats?.totalSize || 0)}
+                                {formatBytes(
+                                  source.lastSnapshot.stats?.totalSize || 0,
+                                  2,
+                                  byteFormat
+                                )}
                               </span>
                             )}
                           </div>

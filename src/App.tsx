@@ -22,7 +22,6 @@ import { Mounts } from './pages/Mounts';
 import { Preferences } from './pages/Preferences';
 import { Setup } from './pages/Setup';
 import { NotFound } from './pages/NotFound';
-import { useRepository } from './hooks/useRepository';
 import './lib/i18n/config';
 import './styles/globals.css';
 
@@ -31,7 +30,8 @@ interface ProtectedRouteProps {
 }
 
 function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isConnected, isLoading } = useRepository();
+  const isConnected = useKopiaStore((state) => state.isRepoConnected());
+  const isLoading = useKopiaStore((state) => state.isRepositoryLoading);
 
   // While checking connection status, show nothing (AppLayout will handle loading state)
   if (isLoading) {

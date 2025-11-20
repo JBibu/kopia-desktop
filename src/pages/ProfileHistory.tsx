@@ -45,7 +45,9 @@ import { formatBytes, formatDateTime } from '@/lib/utils';
 import { useLanguageStore } from '@/stores/language';
 import { useKopiaStore } from '@/stores/kopia';
 import { useProfilesStore } from '@/stores/profiles';
+import { usePreferencesStore } from '@/stores/preferences';
 import { navigateToSnapshotBrowse, navigateToSnapshotRestore } from '@/lib/utils/navigation';
+import { EmptyState } from '@/components/ui/empty-state';
 import { PinDialog } from '@/components/kopia/snapshots/PinDialog';
 import { RetentionTags } from '@/components/kopia/snapshots/RetentionTags';
 
@@ -55,6 +57,7 @@ export function ProfileHistory() {
   const { profileId } = useParams<{ profileId: string }>();
   const { language } = useLanguageStore();
   const locale = language === 'es' ? 'es-ES' : 'en-US';
+  const byteFormat = usePreferencesStore((state) => state.byteFormat);
 
   const profile = useProfilesStore((state) => state.profiles.find((p) => p.id === profileId));
   const refreshSnapshots = useKopiaStore((state) => state.refreshSnapshots);
@@ -210,18 +213,17 @@ export function ProfileHistory() {
               <Spinner className="h-8 w-8" />
             </div>
           ) : filteredSnapshots.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <FolderArchive className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">{t('snapshots.noSnapshotsFound')}</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                {searchQuery
-                  ? t('snapshots.noSnapshotsMatch')
-                  : t('profiles.noSnapshotsForProfile')}
-              </p>
-              <Button onClick={() => void navigate(`/snapshots/create?profileId=${profile.id}`)}>
-                {t('profiles.createSnapshot')}
-              </Button>
-            </div>
+            <EmptyState
+              icon={FolderArchive}
+              title={t('snapshots.noSnapshotsFound')}
+              description={
+                searchQuery ? t('snapshots.noSnapshotsMatch') : t('profiles.noSnapshotsForProfile')
+              }
+              action={{
+                label: t('profiles.createSnapshot'),
+                onClick: () => void navigate(`/snapshots/create?profileId=${profile.id}`),
+              }}
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -272,7 +274,9 @@ export function ProfileHistory() {
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         <HardDrive className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-sm">{formatBytes(snapshot.summary?.size || 0)}</span>
+                        <span className="text-sm">
+                          {formatBytes(snapshot.summary?.size || 0, 2, byteFormat)}
+                        </span>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">

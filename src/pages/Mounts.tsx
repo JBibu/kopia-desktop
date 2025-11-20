@@ -7,6 +7,7 @@
 
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
+import { useKopiaStore } from '@/stores/kopia';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -28,13 +29,16 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { HardDrive, AlertCircle, Copy, HardDriveDownload, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
+import { EmptyState } from '@/components/ui/empty-state';
 import { getErrorMessage } from '@/lib/kopia/errors';
-import { useMounts } from '@/hooks/useMounts';
 
 export function Mounts() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { mounts, isLoading, error, unmountSnapshot } = useMounts();
+  const mounts = useKopiaStore((state) => state.mounts);
+  const isLoading = useKopiaStore((state) => state.isMountsLoading);
+  const error = useKopiaStore((state) => state.mountsError);
+  const unmountSnapshot = useKopiaStore((state) => state.unmountSnapshot);
 
   const handleCopyPath = (path: string) => {
     void navigator.clipboard.writeText(path);
@@ -98,14 +102,15 @@ export function Mounts() {
               <Spinner className="h-8 w-8" />
             </div>
           ) : mountsList.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <HardDrive className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">{t('mounts.noMounts')}</h3>
-              <p className="text-sm text-muted-foreground mb-4">{t('mounts.noMountsDesc')}</p>
-              <Button onClick={() => void navigate('/snapshots')}>
-                {t('mounts.viewSnapshots')}
-              </Button>
-            </div>
+            <EmptyState
+              icon={HardDrive}
+              title={t('mounts.noMounts')}
+              description={t('mounts.noMountsDesc')}
+              action={{
+                label: t('mounts.viewSnapshots'),
+                onClick: () => void navigate('/snapshots'),
+              }}
+            />
           ) : (
             <Table>
               <TableHeader>

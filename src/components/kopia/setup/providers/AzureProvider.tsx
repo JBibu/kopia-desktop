@@ -1,5 +1,4 @@
-import { RequiredField } from '@/components/kopia/setup/fields/RequiredField';
-import { OptionalField } from '@/components/kopia/setup/fields/OptionalField';
+import { FormField } from '@/components/kopia/setup/fields/FormField';
 import type { ProviderFormProps } from '@/components/kopia/setup/types';
 import type { AzureStorageConfig } from '@/lib/kopia/types';
 import { useProviderConfig } from '@/hooks/useProviderConfig';
@@ -12,26 +11,28 @@ export function AzureProvider({ config, onChange }: ProviderFormProps) {
 
   return (
     <div className="space-y-4">
-      <RequiredField
+      <FormField
         label={t('setup.fields.azure.container')}
         name="container"
         value={azureConfig.container || ''}
         onChange={(v) => handleChange('container', v)}
         placeholder="my-backup-container"
         helpText={t('setup.fields.azure.containerHelp')}
+        required
         autoFocus
       />
 
-      <RequiredField
+      <FormField
         label={t('setup.fields.azure.storageAccount')}
         name="storageAccount"
         value={azureConfig.storageAccount || ''}
         onChange={(v) => handleChange('storageAccount', v)}
         placeholder="mystorageaccount"
         helpText={t('setup.fields.azure.storageAccountHelp')}
+        required
       />
 
-      <RequiredField
+      <FormField
         label={t('setup.fields.azure.storageKey')}
         name="storageKey"
         value={azureConfig.storageKey || ''}
@@ -39,9 +40,10 @@ export function AzureProvider({ config, onChange }: ProviderFormProps) {
         placeholder="Your storage account key"
         type="password"
         helpText={t('setup.fields.azure.storageKeyHelp')}
+        required
       />
 
-      <OptionalField
+      <FormField
         label={t('setup.fields.azure.storageDomain')}
         name="storageDomain"
         value={azureConfig.storageDomain || ''}
@@ -50,7 +52,7 @@ export function AzureProvider({ config, onChange }: ProviderFormProps) {
         helpText={t('setup.fields.azure.storageDomainHelp')}
       />
 
-      <OptionalField
+      <FormField
         label={t('setup.fields.common.prefix')}
         name="prefix"
         value={azureConfig.prefix || ''}

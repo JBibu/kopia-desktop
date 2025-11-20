@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { StatusIndicator } from './StatusIndicator';
-import { useTasks } from '@/hooks/useTasks';
+import { useKopiaStore } from '@/stores/kopia';
 import { Progress } from '@/components/ui/progress';
 import type { Task } from '@/lib/kopia/types';
 
@@ -42,7 +42,7 @@ interface AppSidebarProps {
 export function AppSidebar({ onNavigate }: AppSidebarProps) {
   const { t } = useTranslation();
   const location = useLocation();
-  const { tasks } = useTasks();
+  const tasks = useKopiaStore((state) => state.tasks);
 
   // Get running tasks
   const runningTasks = tasks.filter((task) => task.status === 'RUNNING');

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/useToast';
-import { useRepository } from '@/hooks/useRepository';
+import { useKopiaStore } from '@/stores/kopia';
 import {
   createRepository,
   connectRepository,
@@ -22,7 +22,7 @@ export function SetupRepository() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { refreshStatus } = useRepository();
+  const refreshStatus = useKopiaStore((state) => state.refreshRepositoryStatus);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [state, setState] = useState<SetupWizardState>({

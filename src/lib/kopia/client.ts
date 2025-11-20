@@ -315,9 +315,6 @@ export async function getPolicy(
 /**
  * Resolve effective policy with inheritance
  */
-/**
- * @note Currently unused - planned for advanced policy preview/validation features
- */
 export async function resolvePolicy(
   userName?: string,
   host?: string,

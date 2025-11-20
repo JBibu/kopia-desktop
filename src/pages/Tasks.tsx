@@ -4,8 +4,7 @@
 
 import { Fragment, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useTasks } from '@/hooks/useTasks';
-import { useSnapshots } from '@/hooks/useSnapshots';
+import { useKopiaStore } from '@/stores/kopia';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +28,7 @@ import {
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { Spinner } from '@/components/ui/spinner';
 import { Progress } from '@/components/ui/progress';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
   ListChecks,
   RefreshCw,
@@ -47,13 +47,21 @@ import {
 import type { Task } from '@/lib/kopia/types';
 import { formatDateTime, formatBytes } from '@/lib/utils';
 import { useLanguageStore } from '@/stores/language';
+import { usePreferencesStore } from '@/stores/preferences';
 
 export function Tasks() {
   const { t } = useTranslation();
   const { language } = useLanguageStore();
-  const { tasks, summary, isLoading, error, isWebSocketConnected, cancelTask, refreshAll } =
-    useTasks();
-  const { sources } = useSnapshots();
+  const byteFormat = usePreferencesStore((state) => state.byteFormat);
+  const tasks = useKopiaStore((state) => state.tasks);
+  const summary = useKopiaStore((state) => state.tasksSummary);
+  const isLoading = useKopiaStore((state) => state.isTasksLoading);
+  const error = useKopiaStore((state) => state.tasksError);
+  const isWebSocketConnected = useKopiaStore((state) => state.isWebSocketConnected);
+  const cancelTask = useKopiaStore((state) => state.cancelTask);
+  const refreshAll = useKopiaStore((state) => state.refreshAll);
+  const sourcesResponse = useKopiaStore((state) => state.sourcesResponse);
+  const sources = sourcesResponse?.sources || [];
 
   // Map language code to locale
   const locale = language === 'es' ? 'es-ES' : 'en-US';
@@ -263,11 +271,11 @@ export function Tasks() {
               <Spinner className="h-8 w-8" />
             </div>
           ) : tasks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <ListChecks className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">{t('tasks.noTasksRunning')}</h3>
-              <p className="text-sm text-muted-foreground">{t('tasks.noTasksDescription')}</p>
-            </div>
+            <EmptyState
+              icon={ListChecks}
+              title={t('tasks.noTasksRunning')}
+              description={t('tasks.noTasksDescription')}
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -404,7 +412,11 @@ export function Tasks() {
                                               value.units === 'bytes' ||
                                               key.toLowerCase().includes('bytes')
                                             ) {
-                                              formattedValue = formatBytes(value.value);
+                                              formattedValue = formatBytes(
+                                                value.value,
+                                                2,
+                                                byteFormat
+                                              );
                                             } else {
                                               formattedValue = `${value.value.toLocaleString()}${value.units ? ` ${value.units}` : ''}`;
                                             }

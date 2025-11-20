@@ -5,11 +5,12 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { SetupRepository } from '@/components/kopia/setup/SetupRepository';
-import { useRepository } from '@/hooks/useRepository';
+import { useKopiaStore } from '@/stores/kopia';
 
 export function Setup() {
   const navigate = useNavigate();
-  const { isConnected, isLoading } = useRepository();
+  const isConnected = useKopiaStore((state) => state.isRepoConnected());
+  const isLoading = useKopiaStore((state) => state.isRepositoryLoading);
 
   // Redirect to home if already connected
   // This handles the case where user manually navigates to /setup while connected

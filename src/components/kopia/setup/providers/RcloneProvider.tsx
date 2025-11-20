@@ -1,4 +1,4 @@
-import { RequiredField } from '@/components/kopia/setup/fields/RequiredField';
+import { FormField } from '@/components/kopia/setup/fields/FormField';
 import { PathPickerField } from '@/components/kopia/setup/fields/PathPickerField';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -42,13 +42,14 @@ export function RcloneProvider({ config, onChange }: ProviderFormProps) {
 
   return (
     <div className="space-y-4">
-      <RequiredField
+      <FormField
         label={t('setup.fields.rclone.remotePath')}
         name="remotePath"
         value={rcloneConfig.remotePath || ''}
         onChange={(v) => handleChange('remotePath', v)}
         placeholder="myremote:backup/repository"
         helpText={t('setup.fields.rclone.remotePathHelp')}
+        required
         autoFocus
       />
 

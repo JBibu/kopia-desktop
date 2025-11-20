@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { RequiredField } from '@/components/kopia/setup/fields/RequiredField';
-import { OptionalField } from '@/components/kopia/setup/fields/OptionalField';
+import { FormField } from '@/components/kopia/setup/fields/FormField';
 import { PathPickerField } from '@/components/kopia/setup/fields/PathPickerField';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -28,17 +27,18 @@ export function SFTPProvider({ config, onChange }: ProviderFormProps) {
 
   return (
     <div className="space-y-4">
-      <RequiredField
+      <FormField
         label={t('setup.fields.common.host')}
         name="host"
         value={sftpConfig.host || ''}
         onChange={(v) => handleChange('host', v)}
         placeholder="sftp.example.com"
         helpText={t('setup.fields.sftp.hostHelp')}
+        required
         autoFocus
       />
 
-      <OptionalField
+      <FormField
         label={t('setup.fields.common.port')}
         name="port"
         type="number"
@@ -48,13 +48,14 @@ export function SFTPProvider({ config, onChange }: ProviderFormProps) {
         helpText={t('setup.fields.sftp.portHelp')}
       />
 
-      <RequiredField
+      <FormField
         label={t('setup.fields.common.username')}
         name="username"
         value={sftpConfig.username || ''}
         onChange={(v) => handleChange('username', v)}
         placeholder="user"
         helpText={t('setup.fields.sftp.usernameHelp')}
+        required
       />
 
       <div className="space-y-2">
@@ -76,7 +77,7 @@ export function SFTPProvider({ config, onChange }: ProviderFormProps) {
               helpText={t('setup.fields.sftp.keyfileHelp')}
               required
             />
-            <OptionalField
+            <FormField
               label={t('setup.fields.sftp.keyPassphrase')}
               name="keyData"
               type="password"
@@ -87,7 +88,7 @@ export function SFTPProvider({ config, onChange }: ProviderFormProps) {
             />
           </>
         ) : (
-          <RequiredField
+          <FormField
             label={t('setup.fields.common.password')}
             name="password"
             type="password"
@@ -95,17 +96,19 @@ export function SFTPProvider({ config, onChange }: ProviderFormProps) {
             onChange={(v) => handleChange('password', v)}
             placeholder="Your SFTP password"
             helpText={t('setup.fields.sftp.passwordHelp')}
+            required
           />
         )}
       </div>
 
-      <RequiredField
+      <FormField
         label={t('setup.fields.common.path')}
         name="path"
         value={sftpConfig.path || ''}
         onChange={(v) => handleChange('path', v)}
         placeholder="/backup/repository"
         helpText={t('setup.fields.sftp.pathHelp')}
+        required
       />
 
       <div className="space-y-2">
