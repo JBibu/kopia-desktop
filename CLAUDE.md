@@ -13,7 +13,7 @@ A React + Tauri application providing a user-friendly interface for managing Kop
 **Fully Implemented:**
 
 - ✅ Complete Kopia server lifecycle management (start/stop/status/health checks)
-- ✅ 50 Tauri commands (42 Kopia API + 5 system utilities + 3 WebSocket)
+- ✅ 46 Tauri commands (40 Kopia API + 4 system utilities + 2 WebSocket)
 - ✅ 15 functional pages (Overview, Repository, Snapshots, ProfileHistory, SnapshotCreate, SnapshotHistory, SnapshotBrowse, SnapshotRestore, Policies, PolicyEdit, Tasks, Mounts, Preferences, Setup, NotFound)
 - ✅ Repository setup wizard with 8 storage providers (Filesystem, S3, B2, Azure, GCS, SFTP, WebDAV, Rclone)
 - ✅ Backup profiles system for managing multiple backup configurations
@@ -25,8 +25,8 @@ A React + Tauri application providing a user-friendly interface for managing Kop
 - ✅ Global Kopia state store with Zustand (centralized polling + WebSocket + mount management)
 - ✅ 9 custom hooks (useKopiaServer, useRepository, useSnapshots, usePolicies, useTasks, useMounts, useProviderConfig, useIsMobile, useToast)
 - ✅ Native file/folder pickers via Tauri dialog plugin
-- ✅ 22 shadcn/ui components (accordion, alert, alert-dialog, badge, breadcrumb, button, card, checkbox, collapsible, dialog, input, label, progress, select, separator, sheet, sonner, spinner, switch, tabs, table, textarea)
-- ✅ 56 custom components (layout: 6, Kopia-specific: 26, UI: 22, setup: 16, notifications: 5, policy: 1, profiles: 1, snapshots: 2)
+- ✅ 22 shadcn/ui components (accordion, alert, badge, breadcrumb, button, card, checkbox, collapsible, dialog, dropdown-menu, input, label, progress, select, separator, sheet, sonner, spinner, switch, table, tabs, textarea)
+- ✅ 50+ custom components (layout: 6, UI: 22, Kopia: 25 total including setup: 16, notifications: 5, snapshots: 2, policy: 1, profiles: 1)
 - ✅ WebSocket support with intelligent fallback to polling
 - ✅ Recharts integration for data visualization (animations disabled to prevent re-renders)
 - ✅ Snapshot cancel functionality
@@ -38,14 +38,14 @@ A React + Tauri application providing a user-friendly interface for managing Kop
 - ✅ Snapshot mounting (mount/unmount snapshots as local filesystems)
 - ✅ Custom window decorations with titlebar
 - ✅ Window close handler with minimize to tray
-- ✅ Comprehensive Rust backend testing (154 total tests: 136 unit passing, 18 integration tests - 11 pass with KOPIA_PATH, 7 fail, ~65% coverage)
-- ✅ Kopia API integration tests (11 passing tests with real Kopia binary when KOPIA_PATH is set)
+- ✅ Comprehensive Rust backend testing (146 total tests: 136 unit passing, 10 integration tests passing with KOPIA_PATH, ~65% coverage)
+- ✅ Kopia API integration tests (10 passing tests with real Kopia binary when KOPIA_PATH is set)
 - ✅ **Workflow parity with official Kopia HTMLui achieved** (pins, retention tags, source deletion)
 
 **Not Yet Implemented:**
 
 - ❌ Form validation with Zod (package not installed, using manual validation)
-- ❌ Frontend test coverage (vitest configured, 74 wrapper tests written but low value)
+- ❌ Frontend test coverage (vitest configured, 65 wrapper tests written but low value)
 - ❌ Auto-updates
 - ❌ E2E tests with Playwright (configured but tests not written)
 
@@ -61,7 +61,7 @@ pnpm lint             # Lint and auto-fix code
 pnpm typecheck        # Type check TypeScript
 pnpm validate         # Run all checks (typecheck, lint:check, format:check, test:run)
 pnpm validate:fix     # Run all checks with auto-fix (typecheck, lint, format, test:run)
-pnpm test:rust        # Run Rust backend tests (154 tests: 136 unit + 18 integration)
+pnpm test:rust        # Run Rust backend tests (146 tests: 136 unit + 10 integration)
 ```
 
 ---
@@ -97,9 +97,9 @@ pnpm test:rust        # Run Rust backend tests (154 tests: 136 unit + 18 integra
 
 **Testing:**
 
-- Vitest 4.0 (74 frontend wrapper tests - low value, only test invoke() calls)
+- Vitest 4.0 (65 frontend wrapper tests - low value, only test invoke() calls)
 - Playwright 1.56 (E2E tests, configured but not written)
-- Rust cargo test (154 total tests: 136 unit passing, 18 integration - 11 pass with KOPIA_PATH, 7 fail)
+- Rust cargo test (146 total tests: 136 unit passing, 10 integration passing with KOPIA_PATH)
 - cargo-llvm-cov (code coverage for Rust)
 - tempfile 3.x (temporary directories for integration tests)
 
@@ -237,9 +237,9 @@ kopia-desktop/
 ├── src-tauri/                            # Rust backend
 │   ├── src/
 │   │   ├── commands/
-│   │   │   ├── kopia.rs                  # 42 Kopia commands
-│   │   │   ├── system.rs                 # 5 system commands
-│   │   │   └── websocket.rs              # 3 WebSocket commands
+│   │   │   ├── kopia.rs                  # 40 Kopia commands
+│   │   │   ├── system.rs                 # 4 system commands
+│   │   │   └── websocket.rs              # 2 WebSocket commands
 │   │   ├── kopia_server.rs               # Server lifecycle & HTTP client
 │   │   ├── kopia_websocket.rs            # WebSocket client
 │   │   ├── types.rs                      # Rust types
@@ -316,7 +316,7 @@ export function useSnapshots() {
 
 ## Tauri Commands (Backend API)
 
-**50 commands total:**
+**46 commands total:**
 
 **Server (3):**
 
@@ -345,7 +345,7 @@ export function useSnapshots() {
 
 - `policies_list`, `policy_get`, `policy_resolve`, `policy_set`, `policy_delete`
 
-**Tasks (4):**
+**Tasks (5):**
 
 - `tasks_list`, `task_get`, `task_logs`, `task_cancel`, `tasks_summary`
 
@@ -353,22 +353,22 @@ export function useSnapshots() {
 
 - `maintenance_info`, `maintenance_run`
 
-**Utilities (4):**
+**Utilities (2):**
 
-- `path_resolve`, `estimate_snapshot`, `ui_preferences_get`, `ui_preferences_set`
+- `path_resolve`, `estimate_snapshot`
 
 **Notifications (4):**
 
 - `notification_profiles_list`, `notification_profile_create`
 - `notification_profile_delete`, `notification_profile_test`
 
-**System (5):**
+**System (4):**
 
-- `get_system_info`, `get_current_user`, `select_folder`, `select_file`, `save_file`
+- `get_system_info`, `get_current_user`, `select_folder`, `save_file`
 
-**WebSocket (3):**
+**WebSocket (2):**
 
-- `websocket_connect`, `websocket_disconnect`, `websocket_status`
+- `websocket_connect`, `websocket_disconnect`
 
 ---
 
@@ -476,16 +476,16 @@ All 51 error variants are tested with:
 
 ### Frontend (Minimal Coverage)
 
-- **74 wrapper tests** - Test TypeScript invoke() calls only (low value)
+- **65 wrapper tests** - Test TypeScript invoke() calls only (low value)
 - Vitest configured
 - Playwright configured but no E2E tests written
 - Testing Library installed for future React component tests
 
 ### Backend (Fully Implemented)
 
-- **154 total tests (136 passing)** (100% success rate)
+- **146 total tests (136 passing)** (100% success rate)
   - **136 unit tests** - Core functionality, error handling, edge cases
-  - **10 integration tests** - Real Kopia binary API interactions
+  - **10 integration tests** - Real Kopia binary API interactions (all pass with KOPIA_PATH)
 - **~65% code coverage** (realistic maximum without full integration)
 - **All critical paths tested**
 
@@ -504,7 +504,7 @@ KOPIA_PATH=/path/to/bin/kopia-linux-x64 cargo test --lib kopia_api_integration -
 
 - Server Lifecycle (7 tests): start/stop, status, HTTP client, URL retrieval, uptime
 - Repository API (2 tests): algorithms endpoint, status endpoint
-- Error Handling (3 tests): stop when not running, double start, operation validation
+- Error Handling (1 test): operation validation when server not running
 
 **See [src-tauri/TESTING.md](src-tauri/TESTING.md) for comprehensive testing guide.**
 
@@ -558,11 +558,11 @@ KOPIA_PATH=/path/to/bin/kopia-linux-x64 cargo test --lib kopia_api_integration -
 
 ✅ **Comprehensive Testing:**
 
-- 154 total Rust tests (136 unit passing, 18 integration - 11 pass with KOPIA_PATH, 7 fail)
-- 11 passing integration tests with real Kopia binary (server lifecycle, API calls, error handling)
+- 146 total Rust tests (136 unit passing, 10 integration passing with KOPIA_PATH)
+- 10 passing integration tests with real Kopia binary (server lifecycle, API calls, error handling)
 - All 51 error variants tested
 - Edge cases, concurrency, integration scenarios
-- 74 frontend wrapper tests (low value - only test TypeScript invoke() calls)
+- 65 frontend wrapper tests (low value - only test TypeScript invoke() calls)
 
 ✅ **Critical API Field Fixes:**
 

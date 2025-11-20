@@ -21,7 +21,8 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ArrowLeft, FolderOpen, Camera, Info, Settings } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { FolderOpen, Camera, Info, Settings, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia/errors';
 import { selectFolder } from '@/lib/kopia/client';
@@ -36,6 +37,7 @@ export function SnapshotCreate() {
   const [isLoadingPolicy, setIsLoadingPolicy] = useState(false);
 
   const [path, setPath] = useState('');
+  const [startSnapshot, setStartSnapshot] = useState(false);
   const [policy, setPolicy] = useState<PolicyDefinition | null>(null);
 
   // Load policy when path changes
@@ -83,8 +85,12 @@ export function SnapshotCreate() {
 
     setIsCreating(true);
     try {
-      await createSnapshot(path);
-      toast.success(t('snapshotCreate.snapshotCreated'));
+      await createSnapshot(path, startSnapshot);
+      if (startSnapshot) {
+        toast.success(t('snapshotCreate.snapshotCreated'));
+      } else {
+        toast.success(t('snapshotCreate.sourceCreated'));
+      }
       void navigate('/snapshots');
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -111,14 +117,9 @@ export function SnapshotCreate() {
       </Breadcrumb>
 
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => void navigate(-1)}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{t('snapshotCreate.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('snapshotCreate.subtitle')}</p>
-        </div>
+      <div className="space-y-1">
+        <h1 className="text-3xl font-bold tracking-tight">{t('snapshotCreate.title')}</h1>
+        <p className="text-sm text-muted-foreground">{t('snapshotCreate.subtitle')}</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -156,6 +157,18 @@ export function SnapshotCreate() {
 
               <Separator />
 
+              {/* Start snapshot checkbox */}
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="startSnapshot"
+                  checked={startSnapshot}
+                  onCheckedChange={(checked) => setStartSnapshot(checked === true)}
+                />
+                <Label htmlFor="startSnapshot" className="text-sm font-normal cursor-pointer">
+                  {t('snapshotCreate.startSnapshotNow')}
+                </Label>
+              </div>
+
               {/* Action buttons */}
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" size="sm" onClick={() => void navigate(-1)}>
@@ -167,8 +180,17 @@ export function SnapshotCreate() {
                   disabled={isCreating || !path.trim()}
                 >
                   {isCreating && <Spinner className="mr-2 h-4 w-4" />}
-                  <Camera className="h-4 w-4 mr-2" />
-                  {isCreating ? t('snapshotCreate.creating') : t('snapshotCreate.createSnapshot')}
+                  {!isCreating &&
+                    (startSnapshot ? (
+                      <Camera className="h-4 w-4 mr-2" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    ))}
+                  {isCreating
+                    ? t('snapshotCreate.creating')
+                    : startSnapshot
+                      ? t('snapshotCreate.createSnapshot')
+                      : t('snapshotCreate.createSource')}
                 </Button>
               </div>
             </CardContent>

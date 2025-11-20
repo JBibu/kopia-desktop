@@ -1,19 +1,27 @@
+/**
+ * User Preferences Store
+ *
+ * Manages application-level user preferences that persist across sessions.
+ * Stored in localStorage under the key 'kopia-preferences'.
+ */
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export type ByteFormat = 'base2' | 'base10';
 
 interface PreferencesStore {
+  // System tray behavior
   minimizeToTray: boolean;
   setMinimizeToTray: (value: boolean) => void;
+
+  // Display preferences
   byteFormat: ByteFormat;
   setByteFormat: (format: ByteFormat) => void;
+
+  // Notification preferences
   desktopNotifications: boolean;
   setDesktopNotifications: (value: boolean) => void;
-  autoStartServer: boolean;
-  setAutoStartServer: (value: boolean) => void;
-  soundEffects: boolean;
-  setSoundEffects: (value: boolean) => void;
 }
 
 export const usePreferencesStore = create<PreferencesStore>()(
@@ -25,10 +33,6 @@ export const usePreferencesStore = create<PreferencesStore>()(
       setByteFormat: (format) => set({ byteFormat: format }),
       desktopNotifications: true, // Default: show desktop notifications
       setDesktopNotifications: (value) => set({ desktopNotifications: value }),
-      autoStartServer: false, // Default: don't auto-start server
-      setAutoStartServer: (value) => set({ autoStartServer: value }),
-      soundEffects: true, // Default: enable sound effects
-      setSoundEffects: (value) => set({ soundEffects: value }),
     }),
     {
       name: 'kopia-preferences',

@@ -68,7 +68,7 @@ export function Snapshots() {
 
   const handleSnapshotNow = async (path: string) => {
     try {
-      await createSnapshot(path);
+      await createSnapshot(path, true);
       toast.success(t('snapshots.snapshotStarted'));
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -138,7 +138,7 @@ export function Snapshots() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
+        <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight">{t('snapshots.title')}</h1>
           <p className="text-sm text-muted-foreground">{t('snapshots.subtitle')}</p>
         </div>

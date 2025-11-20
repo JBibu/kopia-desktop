@@ -3,13 +3,8 @@
 //! Provides frontend commands for managing WebSocket connections to Kopia server.
 
 use crate::error::Result;
-use crate::kopia_websocket::KopiaWebSocket;
-use std::sync::Arc;
+use crate::KopiaWebSocketState;
 use tauri::{AppHandle, State};
-use tokio::sync::Mutex;
-
-/// WebSocket state type
-pub type WebSocketState = Arc<Mutex<KopiaWebSocket>>;
 
 /// Connect to Kopia WebSocket for real-time task/snapshot updates
 ///
@@ -28,7 +23,7 @@ pub async fn websocket_connect(
     server_url: String,
     username: String,
     password: String,
-    ws_state: State<'_, WebSocketState>,
+    ws_state: State<'_, KopiaWebSocketState>,
     app_handle: AppHandle,
 ) -> Result<()> {
     let ws = ws_state.lock().await;
@@ -40,8 +35,7 @@ pub async fn websocket_connect(
 ///
 /// Gracefully closes the WebSocket connection and cleans up resources.
 #[tauri::command]
-pub async fn websocket_disconnect(ws_state: State<'_, WebSocketState>) -> Result<()> {
+pub async fn websocket_disconnect(ws_state: State<'_, KopiaWebSocketState>) -> Result<()> {
     let ws = ws_state.lock().await;
     ws.disconnect().await
 }
-

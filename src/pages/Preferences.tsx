@@ -1,5 +1,12 @@
 /**
  * Preferences page
+ *
+ * Allows users to configure application settings organized into sections:
+ * - Appearance: Theme, text size, byte format
+ * - Language: Interface language selection
+ * - Notifications: Desktop notifications + Kopia notification profiles
+ * - System: Minimize to tray, version info
+ * - Danger Zone: Factory reset
  */
 
 import { useTranslation } from 'react-i18next';
@@ -11,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -18,8 +26,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Palette, Globe, Bell, Zap, Sun, Moon, Monitor, Type, Mail, HardDrive } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Palette,
+  Globe,
+  Bell,
+  Zap,
+  Sun,
+  Moon,
+  Monitor,
+  Type,
+  Mail,
+  HardDrive,
+  AlertTriangle,
+} from 'lucide-react';
 import { NotificationProfiles } from '@/components/kopia/notifications/NotificationProfiles';
+import { toast } from 'sonner';
+import { useState } from 'react';
+import packageJson from '../../package.json';
+import { disconnectRepository } from '@/lib/kopia/client';
+import { getErrorMessage } from '@/lib/kopia/errors';
 
 export function Preferences() {
   const { t } = useTranslation();
@@ -33,11 +66,55 @@ export function Preferences() {
     setByteFormat,
     desktopNotifications,
     setDesktopNotifications,
-    autoStartServer,
-    setAutoStartServer,
-    soundEffects,
-    setSoundEffects,
   } = usePreferencesStore();
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+
+  /**
+   * Handle factory reset
+   *
+   * Performs a complete reset of the application:
+   * 1. Disconnects from the current repository
+   * 2. Clears all persisted settings from localStorage
+   * 3. Redirects to setup page with hard refresh
+   */
+  const handleFactoryReset = async () => {
+    setIsResetting(true);
+
+    try {
+      // Step 1: Disconnect from repository
+      try {
+        await disconnectRepository();
+      } catch (error) {
+        // Ignore errors if not connected or server not running
+        console.warn('Repository disconnect failed (may not be connected):', error);
+      }
+
+      // Step 2: Clear all stores from localStorage
+      // Note: These keys must match the 'name' property in each store's persist config
+      const storageKeys = [
+        'kopia-desktop-theme', // Theme store
+        'kopia-desktop-language', // Language store
+        'font-size-storage', // Font size store
+        'kopia-preferences', // Preferences store
+        'kopia-profiles', // Profiles store
+      ];
+
+      storageKeys.forEach((key) => localStorage.removeItem(key));
+
+      toast.success(t('preferences.factoryResetSuccess'));
+      setShowResetDialog(false);
+
+      // Step 3: Redirect to setup page with hard refresh to re-initialize all stores
+      setTimeout(() => {
+        window.location.href = '/setup';
+      }, 1000);
+    } catch (error) {
+      const message = getErrorMessage(error);
+      toast.error(t('preferences.factoryResetFailed', { error: message }));
+      setIsResetting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -175,7 +252,7 @@ export function Preferences() {
         </CardContent>
       </Card>
 
-      {/* Desktop Notifications */}
+      {/* Notifications */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
@@ -183,7 +260,8 @@ export function Preferences() {
             {t('preferences.notifications')}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
+          {/* Desktop Notifications Toggle */}
           <div className="flex items-center justify-between">
             <Label htmlFor="notifications" className="text-sm">
               {t('preferences.desktopNotifications')}
@@ -194,48 +272,30 @@ export function Preferences() {
               onCheckedChange={setDesktopNotifications}
             />
           </div>
-          <div className="flex items-center justify-between">
-            <Label htmlFor="sound" className="text-sm">
-              {t('preferences.soundEffects')}
-            </Label>
-            <Switch id="sound" checked={soundEffects} onCheckedChange={setSoundEffects} />
+
+          <Separator />
+
+          {/* Kopia Notification Profiles */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Mail className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-medium">{t('preferences.kopiaNotificationProfiles')}</h3>
+            </div>
+            <NotificationProfiles />
           </div>
         </CardContent>
       </Card>
 
-      {/* Kopia Notification Profiles */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Mail className="h-4 w-4" />
-            {t('preferences.kopiaNotificationProfiles')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <NotificationProfiles />
-        </CardContent>
-      </Card>
-
-      {/* Advanced */}
+      {/* System */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Zap className="h-4 w-4" />
-            {t('preferences.advanced')}
+            {t('preferences.system')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="auto-backup" className="text-sm">
-              {t('preferences.autoStartServer')}
-            </Label>
-            <Switch
-              id="auto-backup"
-              checked={autoStartServer}
-              onCheckedChange={setAutoStartServer}
-            />
-          </div>
-
+          {/* Minimize to Tray */}
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label htmlFor="minimize-to-tray" className="text-sm">
@@ -254,18 +314,89 @@ export function Preferences() {
 
           <Separator />
 
+          {/* App Information */}
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <p className="text-muted-foreground">{t('common.version')}</p>
-              <p className="font-mono">0.1.0</p>
+              <p className="font-mono">{packageJson.version}</p>
             </div>
             <div>
               <p className="text-muted-foreground">{t('common.environment')}</p>
-              <p className="font-mono">{t('common.development')}</p>
+              <p className="font-mono">
+                {import.meta.env.MODE === 'production'
+                  ? t('preferences.production')
+                  : t('common.development')}
+              </p>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Danger Zone */}
+      <Card className="border-destructive">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2 text-destructive">
+            <AlertTriangle className="h-4 w-4" />
+            {t('preferences.dangerZone')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-1">
+            <Label className="text-sm">{t('preferences.factoryReset')}</Label>
+            <p className="text-xs text-muted-foreground">
+              {t('preferences.factoryResetDescription')}
+            </p>
+          </div>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setShowResetDialog(true)}
+            className="w-full"
+          >
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            {t('preferences.resetToDefaults')}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Factory Reset Confirmation Dialog */}
+      <Dialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              {t('preferences.factoryResetConfirmTitle')}
+            </DialogTitle>
+            <DialogDescription>{t('preferences.factoryResetConfirmDescription')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-4">
+            <p className="text-sm text-muted-foreground">{t('preferences.factoryResetWarning')}</p>
+            <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground ml-2">
+              <li>{t('preferences.factoryResetWarningRepository')}</li>
+              <li>{t('preferences.factoryResetWarningTheme')}</li>
+              <li>{t('preferences.factoryResetWarningLanguage')}</li>
+              <li>{t('preferences.factoryResetWarningProfiles')}</li>
+              <li>{t('preferences.factoryResetWarningPreferences')}</li>
+            </ul>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowResetDialog(false)}
+              disabled={isResetting}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void handleFactoryReset()}
+              disabled={isResetting}
+            >
+              {isResetting ? t('preferences.resetting') : t('preferences.resetToDefaults')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

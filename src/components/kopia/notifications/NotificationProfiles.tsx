@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, Trash2, Copy, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -29,25 +29,30 @@ export function NotificationProfiles() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<NotificationProfile | null>(null);
   const [isNewProfile, setIsNewProfile] = useState(false);
+  const hasLoadedRef = useRef(false);
 
-  const loadProfiles = async () => {
+  const loadProfiles = useCallback(async () => {
     try {
       setLoading(true);
       const data = await listNotificationProfiles();
       setProfiles(data);
+      hasLoadedRef.current = true;
     } catch (error) {
-      toast.error(t('preferences.notificationProfiles.loadFailed'), {
-        description: getErrorMessage(error),
-      });
+      // Only show toast if this is a reload (not initial mount in strict mode)
+      if (hasLoadedRef.current) {
+        toast.error(t('preferences.notificationProfiles.loadFailed'), {
+          description: getErrorMessage(error),
+        });
+      }
+      hasLoadedRef.current = true;
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     void loadProfiles();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadProfiles]);
 
   const handleCreateNew = (methodType: 'email' | 'pushover' | 'webhook') => {
     const newProfileName = generateProfileName(methodType);

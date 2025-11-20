@@ -163,14 +163,25 @@ export async function listSources(): Promise<import('./types').SourcesResponse> 
 }
 
 /**
- * Create a snapshot for a path
+ * Create a snapshot source and optionally start a snapshot
+ *
+ * @param path - Path to snapshot
+ * @param userName - Optional username (defaults to current user)
+ * @param host - Optional hostname (defaults to current host)
+ * @param createSnapshot - Whether to immediately start a snapshot (defaults to false)
  */
 export async function createSnapshot(
   path: string,
   userName?: string,
-  host?: string
+  host?: string,
+  createSnapshot?: boolean
 ): Promise<import('./types').SourceInfo> {
-  return await invoke<import('./types').SourceInfo>('snapshot_create', { path, userName, host });
+  return await invoke<import('./types').SourceInfo>('snapshot_create', {
+    path,
+    userName,
+    host,
+    createSnapshot,
+  });
 }
 
 /**

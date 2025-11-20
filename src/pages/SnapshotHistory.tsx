@@ -342,12 +342,12 @@ export function SnapshotHistory() {
                   {t('snapshots.showAllIncludingHidden')}
                 </label>
               </div>
-              <div className="relative">
+              <div className="relative w-[250px]">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="search"
                   placeholder={t('snapshots.searchSnapshotsPlaceholder')}
-                  className="pl-8 w-[250px]"
+                  className="pl-8"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -401,7 +401,7 @@ export function SnapshotHistory() {
                   <TableHead className="text-right">{t('snapshots.files')}</TableHead>
                   <TableHead>{t('snapshots.pins.pins')}</TableHead>
                   <TableHead>{t('snapshots.retention.retention')}</TableHead>
-                  <TableHead className="w-[200px]">{t('snapshots.actions')}</TableHead>
+                  <TableHead className="w-[150px]">{t('snapshots.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -463,7 +463,7 @@ export function SnapshotHistory() {
                       <RetentionTags retention={snapshot.retention} />
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-2">
                         <Button
                           variant="ghost"
                           size="sm"

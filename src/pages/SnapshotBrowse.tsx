@@ -31,6 +31,12 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   FolderArchive,
   Folder,
   File,
@@ -43,9 +49,16 @@ import {
   HardDriveUpload,
   Copy,
   FolderOpen,
+  FileArchive,
 } from 'lucide-react';
 import type { DirectoryEntry } from '@/lib/kopia/types';
-import { browseObject, downloadObject, saveFile } from '@/lib/kopia/client';
+import {
+  browseObject,
+  downloadObject,
+  saveFile,
+  selectFolder,
+  restoreStart,
+} from '@/lib/kopia/client';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia/errors';
 import { formatBytes, formatDateTime } from '@/lib/utils';
@@ -150,6 +163,133 @@ export function SnapshotBrowse() {
       await downloadObject(entry.obj, entry.name, targetPath);
 
       toast.success(t('browse.downloadSuccess', { filename: entry.name }));
+    } catch (err) {
+      toast.error(t('browse.downloadFailed', { error: getErrorMessage(err) }));
+    } finally {
+      setDownloadingFiles((prev) => {
+        const next = new Set(prev);
+        next.delete(entry.obj);
+        return next;
+      });
+    }
+  };
+
+  const handleDownloadFolderAsFilesystem = async (entry: DirectoryEntry) => {
+    try {
+      setDownloadingFiles((prev) => new Set(prev).add(entry.obj));
+
+      // Get download location from user (parent directory)
+      const parentPath = await selectFolder();
+
+      if (!parentPath) {
+        setDownloadingFiles((prev) => {
+          const next = new Set(prev);
+          next.delete(entry.obj);
+          return next;
+        });
+        return;
+      }
+
+      // Create a subdirectory with the folder name
+      // This ensures we don't overwrite an existing non-empty directory
+      // User selects /home/user/Desktop -> contents go to /home/user/Desktop/foldername
+      const targetPath = `${parentPath}/${entry.name}`;
+
+      // Start restore operation
+      const taskId = await restoreStart({
+        root: entry.obj,
+        fsOutput: {
+          targetPath,
+          overwriteFiles: false,
+          overwriteDirectories: false,
+        },
+      });
+
+      toast.success(
+        t('browse.downloadFolderStarted', {
+          foldername: entry.name,
+          taskId,
+        })
+      );
+    } catch (err) {
+      toast.error(t('browse.downloadFailed', { error: getErrorMessage(err) }));
+    } finally {
+      setDownloadingFiles((prev) => {
+        const next = new Set(prev);
+        next.delete(entry.obj);
+        return next;
+      });
+    }
+  };
+
+  const handleDownloadFolderAsZip = async (entry: DirectoryEntry) => {
+    try {
+      setDownloadingFiles((prev) => new Set(prev).add(entry.obj));
+
+      // Get save location with .zip extension
+      const defaultFilename = `${entry.name}.zip`;
+      const targetPath = await saveFile(defaultFilename);
+      if (!targetPath) {
+        setDownloadingFiles((prev) => {
+          const next = new Set(prev);
+          next.delete(entry.obj);
+          return next;
+        });
+        return;
+      }
+
+      // Start restore operation as ZIP
+      const taskId = await restoreStart({
+        root: entry.obj,
+        zipFile: targetPath,
+        uncompressedZip: false,
+      });
+
+      toast.success(
+        t('browse.downloadFolderStarted', {
+          foldername: entry.name,
+          taskId,
+        })
+      );
+    } catch (err) {
+      toast.error(t('browse.downloadFailed', { error: getErrorMessage(err) }));
+    } finally {
+      setDownloadingFiles((prev) => {
+        const next = new Set(prev);
+        next.delete(entry.obj);
+        return next;
+      });
+    }
+  };
+
+  const handleDownloadFolderAsTar = async (entry: DirectoryEntry) => {
+    try {
+      setDownloadingFiles((prev) => new Set(prev).add(entry.obj));
+
+      // Get save location with .tar extension
+      const defaultFilename = `${entry.name}.tar`;
+      const targetPath = await saveFile(defaultFilename);
+      if (!targetPath) {
+        setDownloadingFiles((prev) => {
+          const next = new Set(prev);
+          next.delete(entry.obj);
+          return next;
+        });
+        return;
+      }
+
+      // Start restore operation as TAR
+      const taskId = await restoreStart({
+        root: entry.obj,
+        tarFile: targetPath,
+      });
+
+      toast.success(
+        t('browse.downloadFolderStarted', {
+          foldername: entry.name,
+          taskId,
+        })
+      );
     } catch (err) {
       toast.error(t('browse.downloadFailed', { error: getErrorMessage(err) }));
     } finally {
@@ -271,8 +411,8 @@ export function SnapshotBrowse() {
       {/* Mount Controls */}
       {mountedPath ? (
         <Card>
-          <CardContent>
-            <div className="flex items-center gap-3">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2">
               <div className="flex items-center gap-2 flex-1">
                 <HardDriveUpload className="h-5 w-5 text-green-600 dark:text-green-400" />
                 <span className="text-sm font-medium">{t('browse.mounted')}</span>
@@ -304,7 +444,7 @@ export function SnapshotBrowse() {
         </Card>
       ) : (
         <Card>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FolderOpen className="h-5 w-5 text-muted-foreground" />
@@ -368,7 +508,7 @@ export function SnapshotBrowse() {
                   <TableHead>{t('browse.type')}</TableHead>
                   <TableHead className="text-right">{t('browse.size')}</TableHead>
                   <TableHead>{t('browse.modified')}</TableHead>
-                  <TableHead className="w-[100px]"></TableHead>
+                  <TableHead className="w-[120px]">{t('snapshots.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -412,24 +552,73 @@ export function SnapshotBrowse() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {entry.type === 'f' && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={downloadingFiles.has(entry.obj)}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void handleDownloadFile(entry);
-                          }}
-                          title={t('browse.download')}
-                        >
-                          {downloadingFiles.has(entry.obj) ? (
-                            <Spinner className="h-4 w-4" />
-                          ) : (
-                            <Download className="h-4 w-4" />
-                          )}
-                        </Button>
-                      )}
+                      <div className="flex items-center justify-center">
+                        {entry.type === 'f' ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={downloadingFiles.has(entry.obj)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleDownloadFile(entry);
+                            }}
+                            title={t('browse.download')}
+                          >
+                            {downloadingFiles.has(entry.obj) ? (
+                              <Spinner className="h-4 w-4" />
+                            ) : (
+                              <Download className="h-4 w-4" />
+                            )}
+                          </Button>
+                        ) : entry.type === 'd' ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={downloadingFiles.has(entry.obj)}
+                                onClick={(e) => e.stopPropagation()}
+                                title={t('browse.downloadFolder')}
+                              >
+                                {downloadingFiles.has(entry.obj) ? (
+                                  <Spinner className="h-4 w-4" />
+                                ) : (
+                                  <Download className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleDownloadFolderAsFilesystem(entry);
+                                }}
+                              >
+                                <Folder className="mr-2 h-4 w-4" />
+                                {t('browse.downloadAsFolder')}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleDownloadFolderAsZip(entry);
+                                }}
+                              >
+                                <FileArchive className="mr-2 h-4 w-4" />
+                                {t('browse.downloadAsZip')}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleDownloadFolderAsTar(entry);
+                                }}
+                              >
+                                <FileArchive className="mr-2 h-4 w-4" />
+                                {t('browse.downloadAsTar')}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : null}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
