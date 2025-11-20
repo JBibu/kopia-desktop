@@ -486,7 +486,7 @@ impl KopiaServer {
     /// Get the server URL if the server is running
     ///
     /// This method is primarily used by integration tests to verify server URLs.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn get_server_url(&self) -> Option<String> {
         self.info.as_ref().map(|info| info.server_url.clone())
     }

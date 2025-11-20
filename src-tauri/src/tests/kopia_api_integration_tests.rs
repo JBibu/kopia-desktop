@@ -28,20 +28,7 @@
 mod tests {
     use crate::error::KopiaError;
     use crate::kopia_server::KopiaServer;
-    use std::fs;
     use tempfile::TempDir;
-
-    /// Test helper to create a temporary directory for repositories
-    #[allow(dead_code)]
-    fn create_test_repo_dir() -> TempDir {
-        TempDir::new().expect("Failed to create temp directory")
-    }
-
-    /// Test helper to clean up test repository
-    #[allow(dead_code)]
-    fn cleanup_test_repo(repo_path: &str) {
-        let _ = fs::remove_dir_all(repo_path);
-    }
 
     /// Test helper to get config directory
     /// Creates a unique temporary directory for each test to avoid lock conflicts
