@@ -46,7 +46,7 @@ import {
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia/errors';
 import { formatDateTime } from '@/lib/utils';
-import { useLanguageStore } from '@/stores/language';
+import { usePreferencesStore } from '@/stores/preferences';
 
 interface PolicyEditorProps {
   target: PolicyTarget;
@@ -56,7 +56,7 @@ interface PolicyEditorProps {
 
 export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
   const { t } = useTranslation();
-  const { language } = useLanguageStore();
+  const language = usePreferencesStore((state) => state.language);
   const locale = language === 'es' ? 'es-ES' : 'en-US';
 
   const [isLoading, setIsLoading] = useState(true);

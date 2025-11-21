@@ -265,18 +265,11 @@ export const useKopiaStore = create<KopiaStore>()(
     refreshServerStatus: async () => {
       try {
         const status = await getKopiaServerStatus();
-        const currentStatus = get().serverStatus;
-
-        // Only update if status actually changed to avoid unnecessary re-renders
-        if (JSON.stringify(currentStatus) !== JSON.stringify(status)) {
-          set({ serverStatus: status });
-        }
-        // Don't call set() at all if nothing changed - this prevents re-renders
+        set({ serverStatus: status });
       } catch (error) {
         const message = getErrorMessage(error);
         const currentError = get().serverError;
 
-        // Only update if error changed
         if (currentError !== message) {
           set({
             serverError: message,
@@ -324,13 +317,7 @@ export const useKopiaStore = create<KopiaStore>()(
     refreshRepositoryStatus: async () => {
       try {
         const status = await getRepositoryStatus();
-        const currentStatus = get().repositoryStatus;
-
-        // Only update if status actually changed to avoid unnecessary re-renders
-        if (JSON.stringify(currentStatus) !== JSON.stringify(status)) {
-          set({ repositoryStatus: status });
-        }
-        // Don't call set() at all if nothing changed
+        set({ repositoryStatus: status });
       } catch (error) {
         const message = getErrorMessage(error);
         const currentError = get().repositoryError;
@@ -418,18 +405,11 @@ export const useKopiaStore = create<KopiaStore>()(
           }
         }
 
-        const currentSnapshots = get().snapshots;
-
-        // Only update if snapshots actually changed to avoid unnecessary re-renders
-        if (JSON.stringify(currentSnapshots) !== JSON.stringify(allSnapshots)) {
-          set({ snapshots: allSnapshots });
-        }
-        // Don't call set() at all if nothing changed
+        set({ snapshots: allSnapshots });
       } catch (error) {
         const message = getErrorMessage(error);
         const currentError = get().snapshotsError;
 
-        // Only update if error changed
         if (currentError !== message) {
           set({ snapshotsError: message });
         }
@@ -439,18 +419,11 @@ export const useKopiaStore = create<KopiaStore>()(
     refreshSources: async () => {
       try {
         const response = await listSources();
-        const currentResponse = get().sourcesResponse;
-
-        // Only update if sources actually changed to avoid unnecessary re-renders
-        if (JSON.stringify(currentResponse) !== JSON.stringify(response)) {
-          set({ sourcesResponse: response });
-        }
-        // Don't call set() at all if nothing changed
+        set({ sourcesResponse: response });
       } catch (error) {
         const message = getErrorMessage(error);
         const currentError = get().snapshotsError;
 
-        // Only update if error changed
         if (currentError !== message) {
           set({ snapshotsError: message });
         }
@@ -524,18 +497,11 @@ export const useKopiaStore = create<KopiaStore>()(
       try {
         const response = await listPolicies();
         const newPolicies = response.policies || [];
-        const currentPolicies = get().policies;
-
-        // Only update if policies actually changed to avoid unnecessary re-renders
-        if (JSON.stringify(currentPolicies) !== JSON.stringify(newPolicies)) {
-          set({ policies: newPolicies });
-        }
-        // Don't call set() at all if nothing changed
+        set({ policies: newPolicies });
       } catch (error) {
         const message = getErrorMessage(error);
         const currentError = get().policiesError;
 
-        // Only update if error changed
         if (currentError !== message) {
           set({ policiesError: message });
         }
@@ -619,16 +585,11 @@ export const useKopiaStore = create<KopiaStore>()(
           }
         }
 
-        // Only update if tasks actually changed to avoid unnecessary re-renders
-        if (JSON.stringify(currentTasks) !== JSON.stringify(newTasks)) {
-          set({ tasks: newTasks, tasksError: null });
-        }
-        // Don't call set() at all if nothing changed
+        set({ tasks: newTasks, tasksError: null });
       } catch (error) {
         const message = getErrorMessage(error);
         const currentError = get().tasksError;
 
-        // Only update if error changed
         if (currentError !== message) {
           set({ tasksError: message });
         }
@@ -638,12 +599,7 @@ export const useKopiaStore = create<KopiaStore>()(
     refreshTasksSummary: async () => {
       try {
         const summary = await getTasksSummary();
-        const currentSummary = get().tasksSummary;
-
-        // Only update if summary actually changed
-        if (JSON.stringify(currentSummary) !== JSON.stringify(summary)) {
-          set({ tasksSummary: summary });
-        }
+        set({ tasksSummary: summary });
       } catch {
         // Silently fail for summary - not critical
       }
@@ -689,17 +645,11 @@ export const useKopiaStore = create<KopiaStore>()(
 
       try {
         const info = await getMaintenanceInfo();
-        const currentInfo = get().maintenanceInfo;
-
-        // Only update if info actually changed
-        if (JSON.stringify(currentInfo) !== JSON.stringify(info)) {
-          set({ maintenanceInfo: info, maintenanceError: null });
-        }
+        set({ maintenanceInfo: info, maintenanceError: null });
       } catch (error) {
         const message = getErrorMessage(error);
         const currentError = get().maintenanceError;
 
-        // Only update if error changed
         if (currentError !== message) {
           set({ maintenanceError: message });
         }

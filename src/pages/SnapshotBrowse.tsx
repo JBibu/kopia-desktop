@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useSearchParams, Link } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -50,6 +50,9 @@ import {
   Copy,
   FolderOpen,
   FileArchive,
+  ArrowLeft,
+  Home,
+  ChevronRight,
 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import type { DirectoryEntry } from '@/lib/kopia/types';
@@ -63,7 +66,6 @@ import {
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia/errors';
 import { formatBytes, formatDateTime } from '@/lib/utils';
-import { useLanguageStore } from '@/stores/language';
 import { usePreferencesStore } from '@/stores/preferences';
 import { useKopiaStore } from '@/stores/kopia';
 
@@ -71,7 +73,7 @@ export function SnapshotBrowse() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { language } = useLanguageStore();
+  const language = usePreferencesStore((state) => state.language);
   const byteFormat = usePreferencesStore((state) => state.byteFormat);
   const getMountForObject = useKopiaStore((state) => state.getMountForObject);
   const mountSnapshot = useKopiaStore((state) => state.mountSnapshot);
@@ -83,6 +85,7 @@ export function SnapshotBrowse() {
 
   const snapshotId = searchParams.get('snapshotId') || '';
   const objectId = searchParams.get('oid') || '';
+  const rootOid = searchParams.get('rootOid') || objectId; // Fallback to oid for backwards compatibility
   const pathParam = searchParams.get('path') || '/';
 
   const [entries, setEntries] = useState<DirectoryEntry[]>([]);
@@ -94,7 +97,7 @@ export function SnapshotBrowse() {
   // Check if current object is mounted
   const mountedPath = getMountForObject(objectId);
 
-  // Parse the path parameter into breadcrumb segments
+  // Parse the path parameter
   useEffect(() => {
     if (pathParam === '/') {
       setCurrentPath([]);
@@ -133,8 +136,28 @@ export function SnapshotBrowse() {
       setSearchParams({
         snapshotId,
         oid: entry.obj,
+        rootOid, // Preserve root OID
         path: `/${newPath}`,
       });
+    }
+  };
+
+  const handleNavigateToBreadcrumb = (index: number) => {
+    // Navigate to a specific breadcrumb segment
+    if (index === -1) {
+      // Navigate to root
+      setSearchParams({
+        snapshotId,
+        oid: rootOid,
+        rootOid,
+        path: '/',
+      });
+    } else {
+      // Navigate to specific folder level using browser back navigation
+      const stepsBack = currentPath.length - index - 1;
+      if (stepsBack > 0) {
+        void navigate(-stepsBack);
+      }
     }
   };
 
@@ -385,35 +408,65 @@ export function SnapshotBrowse() {
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb Navigation */}
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <Link to="/snapshots">{t('nav.snapshots')}</Link>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>{t('browse.title')}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">{t('browse.title')}</h1>
-          <p className="text-sm text-muted-foreground">
-            {currentPath.length === 0 ? '/' : `/${currentPath.join('/')}`}
-          </p>
-        </div>
-        <div className="flex gap-2">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {currentPath.length > 0 && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => void navigate(-1)}
+                title={t('common.back')}
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            )}
+            <h1 className="text-3xl font-bold tracking-tight">{t('browse.title')}</h1>
+          </div>
           <Button onClick={handleRestore}>
             <RotateCcw className="mr-2 h-4 w-4" />
             {t('browse.restore')}
           </Button>
         </div>
+
+        {/* Breadcrumb Navigation */}
+        <Breadcrumb>
+          <BreadcrumbList className="gap-1.5">
+            <BreadcrumbItem className="gap-1">
+              <BreadcrumbLink
+                className="cursor-pointer flex items-center gap-1"
+                onClick={() => handleNavigateToBreadcrumb(-1)}
+              >
+                <Home className="h-3.5 w-3.5" />
+                <span>{t('browse.root')}</span>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            {currentPath.map((segment, index) => (
+              <div key={index} className="flex items-center gap-1.5">
+                <BreadcrumbSeparator className="mx-0">
+                  <ChevronRight className="h-4 w-4" />
+                </BreadcrumbSeparator>
+                <BreadcrumbItem className="gap-1">
+                  {index === currentPath.length - 1 ? (
+                    <BreadcrumbPage className="flex items-center gap-1">
+                      <Folder className="h-3.5 w-3.5" />
+                      <span className="font-medium">{segment}</span>
+                    </BreadcrumbPage>
+                  ) : (
+                    <BreadcrumbLink
+                      className="cursor-pointer flex items-center gap-1 hover:text-foreground transition-colors"
+                      onClick={() => handleNavigateToBreadcrumb(index)}
+                    >
+                      <Folder className="h-3.5 w-3.5" />
+                      <span>{segment}</span>
+                    </BreadcrumbLink>
+                  )}
+                </BreadcrumbItem>
+              </div>
+            ))}
+          </BreadcrumbList>
+        </Breadcrumb>
       </div>
 
       {/* Mount Controls */}

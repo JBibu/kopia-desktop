@@ -9,7 +9,6 @@ import { useKopiaStore } from '@/stores/kopia';
 import { useProfilesStore } from '@/stores/profiles';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Spinner } from '@/components/ui/spinner';
@@ -22,19 +21,26 @@ import {
   Clock,
   HardDrive,
   Info,
-  ChevronRight,
   FolderTree,
   Folder,
   PlayCircle,
   Calendar,
   Pin,
   GripVertical,
+  MoreHorizontal,
 } from 'lucide-react';
 import { formatBytes, formatDistanceToNow } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia/errors';
 import { usePreferencesStore } from '@/stores/preferences';
 import { ProfileFormDialog } from '@/components/kopia/profiles/ProfileFormDialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   DndContext,
   closestCenter,
@@ -263,22 +269,6 @@ export function Snapshots() {
   const activeProfile = filteredProfiles.find((p) => p.id === activeProfileId);
   const activeSource = filteredSources.find((s) => getSourceId(s) === activeSourceId);
 
-  // Status badge component
-  const StatusBadge = ({ status }: { status: string }) => {
-    const variants: Record<
-      string,
-      { variant: 'default' | 'secondary' | 'outline' | 'destructive'; label: string }
-    > = {
-      IDLE: { variant: 'secondary', label: t('snapshots.idle') },
-      PENDING: { variant: 'default', label: t('snapshots.pending') },
-      UPLOADING: { variant: 'default', label: t('snapshots.uploading') },
-      PAUSED: { variant: 'outline', label: t('snapshots.paused') },
-      FAILED: { variant: 'destructive', label: t('snapshots.failed') },
-    };
-    const config = variants[status] || variants.IDLE;
-    return <Badge variant={config.variant}>{config.label}</Badge>;
-  };
-
   // Static Profile Card (for drag overlay)
   const ProfileCard = ({ profile }: { profile: BackupProfile }) => {
     const { totalSnapshots, lastSnapshot } = getProfileStats(profile);
@@ -286,20 +276,15 @@ export function Snapshots() {
     return (
       <Card className="hover:shadow-md hover:border-muted-foreground/20 transition-all duration-200 relative overflow-hidden group">
         <CardHeader className="pb-3 space-y-1">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <GripVertical className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                <div className="p-1.5 rounded-md bg-muted/50 group-hover:bg-muted transition-colors">
-                  <FolderTree className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <CardTitle className="text-base font-semibold truncate">{profile.name}</CardTitle>
-              </div>
+          <div className="flex items-center gap-2">
+            <GripVertical className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
+            <div className="p-1.5 rounded-md bg-muted/50 group-hover:bg-muted transition-colors">
+              <FolderTree className="h-4 w-4 text-muted-foreground" />
             </div>
-            <div className="flex items-center gap-1 shrink-0">
-              {profile.pinned && <Pin className="h-3.5 w-3.5 fill-current text-muted-foreground" />}
-              <ChevronRight className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
-            </div>
+            <CardTitle className="text-base font-semibold truncate flex-1">
+              {profile.name}
+            </CardTitle>
+            {profile.pinned && <Pin className="h-3.5 w-3.5 fill-current text-muted-foreground" />}
           </div>
           {profile.description && (
             <p className="text-sm text-muted-foreground line-clamp-2 pl-10">
@@ -350,22 +335,15 @@ export function Snapshots() {
     return (
       <Card className="hover:shadow-md hover:border-muted-foreground/20 transition-all duration-200 overflow-hidden group">
         <CardHeader className="pb-3 space-y-1">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <GripVertical className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                <div className="p-1.5 rounded-md bg-muted/50 group-hover:bg-muted transition-colors">
-                  <Folder className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <CardTitle className="text-base font-semibold truncate">
-                  {source.source.path}
-                </CardTitle>
-              </div>
+          <div className="flex items-center gap-2">
+            <GripVertical className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
+            <div className="p-1.5 rounded-md bg-muted/50 group-hover:bg-muted transition-colors">
+              <Folder className="h-4 w-4 text-muted-foreground" />
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {isPinned && <Pin className="h-3.5 w-3.5 fill-current text-muted-foreground" />}
-              <StatusBadge status={source.status} />
-            </div>
+            <CardTitle className="text-base font-semibold truncate flex-1">
+              {source.source.path}
+            </CardTitle>
+            {isPinned && <Pin className="h-3.5 w-3.5 fill-current text-muted-foreground" />}
           </div>
         </CardHeader>
         <CardContent className="pt-0 space-y-3">
@@ -423,50 +401,44 @@ export function Snapshots() {
     const { totalSnapshots, lastSnapshot } = getProfileStats(profile);
 
     return (
-      <div ref={setNodeRef} style={style}>
-        <Card className="hover:shadow-md hover:border-muted-foreground/20 transition-all duration-200 relative overflow-hidden group cursor-pointer">
-          <CardHeader
-            className="pb-3 space-y-1"
-            onClick={() => void navigate(`/snapshots/${profile.id}/history`)}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                <div
-                  {...attributes}
-                  {...listeners}
-                  className="cursor-grab active:cursor-grabbing"
-                  role="button"
-                  aria-label={t('common.dragToReorder')}
-                  tabIndex={0}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <GripVertical className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
-                </div>
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <div className="p-1.5 rounded-md bg-muted/50 group-hover:bg-muted transition-colors">
-                    <FolderTree className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <CardTitle className="text-base font-semibold truncate">{profile.name}</CardTitle>
-                </div>
+      <div ref={setNodeRef} style={style} className="h-full">
+        <Card
+          className="hover:shadow-md hover:border-muted-foreground/20 transition-all duration-200 relative overflow-hidden group cursor-pointer h-full flex flex-col"
+          onClick={() => void navigate(`/snapshots/${profile.id}/history`)}
+        >
+          <CardHeader className="pb-3 space-y-1">
+            <div className="flex items-center gap-2">
+              <div
+                {...attributes}
+                {...listeners}
+                className="cursor-grab active:cursor-grabbing"
+                role="button"
+                aria-label={t('common.dragToReorder')}
+                tabIndex={0}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <GripVertical className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
               </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 hover:bg-muted"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleProfilePin(profile.id);
-                  }}
-                  aria-label={profile.pinned ? t('common.unpin') : t('common.pin')}
-                  title={profile.pinned ? t('common.unpin') : t('common.pin')}
-                >
-                  <Pin
-                    className={`h-3.5 w-3.5 ${profile.pinned ? 'fill-current text-muted-foreground' : 'text-muted-foreground/30'}`}
-                  />
-                </Button>
-                <ChevronRight className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
+              <div className="p-1.5 rounded-md bg-muted/50 group-hover:bg-muted transition-colors">
+                <FolderTree className="h-4 w-4 text-muted-foreground" />
               </div>
+              <CardTitle className="text-base font-semibold truncate flex-1">
+                {profile.name}
+              </CardTitle>
+              {profile.pinned && <Pin className="h-3.5 w-3.5 fill-current text-muted-foreground" />}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-muted">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => toggleProfilePin(profile.id)}>
+                    <Pin className="h-4 w-4 mr-2" />
+                    {profile.pinned ? t('common.unpin') : t('common.pin')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
             {profile.description && (
               <p className="text-sm text-muted-foreground line-clamp-2 pl-10">
@@ -474,7 +446,7 @@ export function Snapshots() {
               </p>
             )}
           </CardHeader>
-          <CardContent className="pt-0 space-y-3">
+          <CardContent className="pt-0 space-y-3 flex-1">
             <div className="grid grid-cols-2 gap-3">
               <div className="flex items-center gap-2 text-sm">
                 <div className="p-1 rounded bg-muted/30">
@@ -529,58 +501,70 @@ export function Snapshots() {
     const isPinned = sourcePreferences[sourceId]?.pinned;
 
     return (
-      <div ref={setNodeRef} style={style}>
-        <Card className="hover:shadow-md hover:border-muted-foreground/20 transition-all duration-200 overflow-hidden group">
+      <div ref={setNodeRef} style={style} className="h-full">
+        <Card
+          className="hover:shadow-md hover:border-muted-foreground/20 transition-all duration-200 overflow-hidden group cursor-pointer h-full flex flex-col"
+          onClick={() =>
+            void navigate(
+              `/snapshots/history?userName=${source.source.userName}&host=${source.source.host}&path=${encodeURIComponent(source.source.path || '')}`
+            )
+          }
+        >
           <CardHeader className="pb-3 space-y-1">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                <div
-                  {...attributes}
-                  {...listeners}
-                  className="cursor-grab active:cursor-grabbing"
-                  role="button"
-                  aria-label={t('common.dragToReorder')}
-                  tabIndex={0}
-                >
-                  <GripVertical className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
-                </div>
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <div className="p-1.5 rounded-md bg-muted/50 group-hover:bg-muted transition-colors">
-                    <Folder className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <CardTitle className="text-base font-semibold truncate">
-                    {source.source.path}
-                  </CardTitle>
-                </div>
+            <div className="flex items-center gap-2">
+              <div
+                {...attributes}
+                {...listeners}
+                className="cursor-grab active:cursor-grabbing"
+                role="button"
+                aria-label={t('common.dragToReorder')}
+                tabIndex={0}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <GripVertical className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 hover:bg-muted"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleSourcePin(sourceId);
-                  }}
-                  aria-label={isPinned ? t('common.unpin') : t('common.pin')}
-                  title={isPinned ? t('common.unpin') : t('common.pin')}
-                >
-                  <Pin
-                    className={`h-3.5 w-3.5 ${isPinned ? 'fill-current text-muted-foreground' : 'text-muted-foreground/30'}`}
-                  />
-                </Button>
-                <StatusBadge status={source.status} />
+              <div className="p-1.5 rounded-md bg-muted/50 group-hover:bg-muted transition-colors">
+                <Folder className="h-4 w-4 text-muted-foreground" />
               </div>
+              <CardTitle className="text-base font-semibold truncate flex-1">
+                {source.source.path}
+              </CardTitle>
+              {isPinned && <Pin className="h-3.5 w-3.5 fill-current text-muted-foreground" />}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-muted">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {source.status === 'IDLE' && (
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleSnapshotNow(source.source.path || '');
+                      }}
+                    >
+                      <PlayCircle className="h-4 w-4 mr-2" />
+                      {t('snapshots.snapshotNow')}
+                    </DropdownMenuItem>
+                  )}
+                  {source.status === 'IDLE' && <DropdownMenuSeparator />}
+                  <DropdownMenuItem onClick={() => toggleSourcePin(sourceId)}>
+                    <Pin className="h-4 w-4 mr-2" />
+                    {isPinned ? t('common.unpin') : t('common.pin')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </CardHeader>
-          <CardContent className="pt-0 space-y-3">
+          <CardContent className="pt-0 space-y-3 flex-1">
             <div className="grid grid-cols-2 gap-3">
               <div className="flex items-center gap-2 text-sm">
                 <div className="p-1 rounded bg-muted/30">
                   <FolderArchive className="h-3.5 w-3.5 text-muted-foreground" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-xs text-muted-foreground">Backups</span>
+                  <span className="text-xs text-muted-foreground">{t('snapshots.backups')}</span>
                   <span className="font-medium">{snapshotCount}</span>
                 </div>
               </div>
@@ -608,36 +592,13 @@ export function Snapshots() {
               </div>
             )}
             {source.nextSnapshotTime && (
-              <div className="flex items-center gap-2 pt-2 border-t text-xs text-muted-foreground">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Calendar className="h-3.5 w-3.5" />
                 <span>
                   {t('snapshots.next')}: {formatDistanceToNow(new Date(source.nextSnapshotTime))}
                 </span>
               </div>
             )}
-            <div className="flex gap-2 pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1"
-                onClick={() =>
-                  void navigate(
-                    `/snapshots/history?userName=${source.source.userName}&host=${source.source.host}&path=${encodeURIComponent(source.source.path || '')}`
-                  )
-                }
-              >
-                {t('snapshots.viewHistory')}
-              </Button>
-              {source.status === 'IDLE' && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => void handleSnapshotNow(source.source.path || '')}
-                >
-                  <PlayCircle className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
           </CardContent>
         </Card>
       </div>
@@ -724,7 +685,7 @@ export function Snapshots() {
                     items={filteredProfiles.map((p) => p.id)}
                     strategy={rectSortingStrategy}
                   >
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 auto-rows-fr">
                       {filteredProfiles.map((profile) => (
                         <SortableProfileCard key={profile.id} profile={profile} />
                       ))}
@@ -759,7 +720,7 @@ export function Snapshots() {
                     items={filteredSources.map(getSourceId)}
                     strategy={rectSortingStrategy}
                   >
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 auto-rows-fr">
                       {filteredSources.map((source) => (
                         <SortableSourceCard key={getSourceId(source)} source={source} />
                       ))}

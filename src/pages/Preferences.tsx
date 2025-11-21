@@ -10,10 +10,7 @@
  */
 
 import { useTranslation } from 'react-i18next';
-import { useThemeStore } from '@/stores/theme';
-import { useLanguageStore } from '@/stores/language';
-import { useFontSizeStore, type FontSize } from '@/stores/fontSize';
-import { usePreferencesStore, type ByteFormat } from '@/stores/preferences';
+import { usePreferencesStore, type ByteFormat, type FontSize } from '@/stores/preferences';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -56,10 +53,13 @@ import { getErrorMessage } from '@/lib/kopia/errors';
 
 export function Preferences() {
   const { t } = useTranslation();
-  const { theme, setTheme } = useThemeStore();
-  const { language, setLanguage } = useLanguageStore();
-  const { fontSize, setFontSize } = useFontSizeStore();
   const {
+    theme,
+    setTheme,
+    language,
+    setLanguage,
+    fontSize,
+    setFontSize,
     minimizeToTray,
     setMinimizeToTray,
     byteFormat,

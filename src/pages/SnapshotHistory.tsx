@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useSearchParams, Link } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { listen } from '@tauri-apps/api/event';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,14 +33,6 @@ import {
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
 import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
-import {
   FolderArchive,
   RefreshCw,
   Search,
@@ -60,7 +52,6 @@ import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia/errors';
 import { formatBytes, formatDateTime } from '@/lib/utils';
 import { logger } from '@/lib/utils/logger';
-import { useLanguageStore } from '@/stores/language';
 import { usePreferencesStore } from '@/stores/preferences';
 import { useKopiaStore } from '@/stores/kopia';
 import { navigateToSnapshotBrowse, navigateToSnapshotRestore } from '@/lib/utils/navigation';
@@ -72,7 +63,7 @@ export function SnapshotHistory() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { language } = useLanguageStore();
+  const language = usePreferencesStore((state) => state.language);
   const byteFormat = usePreferencesStore((state) => state.byteFormat);
 
   // Map language code to locale
@@ -252,21 +243,6 @@ export function SnapshotHistory() {
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb Navigation */}
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <Link to="/snapshots">{t('nav.snapshots')}</Link>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>{t('snapshots.snapshotHistory')}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">

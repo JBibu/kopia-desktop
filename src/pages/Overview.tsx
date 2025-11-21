@@ -44,7 +44,6 @@ import {
   Legend,
 } from 'recharts';
 import { formatBytes, formatDistanceToNow, formatShortDate } from '@/lib/utils';
-import { useLanguageStore } from '@/stores/language';
 import { usePreferencesStore } from '@/stores/preferences';
 
 const CHART_COLORS = {
@@ -63,7 +62,7 @@ const CHART_COLORS = {
 export function Overview() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { language } = useLanguageStore();
+  const language = usePreferencesStore((state) => state.language);
   const byteFormat = usePreferencesStore((state) => state.byteFormat);
   const serverStatus = useKopiaStore((state) => state.serverStatus);
   const serverLoading = useKopiaStore((state) => state.isServerLoading);

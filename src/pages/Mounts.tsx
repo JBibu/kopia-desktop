@@ -20,12 +20,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-} from '@/components/ui/breadcrumb';
 import { Spinner } from '@/components/ui/spinner';
 import { HardDrive, AlertCircle, Copy, HardDriveDownload, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
@@ -55,23 +49,16 @@ export function Mounts() {
   };
 
   const handleBrowse = (objectId: string) => {
-    // Navigate to snapshot browse page
-    void navigate(`/snapshots/browse?oid=${objectId}&path=/&snapshotId=${objectId}`);
+    // Navigate to snapshot browse page with rootOid for breadcrumb navigation
+    void navigate(
+      `/snapshots/browse?oid=${objectId}&rootOid=${objectId}&path=/&snapshotId=${objectId}`
+    );
   };
 
   const mountsList = mounts?.items || [];
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb Navigation */}
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbPage>{t('nav.mounts')}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-
       {/* Header */}
       <div className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">{t('mounts.title')}</h1>

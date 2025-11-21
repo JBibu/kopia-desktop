@@ -1,8 +1,6 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
-import { useThemeStore } from './stores/theme';
-import { useLanguageStore } from './stores/language';
-import { useFontSizeStore } from './stores/fontSize';
+import { usePreferencesStore } from './stores/preferences';
 import { useKopiaStore } from './stores/kopia';
 import { AppLayout } from './components/layout/AppLayout';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
@@ -47,13 +45,13 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
 }
 
 function App(): React.JSX.Element {
-  const theme = useThemeStore((state) => state.theme);
-  const language = useLanguageStore((state) => state.language);
+  const theme = usePreferencesStore((state) => state.theme);
+  const language = usePreferencesStore((state) => state.language);
   const startPolling = useKopiaStore((state) => state.startPolling);
   const stopPolling = useKopiaStore((state) => state.stopPolling);
 
-  // Initialize font size store (font size is applied automatically by the store)
-  useFontSizeStore();
+  // Initialize preferences store (applies persisted font size on hydration)
+  usePreferencesStore();
 
   // Initialize global Kopia state polling
   useEffect(() => {

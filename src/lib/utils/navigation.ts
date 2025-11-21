@@ -19,6 +19,10 @@ export function navigateBack(navigate: NavigateFunction, fallback: string): void
 
 /**
  * Navigate to snapshot browse view
+ * @param snapshotId - The snapshot ID
+ * @param oid - The current object ID to browse
+ * @param rootOid - The root object ID of the snapshot (for breadcrumb navigation)
+ * @param path - The current path within the snapshot
  */
 export function navigateToSnapshotBrowse(
   navigate: NavigateFunction,

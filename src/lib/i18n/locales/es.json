@@ -252,6 +252,7 @@
   },
   "browse": {
     "title": "Explorar respaldo",
+    "root": "Raíz",
     "contents": "Contenido del directorio",
     "itemsFound": "{{count}} elemento encontrado",
     "emptyDirectory": "Directorio vacío",
@@ -555,7 +556,11 @@
     "scheduleDailyAt": "Diario a las {{time}}",
     "scheduleUnknown": "Desconocido",
     "timeUntilHours": "en {{hours}}h {{minutes}}m",
-    "timeUntilMinutes": "en {{minutes}}m"
+    "timeUntilMinutes": "en {{minutes}}m",
+    "taskSucceeded": "Tarea completada después de",
+    "finished": "Finalizada",
+    "logs": "Registros",
+    "noLogsAvailable": "No hay registros disponibles para esta tarea"
   },
   "mounts": {
     "title": "Explorar respaldos",

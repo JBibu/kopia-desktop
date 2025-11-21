@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/components/ui/card';
-import { useToast } from '@/hooks/useToast';
+import { toast } from 'sonner';
 import { useKopiaStore } from '@/stores/kopia';
 import {
   createRepository,
@@ -21,7 +21,6 @@ import { PasswordSetup } from './steps/PasswordSetup';
 export function SetupRepository() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const refreshStatus = useKopiaStore((state) => state.refreshRepositoryStatus);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -172,14 +171,13 @@ export function SetupRepository() {
       }
 
       // Connection verified - show success and navigate
-      toast({
-        title:
-          state.mode === 'create' ? t('setup.toasts.repoCreated') : t('setup.toasts.connected'),
-        description:
-          state.mode === 'create'
-            ? t('setup.toasts.repoCreatedDesc')
-            : t('setup.toasts.connectedDesc'),
-      });
+      const successTitle =
+        state.mode === 'create' ? t('setup.toasts.repoCreated') : t('setup.toasts.connected');
+      const successDesc =
+        state.mode === 'create'
+          ? t('setup.toasts.repoCreatedDesc')
+          : t('setup.toasts.connectedDesc');
+      toast.success(successTitle, { description: successDesc });
 
       await refreshStatus();
       void navigate('/', { replace: true });
@@ -199,14 +197,9 @@ export function SetupRepository() {
         userMessage = t('setup.toasts.serverUnavailable');
       }
 
-      toast({
-        title:
-          state.mode === 'create'
-            ? t('setup.toasts.createFailed')
-            : t('setup.toasts.connectFailed'),
-        description: userMessage,
-        variant: 'destructive',
-      });
+      const errorTitle =
+        state.mode === 'create' ? t('setup.toasts.createFailed') : t('setup.toasts.connectFailed');
+      toast.error(errorTitle, { description: userMessage });
     } finally {
       setIsSubmitting(false);
     }

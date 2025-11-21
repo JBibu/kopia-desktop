@@ -252,6 +252,7 @@
   },
   "browse": {
     "title": "Browse Backup",
+    "root": "Root",
     "contents": "Directory contents",
     "itemsFound": "{{count}} item found",
     "emptyDirectory": "Empty Directory",
@@ -555,7 +556,11 @@
     "scheduleDailyAt": "Daily at {{time}}",
     "scheduleUnknown": "Unknown",
     "timeUntilHours": "in {{hours}}h {{minutes}}m",
-    "timeUntilMinutes": "in {{minutes}}m"
+    "timeUntilMinutes": "in {{minutes}}m",
+    "taskSucceeded": "Task succeeded after",
+    "finished": "Finished",
+    "logs": "Logs",
+    "noLogsAvailable": "No logs available for this task"
   },
   "mounts": {
     "title": "Browse Backups",

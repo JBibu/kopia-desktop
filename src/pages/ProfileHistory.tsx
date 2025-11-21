@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams, Link } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -20,14 +20,6 @@ import {
 } from '@/components/ui/table';
 import { Spinner } from '@/components/ui/spinner';
 import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
-import {
   FolderArchive,
   RefreshCw,
   Search,
@@ -42,7 +34,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatBytes, formatDateTime } from '@/lib/utils';
-import { useLanguageStore } from '@/stores/language';
 import { useKopiaStore } from '@/stores/kopia';
 import { useProfilesStore } from '@/stores/profiles';
 import { usePreferencesStore } from '@/stores/preferences';
@@ -55,7 +46,7 @@ export function ProfileHistory() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { profileId } = useParams<{ profileId: string }>();
-  const { language } = useLanguageStore();
+  const language = usePreferencesStore((state) => state.language);
   const locale = language === 'es' ? 'es-ES' : 'en-US';
   const byteFormat = usePreferencesStore((state) => state.byteFormat);
 
@@ -123,21 +114,6 @@ export function ProfileHistory() {
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb Navigation */}
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <Link to="/snapshots">{t('nav.snapshots')}</Link>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>{profile.name}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
