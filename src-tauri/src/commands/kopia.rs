@@ -1014,7 +1014,8 @@ pub async fn estimate_snapshot(
             source: crate::types::SourceInfo,
         }
 
-        let resolve_result: ResolveResponse = handle_response(resolve_response, "Resolve path").await?;
+        let resolve_result: ResolveResponse =
+            handle_response(resolve_response, "Resolve path").await?;
 
         resolve_result.source.path
     };

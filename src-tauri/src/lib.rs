@@ -153,10 +153,14 @@ pub fn run() {
                     "quit" => {
                         log::info!("Quit requested from tray menu, stopping server...");
                         // Stop the Kopia server before exiting
-                        if let Err(e) = tray_server_state.lock().unwrap_or_else(|poisoned| {
-                            log::warn!("Mutex poisoned during quit, recovering...");
-                            poisoned.into_inner()
-                        }).stop() {
+                        if let Err(e) = tray_server_state
+                            .lock()
+                            .unwrap_or_else(|poisoned| {
+                                log::warn!("Mutex poisoned during quit, recovering...");
+                                poisoned.into_inner()
+                            })
+                            .stop()
+                        {
                             log::error!("Failed to stop server during quit: {}", e);
                         }
                         app.exit(0);
@@ -257,10 +261,14 @@ pub fn run() {
             log::info!("App exit requested, stopping Kopia server...");
 
             // Stop the Kopia server before exit
-            if let Err(e) = exit_server_state.lock().unwrap_or_else(|poisoned| {
-                log::warn!("Mutex poisoned during shutdown, recovering...");
-                poisoned.into_inner()
-            }).stop() {
+            if let Err(e) = exit_server_state
+                .lock()
+                .unwrap_or_else(|poisoned| {
+                    log::warn!("Mutex poisoned during shutdown, recovering...");
+                    poisoned.into_inner()
+                })
+                .stop()
+            {
                 log::error!("Failed to stop Kopia server during shutdown: {}", e);
             } else {
                 log::info!("Kopia server stopped successfully");
