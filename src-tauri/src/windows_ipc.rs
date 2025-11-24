@@ -114,12 +114,8 @@ pub fn run_pipe_server(kopia_server: Arc<Mutex<KopiaServer>>) -> Result<()> {
         let server_clone = Arc::clone(&kopia_server);
         let handle = SendHandle(pipe_handle);
         std::thread::spawn(move || {
-            if let Err(e) = handle_pipe_client(handle.0, server_clone) {
+            if let Err(e) = handle_pipe_client(handle, server_clone) {
                 log::error!("Error handling pipe client: {}", e);
-            }
-            unsafe {
-                DisconnectNamedPipe(handle.0);
-                CloseHandle(handle.0);
             }
             log::debug!("Client disconnected from named pipe");
         });
@@ -128,7 +124,11 @@ pub fn run_pipe_server(kopia_server: Arc<Mutex<KopiaServer>>) -> Result<()> {
 
 /// Handle a single pipe client connection
 #[cfg(windows)]
-fn handle_pipe_client(pipe_handle: HANDLE, kopia_server: Arc<Mutex<KopiaServer>>) -> Result<()> {
+fn handle_pipe_client(
+    pipe_handle: SendHandle,
+    kopia_server: Arc<Mutex<KopiaServer>>,
+) -> Result<()> {
+    let pipe_handle = pipe_handle.0;
     let mut buffer = vec![0u8; BUFFER_SIZE as usize];
     let mut bytes_read: u32 = 0;
 
@@ -186,7 +186,7 @@ fn handle_pipe_client(pipe_handle: HANDLE, kopia_server: Arc<Mutex<KopiaServer>>
             })?;
 
             // Get server info if running
-            if let Some(client) = server.get_http_client() {
+            if let Some(_client) = server.get_http_client() {
                 // Extract credentials from client (not ideal, but needed for compatibility)
                 // TODO: Find better way to share credentials
                 ServiceResponse::Error {
@@ -230,6 +230,12 @@ fn handle_pipe_client(pipe_handle: HANDLE, kopia_server: Arc<Mutex<KopiaServer>>
                 windows_sys::Win32::Foundation::GetLastError()
             })),
         });
+    }
+
+    // Clean up pipe handle
+    unsafe {
+        DisconnectNamedPipe(pipe_handle);
+        CloseHandle(pipe_handle);
     }
 
     Ok(())
