@@ -18,9 +18,17 @@ export function formatBytes(bytes: number, decimals = 2, format: ByteFormat = 'b
       ? ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB']
       : ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
 
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  // Handle negative bytes
+  const absBytes = Math.abs(bytes);
+  const sign = bytes < 0 ? '-' : '';
 
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+  // Calculate the appropriate size index
+  const i = Math.floor(Math.log(absBytes) / Math.log(k));
+
+  // Clamp i to valid array bounds (0 to sizes.length - 1)
+  const safeIndex = Math.min(Math.max(0, i), sizes.length - 1);
+
+  return `${sign}${parseFloat((absBytes / Math.pow(k, safeIndex)).toFixed(dm))} ${sizes[safeIndex]}`;
 }
 
 /**

@@ -1,54 +1,12 @@
 # CLAUDE.md
 
-Guidance for Claude Code (claude.ai/code) when working with this repository.
+Guidance for Claude Code when working with this repository.
 
 ## Project Overview
 
-**Kopia-Desktop** - Modern desktop app for Kopia backup management.
+**Kopia-Desktop** - Modern desktop app for Kopia backup management built with React + Tauri.
 
-A React + Tauri application providing a user-friendly interface for managing Kopia backups: repositories, snapshots, policies, tasks, restore operations, and backup profiles.
-
-### Current Status
-
-**Fully Implemented:**
-
-- ✅ Complete Kopia server lifecycle management (start/stop/status/health checks)
-- ✅ 51 Tauri commands (40 Kopia API + 4 system utilities + 2 WebSocket + 5 Windows service management)
-- ✅ 15 functional pages (Overview, Repository, Snapshots, ProfileHistory, SnapshotCreate, SnapshotHistory, SnapshotBrowse, SnapshotRestore, Policies, PolicyEdit, Tasks, Mounts, Preferences, Setup, NotFound)
-- ✅ Repository setup wizard with 8 storage providers (Filesystem, S3, B2, Azure, GCS, SFTP, WebDAV, Rclone)
-- ✅ Backup profiles system for managing multiple backup configurations
-- ✅ Theme system (light/dark/system) with next-themes + Zustand
-- ✅ Font size preferences with Zustand
-- ✅ Byte format preference (Base-2 vs Base-10) with Zustand
-- ✅ i18n/translations (English + Spanish) with react-i18next
-- ✅ Comprehensive error handling with 51 `KopiaError` variants
-- ✅ Global Kopia state store with Zustand (centralized polling + WebSocket + mount management)
-- ✅ 9 custom hooks (useKopiaServer, useRepository, useSnapshots, usePolicies, useTasks, useMounts, useProviderConfig, useIsMobile, useToast)
-- ✅ Native file/folder pickers via Tauri dialog plugin
-- ✅ 22 shadcn/ui components (accordion, alert, badge, breadcrumb, button, card, checkbox, collapsible, dialog, dropdown-menu, input, label, progress, select, separator, sheet, sonner, spinner, switch, table, tabs, textarea)
-- ✅ 50+ custom components (layout: 6, UI: 22, Kopia: 25 total including setup: 16, notifications: 5, snapshots: 2, policy: 1, profiles: 1)
-- ✅ WebSocket support with intelligent fallback to polling
-- ✅ Recharts integration for data visualization (animations disabled to prevent re-renders)
-- ✅ Snapshot cancel functionality
-- ✅ Snapshot pin system (add/remove pins to protect snapshots from deletion)
-- ✅ Retention tags display (color-coded badges for retention policies)
-- ✅ Source deletion when no snapshots remain (delete source + policy)
-- ✅ System tray integration (show/hide window, quit menu)
-- ✅ Desktop notifications for task completion
-- ✅ Snapshot mounting (mount/unmount snapshots as local filesystems)
-- ✅ Custom window decorations with titlebar
-- ✅ Window close handler with minimize to tray
-- ✅ Comprehensive Rust backend testing (146 total tests: 136 unit passing, 10 integration tests passing with KOPIA_PATH, ~65% coverage)
-- ✅ Kopia API integration tests (10 passing tests with real Kopia binary when KOPIA_PATH is set)
-- ✅ **Workflow parity with official Kopia HTMLui achieved** (pins, retention tags, source deletion)
-- ✅ **Windows Service support** (run Kopia server as system service with auto-start)
-
-**Not Yet Implemented:**
-
-- ❌ Form validation with Zod (package not installed, using manual validation)
-- ❌ Frontend test coverage (vitest configured, 65 wrapper tests written but low value)
-- ❌ Auto-updates
-- ❌ E2E tests with Playwright (configured but tests not written)
+Provides a user-friendly interface for managing Kopia backups: repositories, snapshots, policies, tasks, restore operations, and backup profiles.
 
 ---
 
@@ -56,13 +14,13 @@ A React + Tauri application providing a user-friendly interface for managing Kop
 
 ```bash
 pnpm install          # Install dependencies (auto-downloads Kopia binary)
-pnpm tauri:dev        # Start Tauri app in development mode
+pnpm tauri:dev        # Start development
 pnpm tauri:build      # Build production app
-pnpm lint             # Lint and auto-fix code
-pnpm typecheck        # Type check TypeScript
 pnpm validate         # Run all checks (typecheck, lint:check, format:check, test:run)
-pnpm validate:fix     # Run all checks with auto-fix (typecheck, lint, format, test:run)
-pnpm test:rust        # Run Rust backend tests (146 tests: 136 unit + 10 integration)
+pnpm validate:fix     # Auto-fix issues
+pnpm test:rust        # Run Rust backend tests
+pnpm test:run         # Run frontend tests
+pnpm test:e2e         # Run E2E tests with Playwright
 ```
 
 ---
@@ -73,68 +31,48 @@ pnpm test:rust        # Run Rust backend tests (146 tests: 136 unit + 10 integra
 
 - React 19.2 + TypeScript 5.9 (strict mode)
 - Vite 7.2 (bundling + HMR)
-- Tailwind CSS 4.1 + shadcn/ui (Radix UI primitives)
-- React Router v7.9
-- Zustand 5.0 (6 stores: theme, language, fontSize, preferences, profiles, kopia)
-- i18next 25.6 + react-i18next 16.2 (internationalization)
-- Recharts 3.4 (data visualization & charts)
+- Tailwind CSS 4.1 + shadcn/ui (23 components)
+- React Router v7.9 (use `react-router` imports, not `react-router-dom`)
+- Zustand 5.0 (state management: kopia, preferences, profiles stores)
+- i18next 25.6 (English + Spanish)
+- Recharts 3.4 (charts, animations disabled)
 - Sonner 2.0 (toast notifications)
-- Lucide React 0.548 (icons)
-- next-themes 0.4 (advanced theme management with system detection)
+- Lucide React 0.554 (icons)
+- next-themes 0.4 (theme management)
 
 **Backend:**
 
 - Tauri 2.9 (Rust) with tray-icon feature
 - reqwest 0.11 (HTTP client for Kopia API)
-- tokio 1.x (async runtime with full features)
-- tokio-tungstenite 0.24 (WebSocket client with native-tls)
+- tokio 1.x (async runtime)
+- tokio-tungstenite 0.24 (WebSocket client)
 - serde/serde_json (serialization)
-- hostname 0.3 (system hostname detection)
-- base64 0.22 (encoding/decoding)
-- urlencoding 2 (URL encoding)
-- thiserror 1.0 (error handling)
-- rand 0.8 (random generation for passwords)
+- hostname, base64, urlencoding, thiserror, rand
 - Tauri plugins: shell, notification, dialog
-- windows-service 0.7 (Windows service management, Windows only)
-- windows-sys 0.59 (Windows named pipe IPC, Windows only)
+- Windows-specific: windows-service 0.7, windows-sys 0.59 (service + IPC)
 
 **Testing:**
 
-- Vitest 4.0 (65 frontend wrapper tests - low value, only test invoke() calls)
-- Playwright 1.56 (E2E tests, configured but not written)
-- Rust cargo test (146 total tests: 136 unit passing, 10 integration passing with KOPIA_PATH)
-- cargo-llvm-cov (code coverage for Rust)
-- tempfile 3.x (temporary directories for integration tests)
+- Vitest 4.0 (frontend unit tests)
+- Playwright 1.56 (E2E tests)
+- Rust cargo test (backend tests)
+- cargo-llvm-cov (Rust code coverage)
 
-**Import Aliases:**
+**Import Alias:**
 
 ```typescript
 @/*  // Maps to ./src/* (e.g., @/components/ui/button)
 ```
 
-**React Router v7:**
-
-- All imports use `react-router` (unified package)
-- No more `react-router-dom` (deprecated in v7)
-
 ---
 
-## Kopia Backend Architecture
+## Architecture
 
-**Approach:** Embedded Server Mode (matches official KopiaUI)
-
-### How It Works
-
-1. Tauri **bundles `kopia` binary** (platform-specific, auto-downloaded during `pnpm install`)
-2. Backend process **spawns `kopia server start --ui`** on app launch
-3. React UI communicates via **REST API** + **WebSocket** (for real-time updates)
-4. Server **shuts down gracefully** with app (on window close or quit from tray)
-
-### Communication Flow
+**Embedded Server Mode** (matches official KopiaUI):
 
 ```
 React UI (Frontend)
-    ↓ HTTP/REST API + WebSocket
+    ↓ HTTP REST API + WebSocket
 Tauri Backend (Rust)
     ↓ spawns
 Kopia Server (localhost:random-port)
@@ -144,137 +82,21 @@ Repositories / Snapshots / Storage
 
 **Key Points:**
 
-- Localhost-only (no remote access)
-- TLS with self-signed cert
-- Random password per session (24 chars)
-- Hybrid architecture: WebSocket for real-time events + polling for reliability
+- Kopia binary bundled with app (platform-specific, auto-downloaded)
+- Backend spawns `kopia server start --ui` on launch
+- Localhost-only, TLS with self-signed cert, random password per session
+- WebSocket for real-time updates + polling for reliability
+- Server shuts down gracefully on app exit
 
----
+**State Management:**
 
-## Windows Service Architecture (Windows Only)
+Centralized Zustand store ([src/stores/kopia.ts](src/stores/kopia.ts)):
 
-**Service Mode:** Run Kopia server as a Windows system service
-
-### Architecture
-
-```
-┌─────────────────────────────────────────────────┐
-│          GUI Application (User Session)          │
-│  - React Frontend                                │
-│  - Service Management UI (Preferences)           │
-└────────────┬────────────────────────────────────┘
-             │ Named Pipe IPC
-             │ (\\.\pipe\kopia-desktop-service)
-             ↓
-┌─────────────────────────────────────────────────┐
-│    Windows Service (LocalSystem Account)        │
-│  - Auto-starts on boot                          │
-│  - Manages Kopia server lifecycle               │
-│  - Accepts IPC commands from GUI                │
-└────────────┬────────────────────────────────────┘
-             │ Process Spawn
-             ↓
-┌─────────────────────────────────────────────────┐
-│            Kopia Server (Embedded)               │
-│  - HTTPS API on localhost                       │
-│  - Random port + random password                │
-└─────────────────────────────────────────────────┘
-```
-
-### Key Features
-
-1. **Dual-Mode Binary**:
-   - `kopia-desktop.exe` (normal mode) - Standard GUI application
-   - `kopia-desktop.exe --service` (service mode) - Runs as Windows service
-
-2. **Named Pipe IPC**:
-   - Secure communication between GUI and service
-   - Windows ACL-based access control
-   - JSON message protocol (`ServiceMessage` / `ServiceResponse`)
-
-3. **Service Management**:
-   - Install/uninstall from Preferences UI
-   - Requires administrator privileges
-   - Start/stop controls
-   - Real-time status monitoring
-
-4. **Configuration**:
-   - Service config: `%ProgramData%\Kopia Desktop\config`
-   - User config: `%APPDATA%\kopia` (GUI mode)
-   - Service runs as LocalSystem with auto-start
-
-### Files
-
-- `src-tauri/src/windows_service.rs` - Service lifecycle, install/uninstall
-- `src-tauri/src/windows_ipc.rs` - Named pipe server/client
-- `src-tauri/src/commands/windows_service.rs` - Tauri commands
-- `src/components/kopia/WindowsServiceManager.tsx` - UI component
-
-### Usage
-
-**From Preferences (requires admin):**
-
-1. Click "Install Service" (UAC prompt)
-2. Service starts automatically
-3. Manage from Preferences or Windows Services (`services.msc`)
-
-**Manual (PowerShell as Administrator):**
-
-```powershell
-# Install and start
-.\kopia-desktop.exe --service  # Will be registered by install command
-
-# Manage via Windows Services
-sc query KopiaDesktopService
-sc start KopiaDesktopService
-sc stop KopiaDesktopService
-```
-
----
-
-## State Management Architecture
-
-**Centralized Zustand Store** ([src/stores/kopia.ts](src/stores/kopia.ts))
-
-**Polling Configuration:**
-
-- **Server/Repository/Maintenance:** 30 seconds
-- **Tasks/Sources:** 5 seconds (real-time updates)
-
-**WebSocket + Polling Hybrid:**
-
-- WebSocket provides instant updates during active operations (progress bars, byte counts)
-- Polling ensures reliable state transitions (UPLOADING → IDLE, RUNNING → SUCCESS)
-- Both run simultaneously - WebSocket is supplemental, polling is essential
-
-**Key Benefits:**
-
-- ✅ Eliminates redundant API calls (components share same state)
-- ✅ Single polling loop instead of per-component polling
-- ✅ Consistent state across entire application
-- ✅ Simplified hooks (thin wrappers around store selectors)
-- ✅ WebSocket fallback to polling if connection fails
-
-**Stores:**
-
-1. **kopia.ts** - Main Kopia state (server, repository, snapshots, sources, policies, tasks, mounts, maintenance)
-2. **profiles.ts** - Backup profiles management (CRUD operations, selection)
-3. **theme.ts** - Theme state (light/dark/system)
-4. **language.ts** - Language state (en/es)
-5. **fontSize.ts** - Font size preference
-6. **preferences.ts** - User preferences
-
-**Hooks Delegate to Store:**
-
-- `useKopiaServer()` → server state
-- `useRepository()` → repository state
-- `useSnapshots()` → snapshots/sources state
-- `usePolicies()` → policies state
-- `useTasks()` → tasks state
-- `useMounts()` → mounts state
-- `useProviderConfig()` → storage provider configs
-- `useIsMobile()` → responsive breakpoints
-- `useToast()` → toast notifications
+- **Polling intervals:** Server/Repository (30s), Tasks/Sources (5s)
+- **Hybrid approach:** WebSocket (instant updates) + polling (reliable state)
+- **Benefits:** Eliminates redundant API calls, single polling loop, consistent state
+- **Stores:** kopia.ts (main), preferences.ts (theme, language, fontSize), profiles.ts (backup profiles)
+- **Hooks:** Thin wrappers around store selectors (useIsMobile, useProviderConfig)
 
 ---
 
@@ -282,63 +104,46 @@ sc stop KopiaDesktopService
 
 ```
 kopia-desktop/
-├── src/                                  # React frontend
+├── src/                           # React frontend
 │   ├── components/
-│   │   ├── ui/                           # shadcn/ui components (22)
-│   │   ├── layout/                       # Layout components (6)
-│   │   │   ├── AppLayout.tsx, AppSidebar.tsx, ErrorBoundary.tsx
-│   │   │   ├── StatusIndicator.tsx, Titlebar.tsx, WindowCloseHandler.tsx
-│   │   └── kopia/                        # Kopia-specific components
-│   │       ├── setup/                    # Repository setup wizard
-│   │       │   ├── fields/               # Form fields (3)
-│   │       │   ├── providers/            # Storage providers (8)
-│   │       │   ├── steps/                # Wizard steps (4)
-│   │       │   └── SetupRepository.tsx
-│   │       ├── snapshots/                # Snapshot components (2)
-│   │       │   ├── PinDialog.tsx         # Pin management dialog
-│   │       │   └── RetentionTags.tsx     # Retention badge display
-│   │       ├── policy/                   # Policy editor (1)
-│   │       ├── profiles/                 # Profile management (1)
-│   │       └── notifications/            # Notification profiles (5)
+│   │   ├── ui/                    # 23 shadcn/ui components
+│   │   ├── layout/                # AppLayout, AppSidebar, Titlebar, etc.
+│   │   └── kopia/                 # Kopia-specific components
+│   │       ├── setup/             # Repository setup wizard
+│   │       │   ├── providers/     # 8 storage providers
+│   │       │   └── steps/         # Wizard steps
+│   │       ├── snapshots/         # PinDialog, RetentionTags
+│   │       ├── policy/            # Policy editor
+│   │       ├── profiles/          # Profile management
+│   │       └── notifications/     # Notification profiles
 │   ├── lib/
 │   │   ├── kopia/
-│   │   │   ├── client.ts                 # Tauri command wrappers
-│   │   │   ├── types.ts                  # TypeScript types
-│   │   │   └── errors.ts                 # KopiaError class (51 variants)
-│   │   └── utils/                        # Utilities (cn, format, etc.)
-│   ├── pages/                            # Route pages (15)
-│   │   ├── Overview.tsx, Repository.tsx, Snapshots.tsx
-│   │   ├── ProfileHistory.tsx, SnapshotCreate.tsx, SnapshotHistory.tsx
-│   │   ├── SnapshotBrowse.tsx, SnapshotRestore.tsx
-│   │   ├── Policies.tsx, PolicyEdit.tsx, Tasks.tsx, Mounts.tsx
-│   │   ├── Preferences.tsx, Setup.tsx, NotFound.tsx
-│   ├── hooks/                            # Custom hooks (9)
-│   ├── stores/                           # Zustand stores (6)
-│   ├── locales/                          # i18n translations (en, es)
-│   ├── App.tsx, main.tsx, routes.tsx
-│   └── index.css                         # Tailwind directives
+│   │   │   ├── client.ts          # Tauri command wrappers
+│   │   │   ├── types.ts           # TypeScript types
+│   │   │   └── errors.ts          # KopiaError class
+│   │   └── utils/                 # Utilities (cn, format, etc.)
+│   ├── pages/                     # 15 route pages
+│   ├── hooks/                     # 2 custom hooks
+│   ├── stores/                    # 3 Zustand stores
+│   └── locales/                   # i18n (en, es)
 │
-├── src-tauri/                            # Rust backend
+├── src-tauri/                     # Rust backend
 │   ├── src/
 │   │   ├── commands/
-│   │   │   ├── kopia.rs                  # 40 Kopia commands
-│   │   │   ├── system.rs                 # 4 system commands
-│   │   │   └── websocket.rs              # 2 WebSocket commands
-│   │   ├── kopia_server.rs               # Server lifecycle & HTTP client
-│   │   ├── kopia_websocket.rs            # WebSocket client
-│   │   ├── types.rs                      # Rust types
-│   │   ├── error.rs                      # Error types & handling (51 variants)
-│   │   ├── lib.rs                        # Main entry point
-│   │   ├── main.rs                       # Tauri app setup
-│   │   └── *_tests.rs                    # Test files (13 files, 136 tests)
-│   ├── Cargo.toml, tauri.conf.json
-│   ├── build.rs
-│   └── TESTING.md                        # Comprehensive testing guide
+│   │   │   ├── kopia.rs           # 41 Kopia commands
+│   │   │   ├── system.rs          # 4 system commands
+│   │   │   ├── websocket.rs       # 2 WebSocket commands
+│   │   │   └── windows_service.rs # 5 Windows service commands
+│   │   ├── kopia_server.rs        # Server lifecycle & HTTP client
+│   │   ├── kopia_websocket.rs     # WebSocket client
+│   │   ├── types.rs               # Rust types
+│   │   ├── error.rs               # Error handling
+│   │   └── lib.rs, main.rs
+│   └── Cargo.toml, tauri.conf.json
 │
-├── bin/                                  # Kopia binaries (dev mode, auto-downloaded)
-├── scripts/                              # Utility scripts
-│   └── download-kopia.sh                 # Kopia binary download script
-└── tests/                                # Frontend tests (empty)
+├── tests/                         # Frontend tests (14 test files)
+├── bin/                           # Kopia binaries (auto-downloaded)
+└── scripts/                       # Utility scripts
 ```
 
 ---
@@ -358,27 +163,13 @@ import { useNavigate } from 'react-router';
 
 // Tauri API
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
 ```
 
-**State Management Pattern:**
+**State Management:**
 
 ```typescript
 // All Kopia data managed through centralized store
-// src/stores/kopia.ts
-export const useKopiaStore = create<KopiaStore>((set, get) => ({
-  // State
-  serverStatus, repositoryStatus, snapshots, sources, policies, tasks, mounts,
-
-  // Polling (30s server, 5s tasks/sources)
-  startPolling() { /* ... */ },
-
-  // WebSocket (supplemental to polling)
-  startWebSocket() { /* ... */ },
-
-  // Actions
-  refreshServer, refreshSnapshots, refreshTasks, etc.
-}));
+import { useKopiaStore } from '@/stores/kopia';
 
 // Hooks are thin wrappers
 export function useSnapshots() {
@@ -398,102 +189,70 @@ export function useSnapshots() {
 
 ---
 
-## Tauri Commands (Backend API)
+## Tauri Commands (52 total)
 
-**46 commands total:**
-
-**Server (3):**
-
-- `kopia_server_start`, `kopia_server_stop`, `kopia_server_status`
-
-**Repository (9):**
-
-- `repository_status`, `repository_connect`, `repository_disconnect`
-- `repository_create`, `repository_exists`, `repository_get_algorithms`
-- `repository_update_description`
-
-**Snapshots (6):**
-
-- `sources_list`, `snapshot_create`, `snapshot_cancel`
-- `snapshots_list`, `snapshot_edit`, `snapshot_delete`
-
-**Browsing (2):**
-
-- `object_browse`, `object_download`
-
-**Restore (4):**
-
-- `restore_start`, `mount_snapshot`, `mounts_list`, `mount_unmount`
-
-**Policies (5):**
-
-- `policies_list`, `policy_get`, `policy_resolve`, `policy_set`, `policy_delete`
-
-**Tasks (5):**
-
-- `tasks_list`, `task_get`, `task_logs`, `task_cancel`, `tasks_summary`
-
-**Maintenance (2):**
-
-- `maintenance_info`, `maintenance_run`
-
-**Utilities (2):**
-
-- `path_resolve`, `estimate_snapshot`
-
-**Notifications (4):**
-
-- `notification_profiles_list`, `notification_profile_create`
-- `notification_profile_delete`, `notification_profile_test`
-
-**System (4):**
-
-- `get_system_info`, `get_current_user`, `select_folder`, `save_file`
-
-**WebSocket (2):**
-
-- `websocket_connect`, `websocket_disconnect`
+**Server (3):** start, stop, status
+**Repository (9):** status, connect, disconnect, create, exists, get_algorithms, update_description
+**Snapshots (6):** sources_list, snapshot_create, snapshot_cancel, snapshots_list, snapshot_edit, snapshot_delete
+**Browsing (2):** object_browse, object_download
+**Restore (4):** restore_start, mount_snapshot, mounts_list, mount_unmount
+**Policies (5):** policies_list, policy_get, policy_resolve, policy_set, policy_delete
+**Tasks (5):** tasks_list, task_get, task_logs, task_cancel, tasks_summary
+**Maintenance (2):** maintenance_info, maintenance_run
+**Utilities (2):** path_resolve, estimate_snapshot
+**Notifications (4):** profiles list/create/delete/test
+**System (4):** get_system_info, get_current_user, select_folder, save_file
+**WebSocket (2):** websocket_connect, websocket_disconnect
+**Windows Service (5):** install, uninstall, start, stop, status
 
 ---
 
-## Key Kopia Concepts
+## Key Features
 
-### Policy Inheritance
+**Repository Setup:**
 
-```
-Global (*/*/*) → Per-Host (@host/*/*) → Per-User (user@host/*) → Per-Path (user@host/path)
-```
+- 8 storage providers: Filesystem, S3, B2, Azure, GCS, SFTP, WebDAV, Rclone
+- Setup wizard with validation
+- TLS with self-signed cert
 
-### Snapshot Sources
+**Backup Management:**
 
-Format: `user@host:/path` (e.g., `javi@laptop:/home/javi/documents`)
+- Backup profiles (user-defined groups of folders)
+- Snapshot create/cancel/edit/delete
+- Pin system (protect snapshots from deletion)
+- Retention tags (color-coded badges)
+- Source deletion when no snapshots remain
 
-### Backup Profiles
+**Policies:**
 
-- User-defined backup configurations stored in Zustand
-- Each profile contains: name, path, description, schedule, policy settings
-- Profiles can be created, edited, deleted, and selected for snapshots
-- Profile history shows snapshot timeline for each profile
+- Full policy editor with inheritance display
+- Advanced scheduling (cron, timeOfDay)
+- Compression filters (onlyCompress, neverCompress)
+- .kopiaignore support
 
-### Repository Config
+**UI/UX:**
 
-- Location: `~/.config/kopia/` (Linux/macOS) or `%APPDATA%\kopia` (Windows)
-- Files: `*.config` (one per repository)
-- Authentication: Password required, random password per session
-- HTTPS: Self-signed cert for localhost
+- Theme system (light/dark/system)
+- i18n (English + Spanish)
+- Font size preference
+- Byte format preference (Base-2 vs Base-10)
+- System tray integration
+- Desktop notifications
+- Custom window decorations
 
-### Critical Warnings for UI
+**Windows Service:**
 
-1. **Password Loss** - No recovery possible, must warn prominently
-2. **Repository Maintenance** - Can take hours for large repos
-3. **Incomplete Snapshots** - Checkpoint behavior must be clear
-4. **Deletion** - Snapshots and repositories are unrecoverable
+- Run Kopia server as Windows system service
+- Auto-start on boot
+- Named pipe IPC for GUI ↔ service communication
+- Install/uninstall from Preferences UI
+- Dual-mode binary (`kopia-desktop.exe` vs `kopia-desktop.exe --service`)
 
 ---
 
 ## Error Handling
 
-Use the centralized `KopiaError` class with 51 variants:
+Use centralized `KopiaError` class:
 
 ```typescript
 import { getErrorMessage } from '@/lib/utils';
@@ -511,13 +270,7 @@ try {
 }
 ```
 
-**Rust Error Handling:**
-
-All 51 error variants are tested with:
-
-- Basic tests (7): display, serialization, conversions, equality
-- Advanced tests (12): all variants, optional fields, error chains
-- Edge cases (17): empty strings, unicode, boundaries, large collections
+All error variants are tested in both Rust and TypeScript.
 
 ---
 
@@ -528,29 +281,25 @@ All 51 error variants are tested with:
 - Never log sensitive data (passwords, tokens)
 - Validate all user inputs
 - Sanitize file paths
-- Use Rust's type system for safety
 
 **Performance:**
 
-- Lazy load large data sets
 - Centralized polling (30s server, 5s tasks/sources)
 - Clean up listeners/timers on unmount
-- Disable chart animations to prevent re-render issues (`isAnimationActive={false}`)
+- Disable chart animations (`isAnimationActive={false}`)
 
 **User Experience:**
 
 - Clear empty states with CTAs
-- Show inherited vs overridden policy values
-- Provide sensible defaults in forms
+- Sensible defaults in forms
 - Toast notifications for background operations
-- Support keyboard navigation
-- Minimize to tray on window close (don't quit)
+- Keyboard navigation support
+- Minimize to tray on window close
 
 **Code Quality:**
 
-- Run `pnpm validate` before committing (typecheck, lint:check, format:check, test:run)
+- Run `pnpm validate` before committing
 - Use `pnpm validate:fix` for auto-fixes
-- Write descriptive commit messages
 - Test Rust code with `pnpm test:rust`
 - Use `pnpm test:rust:coverage:html` for coverage reports
 
@@ -558,125 +307,32 @@ All 51 error variants are tested with:
 
 ## Testing
 
-### Frontend (Minimal Coverage)
-
-- **65 wrapper tests** - Test TypeScript invoke() calls only (low value)
-- Vitest configured
-- Playwright configured but no E2E tests written
-- Testing Library installed for future React component tests
-
-### Backend (Fully Implemented)
-
-- **146 total tests (136 passing)** (100% success rate)
-  - **136 unit tests** - Core functionality, error handling, edge cases
-  - **10 integration tests** - Real Kopia binary API interactions (all pass with KOPIA_PATH)
-- **~65% code coverage** (realistic maximum without full integration)
-- **All critical paths tested**
-
-**Run Tests:**
+**Frontend:**
 
 ```bash
-pnpm test:rust                    # Run all unit tests (136 tests)
-pnpm test:rust:coverage           # Generate coverage report
-pnpm test:rust:coverage:html      # Open coverage in browser
-
-# Integration tests (require Kopia binary)
-KOPIA_PATH=/path/to/bin/kopia-linux-x64 cargo test --lib kopia_api_integration -- --ignored --test-threads=1
+pnpm test:run         # Unit tests (Vitest)
+pnpm test:coverage    # Coverage report
+pnpm test:e2e         # E2E tests (Playwright)
+pnpm test:e2e:ui      # E2E interactive UI
 ```
 
-**Integration Test Coverage:**
+**Backend:**
 
-- Server Lifecycle (7 tests): start/stop, status, HTTP client, URL retrieval, uptime
-- Repository API (2 tests): algorithms endpoint, status endpoint
-- Error Handling (1 test): operation validation when server not running
+```bash
+pnpm test:rust                    # All Rust tests
+pnpm test:rust:coverage:html      # Coverage report (open in browser)
 
-**See [src-tauri/TESTING.md](src-tauri/TESTING.md) for comprehensive testing guide.**
+# Integration tests (require Kopia binary)
+KOPIA_PATH=/path/to/kopia cargo test --lib kopia_api_integration -- --ignored --test-threads=1
+```
 
----
-
-## Recent Improvements
-
-✅ **Workflow Parity with Official Kopia (November 2025):**
-
-- **Snapshot Pin System** - Add/remove pins to protect snapshots from automatic deletion by retention policies
-- **Retention Tags Display** - Color-coded badges showing retention policies (latest-N, hourly-N, daily-N, etc.)
-- **Source Deletion** - Delete backup source + policy when no snapshots remain
-- **Byte Format Preference** - User choice between Base-2 (KiB, MiB, GiB) and Base-10 (KB, MB, GB)
-- **Advanced Policy Fields** - Full support for:
-  - **Advanced Scheduling**: `timeOfDay` (specific times), `cron` expressions for complex schedules
-  - **Advanced Compression**: `onlyCompress`, `neverCompress` extension filters
-  - **.kopiaignore Support**: `dotIgnoreFiles`, `noParentIgnore`, `noParentDotFiles` for .gitignore-like functionality
-- **Unified Snapshots Interface** - Single "Backups" menu consolidating all backup views:
-  - **Profiles tab** (default) - User-created groups for backing up multiple folders together
-  - **Individual Sources tab** - Standalone backup sources not part of any profile
-  - Card-based grid layout with search functionality and real-time status badges
-  - Consistent breadcrumb navigation: all snapshot-related pages link back to "Backups"
-  - ProfileHistory accessible via `/snapshots/:profileId/history` route
-- **Files created**: `PinDialog.tsx`, `RetentionTags.tsx`, `Snapshots.tsx`
-- **100% feature parity achieved** with official Kopia HTMLui for all core workflows and policy management
-
-✅ **Backup Profiles System:**
-
-- Create, edit, delete backup profiles
-- Profile history with snapshot timeline
-- Profile selection for snapshot creation
-
-✅ **System Tray Integration:**
-
-- Native system tray with show/hide window functionality
-- Quit menu option
-- Left-click to restore/show window
-- Window close minimizes to tray (doesn't quit)
-
-✅ **Desktop Notifications:**
-
-- Native OS notifications for task completion
-- Success/failure status indication
-- Task description in notification body
-
-✅ **Custom Window Decorations:**
-
-- Custom titlebar with window controls
-- Minimize, maximize, close buttons
-- Window close handler with tray integration
-
-✅ **Comprehensive Testing:**
-
-- 146 total Rust tests (136 unit passing, 10 integration passing with KOPIA_PATH)
-- 10 passing integration tests with real Kopia binary (server lifecycle, API calls, error handling)
-- All 51 error variants tested
-- Edge cases, concurrency, integration scenarios
-- 65 frontend wrapper tests (low value - only test TypeScript invoke() calls)
-
-✅ **Critical API Field Fixes:**
-
-- Algorithm field names corrected (`defaultHash`, `defaultEncryption`, etc.)
-- Algorithm values changed from strings to objects `{id, deprecated?}`
-- Snapshot `rootEntry` changed from string to `RootEntry` object
-- Policy scheduling fields fixed (camelCase issues)
-- Repository creation handles empty `{}` response
-
-✅ **Architecture Improvements:**
-
-- WebSocket + polling hybrid for reliability
-- Sources added to 5s polling loop for real-time updates
-- Chart animations disabled to prevent re-renders
-- Repository page shows actual repository name/description
-- Comprehensive error handling with 51 error variants
+See [src-tauri/TESTING.md](src-tauri/TESTING.md) for comprehensive guide.
 
 ---
 
 ## i18n (Internationalization)
 
-**Supported Languages:**
-
-- English (en) - Default
-- Spanish (es)
-
-**Translation Files:**
-
-- [src/locales/en/translation.json](src/locales/en/translation.json)
-- [src/locales/es/translation.json](src/locales/es/translation.json)
+**Supported Languages:** English (en), Spanish (es)
 
 **Usage:**
 
@@ -689,45 +345,18 @@ function MyComponent() {
 }
 ```
 
-**Adding Translations:**
+**Translation Files:**
 
-1. Add key to both `en/translation.json` and `es/translation.json`
-2. Use namespaced keys (e.g., `overview.title`, `policies.retention.days`)
-3. Use `t()` function with interpolation for dynamic values
-
----
-
-## Known Issues & Limitations
-
-1. **Form Validation** - Manual validation, Zod not installed
-2. **Frontend Tests** - Infrastructure ready but tests not written
-3. **E2E Tests** - Playwright configured but tests not written
-4. **Auto-Updates** - Not implemented
-5. **Windows/macOS Testing** - Primary development on Linux
+- [src/locales/en/translation.json](src/locales/en/translation.json)
+- [src/locales/es/translation.json](src/locales/es/translation.json)
 
 ---
 
-## Future Roadmap
+## Known Limitations
 
-### High Priority
-
-1. Add Zod for form validation
-2. Write frontend unit tests with Vitest
-3. Write E2E tests with Playwright
-4. Auto-updates implementation
-
-### Medium Priority
-
-5. More storage providers (if needed)
-6. Advanced policy scheduling UI
-7. Backup verification tools
-8. Repository statistics dashboard
-
-### Low Priority
-
-9. Multiple repository support
-10. Cloud sync for preferences
-11. Backup encryption key management UI
+- No Zod validation (manual validation used)
+- Auto-updates not implemented
+- Primary development on Linux (Windows/macOS testing limited)
 
 ---
 
@@ -743,12 +372,10 @@ function MyComponent() {
 
 ## Notes for AI Assistants
 
-- Always check git status before making changes (use existing context provided at start)
+- Check git status before making changes
 - Use `pnpm validate:fix` before committing
 - Test Rust changes with `pnpm test:rust`
-- Update CLAUDE.md if architecture/patterns change
-- Follow existing code patterns and conventions
-- Ask for clarification if requirements are ambiguous
+- Update CLAUDE.md if architecture changes
+- Follow existing code patterns
 - Use TodoWrite tool for complex multi-step tasks
-- Consolidate documentation when possible
-- Remove outdated files proactively
+- Ask for clarification if requirements are ambiguous
