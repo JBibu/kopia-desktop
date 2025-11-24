@@ -6,7 +6,7 @@ Modern desktop app for [Kopia](https://kopia.io) backup management. Built with *
 
 <br/>
 <div align="center">
-  <img width="820" alt="Kopia Desktop Screenshot" src="https://github.com/user-attachments/assets/4f20cb8f-c1ce-4671-ab8c-0981bcd2de52" />
+  <img width="1389" height="801" alt="image" src="https://github.com/user-attachments/assets/54f577f8-0e48-4cfa-bb3f-5873b5be30b3" />
 </div>
 
 ---
