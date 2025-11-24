@@ -12,7 +12,6 @@ import type {
   RepositoryConnectRequest,
   KopiaServerInfo,
   KopiaServerStatus,
-  SystemInfo,
 } from './types';
 
 // Re-export types for convenience
@@ -21,21 +20,12 @@ export type {
   RepositoryConnectRequest,
   KopiaServerInfo,
   KopiaServerStatus,
-  SystemInfo,
   StorageType,
   StorageConfig,
 } from './types';
 
 // Re-export error handling utilities
-export {
-  KopiaError,
-  KopiaErrorCode,
-  parseKopiaError,
-  isNotConnectedError,
-  isServerNotRunningError,
-  isAuthenticationError,
-  getErrorMessage,
-} from './errors';
+export { KopiaError, KopiaErrorCode, parseKopiaError, getErrorMessage } from './errors';
 
 // ============================================================================
 // Kopia Server Lifecycle
@@ -94,13 +84,6 @@ export async function disconnectRepository(): Promise<void> {
 // ============================================================================
 
 /**
- * Get system information (OS, arch, version)
- */
-export async function getSystemInfo(): Promise<SystemInfo> {
-  return invoke('get_system_info');
-}
-
-/**
  * Get current username and hostname
  */
 export async function getCurrentUser(): Promise<{ username: string; hostname: string }> {
@@ -144,13 +127,6 @@ export async function repositoryExists(storage: import('./types').StorageConfig)
   return invoke('repository_exists', { storage });
 }
 
-/**
- * Get available algorithms for repository creation
- */
-export async function getAlgorithms(): Promise<import('./types').AlgorithmsResponse> {
-  return invoke('repository_get_algorithms');
-}
-
 // ============================================================================
 // Snapshot Sources
 // ============================================================================
@@ -185,16 +161,6 @@ export async function createSnapshot(
     createSnapshot,
     policy,
   });
-}
-
-/**
- * Cancel an ongoing snapshot
- *
- * @note Currently unused - snapshot cancellation UI is handled via task cancellation
- * This command may be used for dedicated snapshot-specific cancellation in the future
- */
-export async function cancelSnapshot(userName: string, host: string, path: string): Promise<void> {
-  return invoke('snapshot_cancel', { userName, host, path });
 }
 
 // ============================================================================
@@ -387,26 +353,6 @@ export async function getTasksSummary(): Promise<import('./types').TasksSummary>
  */
 export async function getMaintenanceInfo(): Promise<import('./types').MaintenanceInfo> {
   return invoke('maintenance_info');
-}
-
-/**
- * Run maintenance
- * @note The Kopia server does not expose a maintenance run endpoint in the API.
- * This function exists but will fail with 404. Maintenance must be scheduled via policies.
- */
-export async function runMaintenance(full = false, safety?: 'none' | 'full'): Promise<string> {
-  return invoke('maintenance_run', { full, safety });
-}
-
-// ============================================================================
-// Utilities
-// ============================================================================
-
-/**
- * Resolve path to source
- */
-export async function resolvePath(path: string): Promise<import('./types').SourceInfo> {
-  return invoke('path_resolve', { path });
 }
 
 // ============================================================================

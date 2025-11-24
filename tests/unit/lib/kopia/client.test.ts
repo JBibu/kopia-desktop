@@ -22,9 +22,6 @@ import { describe, expect, it } from 'vitest';
 import {
   // Error handling (the valuable functions to test)
   parseKopiaError,
-  isServerNotRunningError,
-  isNotConnectedError,
-  isAuthenticationError,
 } from '@/lib/kopia/client';
 
 describe('Kopia Client - Error Handling', () => {
@@ -62,94 +59,6 @@ describe('Kopia Client - Error Handling', () => {
       };
       const result = parseKopiaError(error);
       expect(result.message).toContain('Nested error message');
-    });
-  });
-
-  describe('isServerNotRunningError', () => {
-    it('detects SERVER_NOT_RUNNING error type', () => {
-      const serverNotRunningError = {
-        type: 'SERVER_NOT_RUNNING',
-        data: { message: 'Server is not running' },
-      };
-      expect(isServerNotRunningError(serverNotRunningError)).toBe(true);
-    });
-
-    it('detects HTTP_REQUEST_FAILED with status 0 (connection refused)', () => {
-      const httpRequestFailed = {
-        type: 'HTTP_REQUEST_FAILED',
-        data: { message: 'Connection refused', status_code: 0 },
-      };
-      expect(isServerNotRunningError(httpRequestFailed)).toBe(true);
-    });
-
-    it('returns false for HTTP errors with non-zero status', () => {
-      const httpError = {
-        type: 'HTTP_REQUEST_FAILED',
-        data: { message: 'Not found', status_code: 404 },
-      };
-      expect(isServerNotRunningError(httpError)).toBe(false);
-    });
-
-    it('returns false for other error types', () => {
-      expect(isServerNotRunningError(new Error('Invalid password'))).toBe(false);
-      expect(isServerNotRunningError(new Error('Connection timeout'))).toBe(false);
-      expect(isServerNotRunningError('Random string error')).toBe(false);
-      expect(isServerNotRunningError(null)).toBe(false);
-    });
-  });
-
-  describe('isNotConnectedError', () => {
-    it('detects REPOSITORY_NOT_CONNECTED error type', () => {
-      const error = {
-        type: 'REPOSITORY_NOT_CONNECTED',
-        data: { message: 'Repository not connected' },
-      };
-      expect(isNotConnectedError(error)).toBe(true);
-    });
-
-    it('returns false for string errors', () => {
-      expect(isNotConnectedError('Invalid password')).toBe(false);
-      expect(isNotConnectedError('Repository not connected')).toBe(false);
-    });
-
-    it('returns false for other error types', () => {
-      expect(isNotConnectedError({ type: 'OTHER_ERROR', data: { message: 'Other error' } })).toBe(
-        false
-      );
-      expect(isNotConnectedError(new Error('Server not running'))).toBe(false);
-      expect(isNotConnectedError(null)).toBe(false);
-    });
-  });
-
-  describe('isAuthenticationError', () => {
-    it('detects AUTHENTICATION_FAILED error type', () => {
-      const authError = {
-        type: 'AUTHENTICATION_FAILED',
-        data: { message: 'Authentication failed' },
-      };
-      expect(isAuthenticationError(authError)).toBe(true);
-    });
-
-    it('detects UNAUTHORIZED error type', () => {
-      const unauthorizedError = {
-        type: 'UNAUTHORIZED',
-        data: { resource: 'repository' },
-      };
-      expect(isAuthenticationError(unauthorizedError)).toBe(true);
-    });
-
-    it('returns false for string errors', () => {
-      expect(isAuthenticationError('Invalid password')).toBe(false);
-      expect(isAuthenticationError('Authentication failed')).toBe(false);
-    });
-
-    it('returns false for other error types', () => {
-      expect(isAuthenticationError(new Error('Server not running'))).toBe(false);
-      expect(isAuthenticationError(new Error('Connection timeout'))).toBe(false);
-      expect(
-        isAuthenticationError({ type: 'SERVER_NOT_RUNNING', data: { message: 'Server offline' } })
-      ).toBe(false);
-      expect(isAuthenticationError(null)).toBe(false);
     });
   });
 });

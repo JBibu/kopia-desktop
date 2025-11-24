@@ -273,30 +273,6 @@ export function parseKopiaError(error: unknown): KopiaError {
 }
 
 /**
- * Check if error is REPOSITORY_NOT_CONNECTED
- */
-export function isNotConnectedError(error: unknown): boolean {
-  const kopiaError = parseKopiaError(error);
-  return kopiaError.is(KopiaErrorCode.REPOSITORY_NOT_CONNECTED);
-}
-
-/**
- * Check if error indicates server is not running
- */
-export function isServerNotRunningError(error: unknown): boolean {
-  const kopiaError = parseKopiaError(error);
-  return kopiaError.is(KopiaErrorCode.SERVER_NOT_RUNNING) || kopiaError.statusCode === 0;
-}
-
-/**
- * Check if error is authentication failure
- */
-export function isAuthenticationError(error: unknown): boolean {
-  const kopiaError = parseKopiaError(error);
-  return kopiaError.isAuthError();
-}
-
-/**
  * Extract user-friendly error message
  *
  * Pattern from official HTMLui: errorAlert()
