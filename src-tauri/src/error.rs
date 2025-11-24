@@ -351,6 +351,18 @@ pub enum KopiaError {
     /// Operation cancelled by user
     #[error("Operation cancelled: {operation}")]
     Cancelled { operation: String },
+
+    /// Unsupported platform
+    #[error("{feature} is not supported on {platform}")]
+    UnsupportedPlatform { feature: String, platform: String },
+
+    /// I/O error (general file/network operations)
+    #[error("I/O error: {message}")]
+    IoError {
+        message: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        path: Option<String>,
+    },
 }
 
 /// Result type alias using KopiaError

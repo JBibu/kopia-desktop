@@ -45,6 +45,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { NotificationProfiles } from '@/components/kopia/notifications/NotificationProfiles';
+import { WindowsServiceManager } from '@/components/kopia/WindowsServiceManager';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import packageJson from '../../package.json';
@@ -311,6 +312,11 @@ export function Preferences() {
               onCheckedChange={setMinimizeToTray}
             />
           </div>
+
+          <Separator />
+
+          {/* Windows Service Manager (Windows only) */}
+          <WindowsServiceManager />
 
           <Separator />
 

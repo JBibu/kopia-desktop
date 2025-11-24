@@ -8,6 +8,16 @@ mod kopia_server;
 mod kopia_websocket;
 mod types;
 
+// Windows-only modules
+#[cfg(windows)]
+mod windows_ipc;
+#[cfg(windows)]
+mod windows_service;
+
+// Re-export Windows service entry point
+#[cfg(windows)]
+pub use windows_service::run_service;
+
 // Test modules
 #[cfg(test)]
 mod tests;
@@ -251,6 +261,17 @@ pub fn run() {
             // WebSocket
             commands::websocket_connect,
             commands::websocket_disconnect,
+            // Windows Service (Windows only)
+            #[cfg(windows)]
+            commands::service_install,
+            #[cfg(windows)]
+            commands::service_uninstall,
+            #[cfg(windows)]
+            commands::service_start,
+            #[cfg(windows)]
+            commands::service_stop,
+            #[cfg(windows)]
+            commands::service_status,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

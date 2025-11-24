@@ -13,7 +13,7 @@ A React + Tauri application providing a user-friendly interface for managing Kop
 **Fully Implemented:**
 
 - ✅ Complete Kopia server lifecycle management (start/stop/status/health checks)
-- ✅ 46 Tauri commands (40 Kopia API + 4 system utilities + 2 WebSocket)
+- ✅ 51 Tauri commands (40 Kopia API + 4 system utilities + 2 WebSocket + 5 Windows service management)
 - ✅ 15 functional pages (Overview, Repository, Snapshots, ProfileHistory, SnapshotCreate, SnapshotHistory, SnapshotBrowse, SnapshotRestore, Policies, PolicyEdit, Tasks, Mounts, Preferences, Setup, NotFound)
 - ✅ Repository setup wizard with 8 storage providers (Filesystem, S3, B2, Azure, GCS, SFTP, WebDAV, Rclone)
 - ✅ Backup profiles system for managing multiple backup configurations
@@ -41,6 +41,7 @@ A React + Tauri application providing a user-friendly interface for managing Kop
 - ✅ Comprehensive Rust backend testing (146 total tests: 136 unit passing, 10 integration tests passing with KOPIA_PATH, ~65% coverage)
 - ✅ Kopia API integration tests (10 passing tests with real Kopia binary when KOPIA_PATH is set)
 - ✅ **Workflow parity with official Kopia HTMLui achieved** (pins, retention tags, source deletion)
+- ✅ **Windows Service support** (run Kopia server as system service with auto-start)
 
 **Not Yet Implemented:**
 
@@ -94,6 +95,8 @@ pnpm test:rust        # Run Rust backend tests (146 tests: 136 unit + 10 integra
 - thiserror 1.0 (error handling)
 - rand 0.8 (random generation for passwords)
 - Tauri plugins: shell, notification, dialog
+- windows-service 0.7 (Windows service management, Windows only)
+- windows-sys 0.59 (Windows named pipe IPC, Windows only)
 
 **Testing:**
 
@@ -145,6 +148,87 @@ Repositories / Snapshots / Storage
 - TLS with self-signed cert
 - Random password per session (24 chars)
 - Hybrid architecture: WebSocket for real-time events + polling for reliability
+
+---
+
+## Windows Service Architecture (Windows Only)
+
+**Service Mode:** Run Kopia server as a Windows system service
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────┐
+│          GUI Application (User Session)          │
+│  - React Frontend                                │
+│  - Service Management UI (Preferences)           │
+└────────────┬────────────────────────────────────┘
+             │ Named Pipe IPC
+             │ (\\.\pipe\kopia-desktop-service)
+             ↓
+┌─────────────────────────────────────────────────┐
+│    Windows Service (LocalSystem Account)        │
+│  - Auto-starts on boot                          │
+│  - Manages Kopia server lifecycle               │
+│  - Accepts IPC commands from GUI                │
+└────────────┬────────────────────────────────────┘
+             │ Process Spawn
+             ↓
+┌─────────────────────────────────────────────────┐
+│            Kopia Server (Embedded)               │
+│  - HTTPS API on localhost                       │
+│  - Random port + random password                │
+└─────────────────────────────────────────────────┘
+```
+
+### Key Features
+
+1. **Dual-Mode Binary**:
+   - `kopia-desktop.exe` (normal mode) - Standard GUI application
+   - `kopia-desktop.exe --service` (service mode) - Runs as Windows service
+
+2. **Named Pipe IPC**:
+   - Secure communication between GUI and service
+   - Windows ACL-based access control
+   - JSON message protocol (`ServiceMessage` / `ServiceResponse`)
+
+3. **Service Management**:
+   - Install/uninstall from Preferences UI
+   - Requires administrator privileges
+   - Start/stop controls
+   - Real-time status monitoring
+
+4. **Configuration**:
+   - Service config: `%ProgramData%\Kopia Desktop\config`
+   - User config: `%APPDATA%\kopia` (GUI mode)
+   - Service runs as LocalSystem with auto-start
+
+### Files
+
+- `src-tauri/src/windows_service.rs` - Service lifecycle, install/uninstall
+- `src-tauri/src/windows_ipc.rs` - Named pipe server/client
+- `src-tauri/src/commands/windows_service.rs` - Tauri commands
+- `src/components/kopia/WindowsServiceManager.tsx` - UI component
+
+### Usage
+
+**From Preferences (requires admin):**
+
+1. Click "Install Service" (UAC prompt)
+2. Service starts automatically
+3. Manage from Preferences or Windows Services (`services.msc`)
+
+**Manual (PowerShell as Administrator):**
+
+```powershell
+# Install and start
+.\kopia-desktop.exe --service  # Will be registered by install command
+
+# Manage via Windows Services
+sc query KopiaDesktopService
+sc start KopiaDesktopService
+sc stop KopiaDesktopService
+```
 
 ---
 
