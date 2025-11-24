@@ -48,10 +48,6 @@ use windows_service::service_control_handler::{self, ServiceControlHandlerResult
 const SERVICE_NAME: &str = "KopiaDesktopService";
 #[cfg(windows)]
 const SERVICE_DISPLAY_NAME: &str = "Kopia Desktop Service";
-#[cfg(windows)]
-const SERVICE_DESCRIPTION: &str = "Manages Kopia backup server for Kopia Desktop application";
-#[cfg(windows)]
-const PIPE_NAME: &str = r"\\.\pipe\kopia-desktop-service";
 
 /// IPC message types for service communication
 #[cfg(windows)]

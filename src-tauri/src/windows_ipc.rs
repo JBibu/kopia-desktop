@@ -242,12 +242,18 @@ fn handle_pipe_client(
 }
 
 /// Named pipe client for GUI to communicate with service
+///
+/// Note: This client is reserved for future GUI-to-service communication.
+/// The current implementation uses the service to spawn the Kopia server
+/// directly rather than communicating through IPC.
 #[cfg(windows)]
+#[allow(dead_code)]
 pub struct PipeClient {
     pipe_handle: Option<HANDLE>,
 }
 
 #[cfg(windows)]
+#[allow(dead_code)]
 impl PipeClient {
     pub fn new() -> Self {
         Self { pipe_handle: None }
