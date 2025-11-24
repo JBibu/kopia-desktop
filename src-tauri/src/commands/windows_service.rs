@@ -99,7 +99,6 @@ pub async fn service_status() -> Result<String> {
             ServiceState::ContinuePending => "Continuing",
             ServiceState::PausePending => "Pausing",
             ServiceState::Paused => "Paused",
-            _ => "Unknown",
         };
 
         Ok(state_str.to_string())

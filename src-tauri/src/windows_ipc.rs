@@ -24,8 +24,6 @@ use crate::kopia_server::KopiaServer;
 #[cfg(windows)]
 use crate::windows_service::{ServiceMessage, ServiceResponse};
 #[cfg(windows)]
-use std::io::{Read, Write};
-#[cfg(windows)]
 use std::sync::{Arc, Mutex};
 #[cfg(windows)]
 use std::time::Duration;
@@ -33,12 +31,14 @@ use std::time::Duration;
 use windows_sys::Win32::{
     Foundation::{CloseHandle, ERROR_BROKEN_PIPE, ERROR_NO_DATA, ERROR_PIPE_BUSY, HANDLE},
     Security::SECURITY_ATTRIBUTES,
-    Storage::FileSystem::{
-        ReadFile, WriteFile, FILE_FLAG_FIRST_PIPE_INSTANCE, FILE_FLAG_OVERLAPPED,
-        PIPE_ACCESS_DUPLEX, PIPE_READMODE_MESSAGE, PIPE_TYPE_MESSAGE, PIPE_UNLIMITED_INSTANCES,
-        PIPE_WAIT,
+    Storage::FileSystem::{FILE_FLAG_FIRST_PIPE_INSTANCE, PIPE_ACCESS_DUPLEX},
+    System::{
+        Pipes::{
+            ConnectNamedPipe, CreateNamedPipeA, DisconnectNamedPipe, PIPE_READMODE_MESSAGE,
+            PIPE_TYPE_MESSAGE, PIPE_UNLIMITED_INSTANCES, PIPE_WAIT,
+        },
+        IO::{ReadFile, WriteFile},
     },
-    System::Pipes::{ConnectNamedPipe, CreateNamedPipeA, DisconnectNamedPipe},
 };
 
 #[cfg(windows)]
@@ -252,7 +252,7 @@ impl PipeClient {
                 std::ptr::null_mut(),
                 OPEN_EXISTING,
                 0,
-                0,
+                std::ptr::null_mut(),
             )
         };
 

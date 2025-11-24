@@ -32,7 +32,7 @@ use crate::kopia_server::KopiaServer;
 #[cfg(windows)]
 use serde::{Deserialize, Serialize};
 #[cfg(windows)]
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 #[cfg(windows)]
 use std::sync::{Arc, Mutex};
 #[cfg(windows)]
@@ -90,6 +90,10 @@ pub enum ServiceResponse {
     Error { message: String },
 }
 
+// Define Windows service using macro
+#[cfg(windows)]
+windows_service::define_windows_service!(ffi_service_main, kopia_service_main);
+
 /// Windows service entry point
 #[cfg(windows)]
 pub fn run_service() -> Result<()> {
@@ -103,7 +107,7 @@ pub fn run_service() -> Result<()> {
 
 /// Service main function (called by Windows Service Control Manager)
 #[cfg(windows)]
-fn ffi_service_main(_arguments: Vec<OsString>) {
+fn kopia_service_main(_arguments: Vec<OsString>) {
     if let Err(e) = service_main() {
         log::error!("Service main error: {}", e);
     }
@@ -275,7 +279,6 @@ fn get_service_config_dir() -> Result<String> {
 /// Install the Windows service
 #[cfg(windows)]
 pub fn install_service() -> Result<()> {
-    use std::ffi::OsStr;
     use windows_service::service::{
         ServiceAccess, ServiceErrorControl, ServiceInfo, ServiceStartType,
     };
