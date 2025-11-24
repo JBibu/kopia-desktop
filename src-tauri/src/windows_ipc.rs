@@ -31,15 +31,23 @@ use std::time::Duration;
 use windows_sys::Win32::{
     Foundation::{CloseHandle, ERROR_BROKEN_PIPE, ERROR_NO_DATA, ERROR_PIPE_BUSY, HANDLE},
     Security::SECURITY_ATTRIBUTES,
-    Storage::FileSystem::{FILE_FLAG_FIRST_PIPE_INSTANCE, PIPE_ACCESS_DUPLEX},
-    System::{
-        Pipes::{
-            ConnectNamedPipe, CreateNamedPipeA, DisconnectNamedPipe, PIPE_READMODE_MESSAGE,
-            PIPE_TYPE_MESSAGE, PIPE_UNLIMITED_INSTANCES, PIPE_WAIT,
-        },
-        IO::{ReadFile, WriteFile},
+    Storage::FileSystem::{ReadFile, WriteFile, FILE_FLAG_FIRST_PIPE_INSTANCE, PIPE_ACCESS_DUPLEX},
+    System::Pipes::{
+        ConnectNamedPipe, CreateNamedPipeA, DisconnectNamedPipe, PIPE_READMODE_MESSAGE,
+        PIPE_TYPE_MESSAGE, PIPE_UNLIMITED_INSTANCES, PIPE_WAIT,
     },
 };
+
+/// Thread-safe wrapper for Windows HANDLE
+///
+/// HANDLE is a raw pointer type that doesn't implement Send by default.
+/// This wrapper asserts that it's safe to send between threads, which is
+/// true for named pipe handles as they're just kernel object handles.
+#[cfg(windows)]
+struct SendHandle(HANDLE);
+
+#[cfg(windows)]
+unsafe impl Send for SendHandle {}
 
 #[cfg(windows)]
 const PIPE_NAME: &[u8] = b"\\\\.\\pipe\\kopia-desktop-service\0";
@@ -104,13 +112,14 @@ pub fn run_pipe_server(kopia_server: Arc<Mutex<KopiaServer>>) -> Result<()> {
 
         // Handle client in separate thread
         let server_clone = Arc::clone(&kopia_server);
+        let handle = SendHandle(pipe_handle);
         std::thread::spawn(move || {
-            if let Err(e) = handle_pipe_client(pipe_handle, server_clone) {
+            if let Err(e) = handle_pipe_client(handle.0, server_clone) {
                 log::error!("Error handling pipe client: {}", e);
             }
             unsafe {
-                DisconnectNamedPipe(pipe_handle);
-                CloseHandle(pipe_handle);
+                DisconnectNamedPipe(handle.0);
+                CloseHandle(handle.0);
             }
             log::debug!("Client disconnected from named pipe");
         });
