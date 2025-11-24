@@ -1,6 +1,6 @@
 # Kopia Desktop
 
-> ⚠️ **Community-built alternative** to [KopiaUI](https://github.com/kopia/htmlui), not affiliated with the official Kopia project.
+> ⚠️ **Community-built alternative** to [KopiaUI](https://github.com/kopia/htmlui), not affiliated with the official Kopia project. THIS IS NOT SERIOUS, USE IT AT YOUR OWN RISK
 
 Modern desktop app for [Kopia](https://kopia.io) backup management. Built with **Tauri + React** for speed and efficiency.
 
@@ -73,39 +73,6 @@ React UI → Tauri (Rust) → Kopia Server → Storage
 
 ---
 
-## Windows Service
-
-Run Kopia as a Windows system service for auto-start on boot.
-
-**Install:** Preferences → Windows Service → Install (requires admin)
-**CLI:** `kopia-desktop.exe --install-service`
-
----
-
-## Contributing
-
-Contributions welcome! Ensure tests pass:
-
-```bash
-pnpm validate:fix && pnpm test:rust && pnpm test:e2e
-```
-
----
-
 ## License
 
 MIT - See [LICENSE](LICENSE)
-
----
-
-## Links
-
-- **Kopia**: [kopia.io](https://kopia.io)
-- **Issues**: [GitHub Issues](https://github.com/JBibu/kopia-desktop/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/JBibu/kopia-desktop/discussions)
-
----
-
-<div align="center">
-  <sub>Built with ❤️ by the community</sub>
-</div>
