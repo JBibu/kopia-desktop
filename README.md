@@ -6,7 +6,7 @@ A modern, lightweight desktop application for [Kopia](https://kopia.io) backup m
 
 <br/>
 <div align="center">
-  <img width="820" alt="Kopia Desktop Screenshot" src="https://github.com/user-attachments/assets/4f20cb8f-c1ce-4671-ab8c-0981bcd2de52" />
+ <img width="1389" height="801" alt="image" src="https://github.com/user-attachments/assets/c7a7bd52-6388-4963-843e-ace546914437" />
 </div>
 
 ---
