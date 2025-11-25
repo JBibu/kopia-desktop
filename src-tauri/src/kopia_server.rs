@@ -7,40 +7,41 @@
 //!
 //! The embedded server is designed for localhost-only access with the following security:
 //!
-//! - **TLS**: Self-signed certificate (safe for localhost communication)
+//! - **TLS**: Self-signed certificate with fingerprint validation
 //! - **Binding**: 127.0.0.1 only (no network exposure)
-//! - **Authentication**: HTTP Basic Auth with cryptographically secure random session password
-//! - **CSRF**: Disabled (acceptable for localhost-only server with no web UI)
+//! - **Authentication**: HTTP Basic Auth with Kopia-generated random session password
+//! - **CSRF**: Disabled (acceptable for localhost-only server)
 //!
 //! # Architecture
 //!
-//! The server is started as a child process and terminated via process kill when
-//! the app closes. Communication happens via HTTPS on a randomly selected port to
-//! avoid conflicts.
+//! The server is started as a child process. Communication happens via HTTPS on a
+//! randomly selected port (by the OS). Server parameters (address, password, certificate)
+//! are parsed from stderr output, matching the official KopiaUI approach.
 //!
-//! NOTE: Graceful shutdown via `--shutdown-on-stdin` is not available in Kopia 0.21.1.
+//! Graceful shutdown is achieved via `--shutdown-on-stdin` - closing stdin triggers
+//! server shutdown.
 //!
 //! # Example
 //!
-//! ```no_run
+//! ```ignore
 //! let mut server = KopiaServer::new();
 //! let info = server.start("/path/to/config")?;
-//! // ... use info.server_url and info.http_password for API calls
+//! // ... use info.server_url and info.password for API calls
 //! server.stop()?;
 //! ```
 
 use crate::error::{KopiaError, Result};
 use serde::{Deserialize, Serialize};
+use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
 // Constants
-const SERVER_USERNAME: &str = "kopia-desktop";
-const DEFAULT_PORT: u16 = 51515;
-const PORT_SEARCH_RANGE: u16 = 10;
-/// Delay before checking if server process started successfully (100ms)
-const STARTUP_CHECK_DELAY_MS: u64 = 100;
+const SERVER_USERNAME: &str = "kopia";
+
+/// Timeout for parsing server parameters from stderr (30 seconds)
+const SERVER_PARAM_TIMEOUT_SECS: u64 = 30;
 /// Number of retries when waiting for server to become ready (40 * 500ms = 20s total)
 const HEALTH_CHECK_RETRIES: u32 = 40;
 /// Interval between health check retries (500ms)
@@ -50,13 +51,75 @@ const HTTP_OPERATION_TIMEOUT_SECS: u64 = 300;
 /// Timeout for establishing HTTP connections (10 seconds)
 const HTTP_CONNECT_TIMEOUT_SECS: u64 = 10;
 
+/// Server parameters parsed from Kopia's stderr output
+#[derive(Debug, Clone, Default)]
+struct ServerParams {
+    address: Option<String>,
+    password: Option<String>,
+    control_password: Option<String>,
+    cert_sha256: Option<String>,
+    certificate: Option<String>,
+}
+
+impl ServerParams {
+    /// Check if all required parameters have been received
+    fn is_complete(&self) -> bool {
+        self.address.is_some()
+            && self.password.is_some()
+            && self.cert_sha256.is_some()
+            && self.certificate.is_some()
+    }
+
+    /// Parse a line from stderr looking for server parameters
+    /// Format: "KEY: value"
+    ///
+    /// Returns Some(notification_json) if a NOTIFICATION line was found
+    fn parse_line(&mut self, line: &str) -> Option<String> {
+        if let Some(pos) = line.find(": ") {
+            let key = &line[..pos];
+            let value = line[pos + 2..].trim();
+
+            match key {
+                "SERVER ADDRESS" => {
+                    log::info!("Received server address: {}", value);
+                    self.address = Some(value.to_string());
+                }
+                "SERVER PASSWORD" => {
+                    log::info!("Received server password");
+                    self.password = Some(value.to_string());
+                }
+                "SERVER CONTROL PASSWORD" => {
+                    log::info!("Received server control password");
+                    self.control_password = Some(value.to_string());
+                }
+                "SERVER CERT SHA256" => {
+                    log::info!("Received server cert SHA256: {}", value);
+                    self.cert_sha256 = Some(value.to_string());
+                }
+                "SERVER CERTIFICATE" => {
+                    log::info!("Received server certificate");
+                    self.certificate = Some(value.to_string());
+                }
+                "NOTIFICATION" => {
+                    // Notification JSON from --kopiaui-notifications
+                    log::debug!("Received notification: {}", value);
+                    return Some(value.to_string());
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KopiaServerInfo {
     pub server_url: String,
     pub port: u16,
-    pub http_password: String, // HTTP Basic Auth password (not repository password)
+    pub password: String,
+    pub control_password: Option<String>,
+    pub cert_sha256: String,
     pub pid: u32,
-    pub csrf_token: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -72,6 +135,8 @@ pub struct KopiaServer {
     info: Option<KopiaServerInfo>,
     start_time: Option<SystemTime>,
     http_client: Option<reqwest::Client>,
+    /// PEM certificate for TLS validation
+    certificate_pem: Option<String>,
 }
 
 impl Default for KopiaServer {
@@ -88,13 +153,31 @@ impl Drop for KopiaServer {
                 process.id()
             );
 
-            // Kill the process directly (no graceful shutdown with Kopia 0.21.1)
-            if let Err(e) = process.kill() {
-                log::error!("Failed to kill process during drop: {}", e);
-            } else {
-                // Wait for process to be reaped (prevents zombie)
-                let _ = process.wait();
-                log::info!("Process terminated successfully during drop");
+            // Close stdin to trigger graceful shutdown via --shutdown-on-stdin
+            drop(process.stdin.take());
+
+            // Give the server a moment to shut down gracefully
+            std::thread::sleep(Duration::from_millis(500));
+
+            // Check if it exited, otherwise force kill
+            match process.try_wait() {
+                Ok(Some(status)) => {
+                    log::info!("Server exited gracefully with status: {}", status);
+                }
+                Ok(None) => {
+                    log::warn!("Server didn't exit gracefully, killing process");
+                    if let Err(e) = process.kill() {
+                        log::error!("Failed to kill process during drop: {}", e);
+                    } else {
+                        let _ = process.wait();
+                        log::info!("Process terminated via kill");
+                    }
+                }
+                Err(e) => {
+                    log::error!("Error checking process status: {}", e);
+                    let _ = process.kill();
+                    let _ = process.wait();
+                }
             }
 
             self.cleanup();
@@ -109,52 +192,56 @@ impl KopiaServer {
             info: None,
             start_time: None,
             http_client: None,
+            certificate_pem: None,
         }
     }
 
-    /// Start the Kopia server process (non-blocking)
-    /// Returns server info immediately after spawning
-    /// Use wait_for_ready() to ensure server is responding
+    /// Start the Kopia server process
+    ///
+    /// This method spawns the Kopia server and waits for it to output its
+    /// connection parameters (address, password, certificate) to stderr.
+    /// This matches the official KopiaUI approach for secure parameter exchange.
     ///
     /// # Security Model
-    /// - TLS with self-signed certificate (--tls-generate-cert)
+    /// - TLS with self-signed certificate (validated via fingerprint)
     /// - Localhost-only binding (127.0.0.1)
-    /// - HTTP Basic Auth with random session password
-    /// - CSRF protection disabled (acceptable for localhost-only server)
+    /// - Random password generated by Kopia (not visible in process list)
+    /// - Graceful shutdown via stdin close
     pub fn start(&mut self, config_dir: &str) -> Result<KopiaServerInfo> {
         if self.is_running() {
             return Err(KopiaError::ServerAlreadyRunning {
-                port: self.info.as_ref().map(|i| i.port).unwrap_or(DEFAULT_PORT),
+                port: self.info.as_ref().map(|i| i.port).unwrap_or(0),
             });
         }
 
         let binary_path = self.get_kopia_binary_path()?;
-        let port = self.find_available_port(DEFAULT_PORT)?;
-        let server_password = self.generate_password();
         let config_file = format!("{}/kopia-desktop.config", config_dir);
+
+        log::info!("Starting Kopia server with binary: {}", binary_path);
+        log::info!("Config file: {}", config_file);
 
         let mut cmd = Command::new(&binary_path);
         cmd.args([
             "server",
             "start",
             "--ui",
-            &format!("--address=localhost:{}", port),
-            "--tls-generate-cert",               // Generate self-signed TLS certificate
-            "--tls-generate-cert-name=localhost", // Certificate for localhost
-            "--disable-csrf-token-checks",        // CSRF not needed for localhost-only
-            "--async-repo-connect",               // Connect to repository asynchronously (allows server to start even with invalid repo)
-            "--server-username",
-            SERVER_USERNAME,
-            "--server-password",
-            &server_password,
+            "--address=127.0.0.1:0", // Let OS pick available port
+            "--tls-generate-cert",
+            "--tls-generate-cert-name=127.0.0.1",
+            "--tls-print-server-cert", // Print certificate to stderr
+            "--random-password",       // Kopia generates password, prints to stderr
+            "--random-server-control-password", // For control API
+            "--disable-csrf-token-checks",
+            "--async-repo-connect",
+            "--shutdown-on-stdin", // Graceful shutdown when stdin closes
+            "--error-notifications=always", // Always show error notifications
+            "--kopiaui-notifications", // Print notification JSON to stderr
             "--config-file",
             &config_file,
-            // NOTE: --shutdown-on-stdin flag removed as it's not supported in Kopia 0.21.1
-            // Server will be terminated via process kill() instead
         ])
         .env("KOPIA_CHECK_FOR_UPDATES", "false")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())  // Capture stdout for debugging (was Stdio::null())
+        .stdin(Stdio::piped()) // Keep stdin open for shutdown signal
+        .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
         // On Windows, prevent console window from appearing
@@ -171,65 +258,158 @@ impl KopiaServer {
             stderr: None,
         })?;
 
-        // Quick check that process didn't immediately crash
-        std::thread::sleep(Duration::from_millis(STARTUP_CHECK_DELAY_MS));
-        if let Ok(Some(status)) = child.try_wait() {
-            let stderr = self.read_stderr(&mut child);
-            return Err(KopiaError::ServerStartFailed {
-                message: format!("Server process exited immediately with status: {}", status),
-                details: Some(stderr),
-            });
-        }
+        let pid = child.id();
+        log::info!("Kopia server spawned with PID: {}", pid);
+
+        // Parse server parameters from stderr
+        let params = self.parse_server_params(&mut child)?;
+
+        // Extract port from address URL
+        let port = Self::extract_port(params.address.as_ref().unwrap())?;
+
+        // Decode certificate from base64
+        let certificate_pem = Self::decode_certificate(params.certificate.as_ref().unwrap())?;
 
         let info = KopiaServerInfo {
-            server_url: format!("https://localhost:{}", port),
+            server_url: params.address.clone().unwrap(),
             port,
-            http_password: server_password.clone(),
-            pid: child.id(),
-            csrf_token: None,
+            password: params.password.clone().unwrap(),
+            control_password: params.control_password.clone(),
+            cert_sha256: params.cert_sha256.clone().unwrap(),
+            pid,
         };
 
-        // Create HTTP client BEFORE storing process (if this fails, kill the child)
-        let http_client = match self.create_http_client(SERVER_USERNAME, &server_password) {
-            Ok(client) => client,
-            Err(e) => {
-                log::error!("Failed to create HTTP client, killing spawned process");
-                let _ = child.kill();
-                let _ = child.wait();
-                return Err(e);
-            }
-        };
+        // Create HTTP client with the server's certificate
+        let http_client =
+            match self.create_http_client(SERVER_USERNAME, &info.password, &certificate_pem) {
+                Ok(client) => client,
+                Err(e) => {
+                    log::error!("Failed to create HTTP client, killing spawned process");
+                    drop(child.stdin.take()); // Close stdin to trigger shutdown
+                    std::thread::sleep(Duration::from_millis(100));
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err(e);
+                }
+            };
 
-        // Only store state after all operations that can fail have succeeded
+        // Store state
         self.process = Some(child);
         self.info = Some(info.clone());
         self.start_time = Some(SystemTime::now());
         self.http_client = Some(http_client);
+        self.certificate_pem = Some(certificate_pem);
+
+        log::info!("Kopia server started successfully at {}", info.server_url);
 
         Ok(info)
     }
 
-    /// Generate a cryptographically secure random password for the server session
-    /// Uses 32 bytes of random data (256 bits) encoded as base64
-    fn generate_password(&self) -> String {
-        use base64::Engine;
-        use rand::Rng;
+    /// Parse server parameters from stderr output
+    ///
+    /// The Kopia server prints parameters in the format:
+    /// - SERVER ADDRESS: https://127.0.0.1:54321
+    /// - SERVER PASSWORD: <random>
+    /// - SERVER CONTROL PASSWORD: <random>
+    /// - SERVER CERT SHA256: <hex>
+    /// - SERVER CERTIFICATE: <base64>
+    fn parse_server_params(&self, child: &mut Child) -> Result<ServerParams> {
+        let stderr = child.stderr.take().ok_or(KopiaError::ServerStartFailed {
+            message: "Failed to capture server stderr".to_string(),
+            details: None,
+        })?;
 
-        let mut rng = rand::thread_rng();
-        let random_bytes: [u8; 32] = rng.gen();
-        format!(
-            "kopia-{}",
-            base64::prelude::BASE64_STANDARD.encode(random_bytes)
-        )
+        let reader = BufReader::new(stderr);
+        let mut params = ServerParams::default();
+        let start = std::time::Instant::now();
+        let timeout = Duration::from_secs(SERVER_PARAM_TIMEOUT_SECS);
+
+        for line in reader.lines() {
+            // Check timeout
+            if start.elapsed() > timeout {
+                // Check if process crashed
+                if let Ok(Some(status)) = child.try_wait() {
+                    return Err(KopiaError::ServerStartFailed {
+                        message: format!("Server process exited with status: {}", status),
+                        details: None,
+                    });
+                }
+                return Err(KopiaError::ServerStartFailed {
+                    message: format!(
+                        "Timeout waiting for server parameters after {}s",
+                        SERVER_PARAM_TIMEOUT_SECS
+                    ),
+                    details: None,
+                });
+            }
+
+            match line {
+                Ok(line) => {
+                    log::debug!("Server stderr: {}", line);
+                    // parse_line returns Some(notification_json) for NOTIFICATION lines
+                    // We ignore notifications during startup, they'll be handled later
+                    let _ = params.parse_line(&line);
+
+                    if params.is_complete() {
+                        log::info!("All server parameters received");
+                        return Ok(params);
+                    }
+                }
+                Err(e) => {
+                    // Check if process exited
+                    if let Ok(Some(status)) = child.try_wait() {
+                        return Err(KopiaError::ServerStartFailed {
+                            message: format!("Server process exited with status: {}", status),
+                            details: Some(format!("stderr read error: {}", e)),
+                        });
+                    }
+                    log::warn!("Error reading stderr line: {}", e);
+                }
+            }
+        }
+
+        // If we get here, stderr was closed but params incomplete
+        if let Ok(Some(status)) = child.try_wait() {
+            return Err(KopiaError::ServerStartFailed {
+                message: format!("Server process exited unexpectedly with status: {}", status),
+                details: None,
+            });
+        }
+
+        Err(KopiaError::ServerStartFailed {
+            message: "Server stderr closed before all parameters received".to_string(),
+            details: Some(format!("Received: {:?}", params)),
+        })
     }
 
-    /// Read stderr from a child process
-    fn read_stderr(&self, child: &mut Child) -> String {
-        child.stderr.take().map_or(String::new(), |mut err| {
-            use std::io::Read;
-            let mut stderr = String::new();
-            let _ = err.read_to_string(&mut stderr);
-            stderr
+    /// Extract port number from server URL
+    fn extract_port(url: &str) -> Result<u16> {
+        url::Url::parse(url)
+            .map_err(|e| KopiaError::ServerStartFailed {
+                message: format!("Invalid server URL: {}", url),
+                details: Some(e.to_string()),
+            })?
+            .port()
+            .ok_or_else(|| KopiaError::ServerStartFailed {
+                message: format!("No port in server URL: {}", url),
+                details: None,
+            })
+    }
+
+    /// Decode base64-encoded certificate to PEM format
+    fn decode_certificate(base64_cert: &str) -> Result<String> {
+        use base64::Engine;
+
+        let cert_bytes = base64::prelude::BASE64_STANDARD
+            .decode(base64_cert)
+            .map_err(|e| KopiaError::ServerStartFailed {
+                message: "Failed to decode server certificate".to_string(),
+                details: Some(e.to_string()),
+            })?;
+
+        String::from_utf8(cert_bytes).map_err(|e| KopiaError::ServerStartFailed {
+            message: "Invalid certificate encoding".to_string(),
+            details: Some(e.to_string()),
         })
     }
 
@@ -251,18 +431,41 @@ impl KopiaServer {
 
     /// Stop the Kopia server process gracefully
     ///
-    /// NOTE: With Kopia 0.21.1, we don't have --shutdown-on-stdin support,
-    /// so we directly kill the process. This is acceptable for localhost-only operation.
+    /// Closes stdin to trigger shutdown via --shutdown-on-stdin.
+    /// Falls back to kill() if graceful shutdown doesn't complete.
     pub fn stop(&mut self) -> Result<()> {
         let mut process = self.process.take().ok_or(KopiaError::ServerNotRunning)?;
 
-        // Kill the server process
+        log::info!("Stopping Kopia server (PID: {})", process.id());
+
+        // Close stdin to trigger graceful shutdown
+        drop(process.stdin.take());
+
+        // Wait for graceful shutdown (up to 5 seconds)
+        for _ in 0..50 {
+            match process.try_wait() {
+                Ok(Some(status)) => {
+                    log::info!("Server stopped gracefully with status: {}", status);
+                    self.cleanup();
+                    return Ok(());
+                }
+                Ok(None) => {
+                    std::thread::sleep(Duration::from_millis(100));
+                }
+                Err(e) => {
+                    log::warn!("Error checking process status: {}", e);
+                    break;
+                }
+            }
+        }
+
+        // Graceful shutdown didn't work, force kill
+        log::warn!("Graceful shutdown timed out, killing process");
         process.kill().map_err(|e| KopiaError::ServerStopFailed {
             message: format!("Failed to kill server process: {}", e),
             details: None,
         })?;
 
-        // Wait for process to terminate
         process.wait().map_err(|e| KopiaError::ServerStopFailed {
             message: format!("Failed to wait for server termination: {}", e),
             details: None,
@@ -277,6 +480,7 @@ impl KopiaServer {
         self.info = None;
         self.start_time = None;
         self.http_client = None;
+        self.certificate_pem = None;
     }
 
     /// Check if the server is currently running and alive
@@ -298,11 +502,7 @@ impl KopiaServer {
     }
 
     /// Get current server status
-    ///
-    /// This checks if the process is actually running (not just if we have state stored).
-    /// Requires &mut self to clean up stale state if the process has exited.
     pub fn status(&mut self) -> KopiaServerStatus {
-        // Check if process is actually alive (cleans up zombie state)
         let running = self.is_running();
 
         match &self.info {
@@ -331,12 +531,6 @@ impl KopiaServer {
     }
 
     /// Get the path to the Kopia binary
-    ///
-    /// Searches for the binary in the following locations (in priority order):
-    /// 1. Custom path from KOPIA_PATH environment variable
-    /// 2. Development paths (relative to target/debug or target/release)
-    /// 3. Production paths (bundled with the app)
-    /// 4. Current directory fallback
     fn get_kopia_binary_path(&self) -> Result<String> {
         // Check for custom path via environment variable
         if let Ok(custom_path) = std::env::var("KOPIA_PATH") {
@@ -376,9 +570,6 @@ impl KopiaServer {
     }
 
     /// Get platform-specific binary name
-    ///
-    /// Maps the current platform to the expected Kopia binary name.
-    /// Logs warnings for unsupported or unusual platform combinations.
     fn get_platform_binary_name(&self) -> &'static str {
         match (std::env::consts::OS, std::env::consts::ARCH) {
             ("windows", _) => "kopia-windows-x64.exe",
@@ -386,7 +577,7 @@ impl KopiaServer {
             ("macos", "x86_64") => "kopia-darwin-x64",
             ("macos", arch) => {
                 log::warn!(
-                    "Unsupported macOS architecture: {}. Falling back to x64 binary, which may not work.",
+                    "Unsupported macOS architecture: {}. Falling back to x64 binary.",
                     arch
                 );
                 "kopia-darwin-x64"
@@ -395,14 +586,14 @@ impl KopiaServer {
             ("linux", "x86_64") => "kopia-linux-x64",
             ("linux", arch) => {
                 log::warn!(
-                    "Unsupported Linux architecture: {}. Falling back to x64 binary, which may not work.",
+                    "Unsupported Linux architecture: {}. Falling back to x64 binary.",
                     arch
                 );
                 "kopia-linux-x64"
             }
             (os, arch) => {
                 log::warn!(
-                    "Unsupported platform: OS={}, ARCH={}. Using generic binary name 'kopia'.",
+                    "Unsupported platform: OS={}, ARCH={}. Using generic binary name.",
                     os,
                     arch
                 );
@@ -411,36 +602,16 @@ impl KopiaServer {
         }
     }
 
-    /// Find an available port starting from the given port
+    /// Create HTTP client with Basic Auth credentials and certificate validation
     ///
-    /// # Race Condition Note
-    ///
-    /// This function has a TOCTOU (time-of-check-time-of-use) race condition:
-    /// the port may be taken by another process between checking availability
-    /// and actually binding to it. This is acceptable because:
-    ///
-    /// 1. The Kopia server will fail gracefully if the port is unavailable
-    /// 2. The error will be reported to the user with a clear message
-    /// 3. The application can retry with a different port if needed
-    fn find_available_port(&self, start_port: u16) -> Result<u16> {
-        use std::net::TcpListener;
-
-        let end_port = start_port.saturating_add(PORT_SEARCH_RANGE);
-
-        (start_port..=end_port)
-            .find(|&port| TcpListener::bind(("127.0.0.1", port)).is_ok())
-            .ok_or_else(|| KopiaError::ServerStartFailed {
-                message: format!("No available ports in range {}-{}", start_port, end_port),
-                details: None,
-            })
-    }
-
-    /// Create HTTP client with Basic Auth credentials
-    ///
-    /// # Security Note
-    /// Accepts self-signed certificates since we control the Kopia server
-    /// and it's bound to localhost only. This is safe for local communication.
-    fn create_http_client(&self, username: &str, password: &str) -> Result<reqwest::Client> {
+    /// Uses the server's self-signed certificate for TLS validation instead of
+    /// blindly accepting all certificates.
+    fn create_http_client(
+        &self,
+        username: &str,
+        password: &str,
+        certificate_pem: &str,
+    ) -> Result<reqwest::Client> {
         use base64::Engine;
 
         let auth = format!("{}:{}", username, password);
@@ -464,11 +635,19 @@ impl KopiaServer {
             })?,
         );
 
+        // Parse the certificate for TLS validation
+        let cert = reqwest::Certificate::from_pem(certificate_pem.as_bytes()).map_err(|e| {
+            KopiaError::InternalError {
+                message: format!("Failed to parse server certificate: {}", e),
+                details: None,
+            }
+        })?;
+
         reqwest::Client::builder()
             .default_headers(headers)
             .timeout(Duration::from_secs(HTTP_OPERATION_TIMEOUT_SECS))
             .connect_timeout(Duration::from_secs(HTTP_CONNECT_TIMEOUT_SECS))
-            .danger_accept_invalid_certs(true) // Accept self-signed certificates (localhost only)
+            .add_root_certificate(cert)
             .build()
             .map_err(|e| KopiaError::InternalError {
                 message: format!("Failed to create HTTP client: {}", e),
@@ -477,14 +656,11 @@ impl KopiaServer {
     }
 
     /// Get the HTTP client for making API requests
-    /// Returns a clone of the client (cheap operation due to internal Arc)
     pub fn get_http_client(&self) -> Option<reqwest::Client> {
         self.http_client.clone()
     }
 
     /// Get the server URL if the server is running
-    ///
-    /// This method is primarily used by integration tests to verify server URLs.
     #[cfg(test)]
     pub(crate) fn get_server_url(&self) -> Option<String> {
         self.info.as_ref().map(|info| info.server_url.clone())
@@ -528,4 +704,76 @@ async fn wait_for_server_ready(http_client: reqwest::Client, server_url: String)
         message: last_error.unwrap_or_else(|| "Unknown error".to_string()),
         timeout_seconds: timeout_secs,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use base64::Engine;
+
+    #[test]
+    fn test_server_params_parsing() {
+        let mut params = ServerParams::default();
+
+        params.parse_line("SERVER ADDRESS: https://127.0.0.1:54321");
+        assert_eq!(params.address, Some("https://127.0.0.1:54321".to_string()));
+
+        params.parse_line("SERVER PASSWORD: secret123");
+        assert_eq!(params.password, Some("secret123".to_string()));
+
+        params.parse_line("SERVER CONTROL PASSWORD: control456");
+        assert_eq!(params.control_password, Some("control456".to_string()));
+
+        params.parse_line("SERVER CERT SHA256: abc123def456");
+        assert_eq!(params.cert_sha256, Some("abc123def456".to_string()));
+
+        params.parse_line("SERVER CERTIFICATE: Y2VydGlmaWNhdGU=");
+        assert_eq!(params.certificate, Some("Y2VydGlmaWNhdGU=".to_string()));
+
+        assert!(params.is_complete());
+    }
+
+    #[test]
+    fn test_server_params_incomplete() {
+        let mut params = ServerParams::default();
+        params.parse_line("SERVER ADDRESS: https://127.0.0.1:54321");
+        assert!(!params.is_complete());
+    }
+
+    #[test]
+    fn test_notification_parsing() {
+        let mut params = ServerParams::default();
+
+        // Regular param should return None
+        let result = params.parse_line("SERVER ADDRESS: https://127.0.0.1:54321");
+        assert!(result.is_none());
+
+        // NOTIFICATION should return the JSON
+        let result =
+            params.parse_line("NOTIFICATION: {\"type\":\"backup\",\"status\":\"completed\"}");
+        assert_eq!(
+            result,
+            Some("{\"type\":\"backup\",\"status\":\"completed\"}".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_port() {
+        assert_eq!(
+            KopiaServer::extract_port("https://127.0.0.1:54321").unwrap(),
+            54321
+        );
+        assert_eq!(
+            KopiaServer::extract_port("https://localhost:8080").unwrap(),
+            8080
+        );
+        assert!(KopiaServer::extract_port("invalid-url").is_err());
+    }
+
+    #[test]
+    fn test_decode_certificate() {
+        let base64_cert = base64::prelude::BASE64_STANDARD.encode("test certificate");
+        let decoded = KopiaServer::decode_certificate(&base64_cert).unwrap();
+        assert_eq!(decoded, "test certificate");
+    }
 }

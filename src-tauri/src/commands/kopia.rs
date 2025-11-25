@@ -3,22 +3,13 @@
 //! Provides 40+ Tauri commands that wrap the Kopia REST API for repository management,
 //! snapshots, policies, tasks, maintenance, and notifications.
 
+use super::lock_server;
 use crate::error::{HttpResultExt, IoResultExt, JsonResultExt, KopiaError, Result};
 use crate::kopia_server::{KopiaServerInfo, KopiaServerState, KopiaServerStatus};
 use crate::types::{RepositoryConnectRequest, RepositoryStatus, StorageConfig};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use tauri::State;
-
-// Helper macro for mutex recovery
-macro_rules! lock_server {
-    ($server:expr) => {
-        $server.lock().unwrap_or_else(|poisoned| {
-            log::warn!("Mutex poisoned, recovering...");
-            poisoned.into_inner()
-        })
-    };
-}
 
 /// Start the Kopia server
 ///
@@ -150,6 +141,24 @@ pub async fn repository_disconnect(server: State<'_, KopiaServerState>) -> Resul
         .map_http_error("Failed to disconnect")?;
 
     handle_empty_response(response, "Disconnect from repository").await
+}
+
+/// Sync repository metadata
+///
+/// Synchronizes repository metadata with the storage backend. This is useful
+/// when multiple clients are connected to the same repository to ensure
+/// they all see the latest snapshots and policies.
+#[tauri::command]
+pub async fn repository_sync(server: State<'_, KopiaServerState>) -> Result<()> {
+    let (server_url, client) = get_server_client(&server)?;
+
+    let response = client
+        .post(format!("{}/api/v1/repo/sync", server_url))
+        .send()
+        .await
+        .map_http_error("Failed to sync repository")?;
+
+    handle_empty_response(response, "Sync repository").await
 }
 
 /// Create a new repository
@@ -419,6 +428,37 @@ pub async fn snapshot_create(
     }
 
     Ok(source_info)
+}
+
+/// Start a snapshot upload for an existing source
+///
+/// This uses `/api/v1/sources/upload` which triggers a snapshot on an existing
+/// source. Unlike `snapshot_create`, this endpoint doesn't create the source
+/// if it doesn't exist.
+///
+/// This is the correct endpoint to use when the user wants to manually trigger
+/// a backup on an existing backup source.
+#[tauri::command]
+pub async fn snapshot_upload(
+    server: State<'_, KopiaServerState>,
+    user_name: String,
+    host: String,
+    path: String,
+) -> Result<()> {
+    let (server_url, client) = get_server_client(&server)?;
+
+    let query_params = build_source_query(&user_name, &host, &path);
+
+    let response = client
+        .post(format!(
+            "{}/api/v1/sources/upload{}",
+            server_url, query_params
+        ))
+        .send()
+        .await
+        .map_http_error("Failed to start snapshot upload")?;
+
+    handle_empty_response(response, "Start snapshot upload").await
 }
 
 /// Cancel a snapshot

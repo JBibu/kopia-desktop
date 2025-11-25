@@ -92,8 +92,12 @@ mod tests {
         let server_info = start_result.unwrap();
         assert!(server_info.port > 0, "Server port should be > 0");
         assert!(
-            !server_info.http_password.is_empty(),
+            !server_info.password.is_empty(),
             "Password should not be empty"
+        );
+        assert!(
+            !server_info.cert_sha256.is_empty(),
+            "Cert SHA256 should not be empty"
         );
         assert!(
             server_info.server_url.starts_with("https://"),

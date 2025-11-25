@@ -4,7 +4,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::commands::system::{get_current_user, get_system_info};
+    use crate::commands::system::{get_current_user_from_os, get_system_info};
 
     #[tokio::test]
     async fn test_get_system_info() {
@@ -31,9 +31,10 @@ mod tests {
         ));
     }
 
-    #[tokio::test]
-    async fn test_get_current_user() {
-        let result = get_current_user().await;
+    #[test]
+    fn test_get_current_user_from_os() {
+        // Test the OS-level fallback function
+        let result = get_current_user_from_os();
         assert!(result.is_ok());
 
         let (username, hostname) = result.unwrap();
@@ -61,11 +62,11 @@ mod tests {
         assert_eq!(info1.arch, info2.arch);
     }
 
-    #[tokio::test]
-    async fn test_current_user_consistency() {
+    #[test]
+    fn test_current_user_from_os_consistency() {
         // Multiple calls should return the same user
-        let (username1, hostname1) = get_current_user().await.unwrap();
-        let (username2, hostname2) = get_current_user().await.unwrap();
+        let (username1, hostname1) = get_current_user_from_os().unwrap();
+        let (username2, hostname2) = get_current_user_from_os().unwrap();
 
         assert_eq!(username1, username2);
         assert_eq!(hostname1, hostname2);

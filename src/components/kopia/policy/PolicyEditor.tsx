@@ -79,8 +79,9 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
       setIsLoading(true);
       setError(null);
       try {
-        const data: PolicyDefinition = await getPolicy(target.userName, target.host, target.path);
-        setPolicy(data || {});
+        const response = await getPolicy(target.userName, target.host, target.path);
+        // Extract just the policy definition from the response
+        setPolicy(response.policy || {});
         setIsNew(false);
       } catch (err: unknown) {
         // Policy not found - this is a new policy (expected for new policies)

@@ -211,6 +211,7 @@ pub fn run() {
             commands::repository_status,
             commands::repository_connect,
             commands::repository_disconnect,
+            commands::repository_sync,
             commands::repository_create,
             commands::repository_exists,
             commands::repository_get_algorithms,
@@ -218,6 +219,7 @@ pub fn run() {
             // Snapshot sources
             commands::sources_list,
             commands::snapshot_create,
+            commands::snapshot_upload,
             commands::snapshot_cancel,
             // Snapshot history
             commands::snapshots_list,

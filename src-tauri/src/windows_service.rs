@@ -78,7 +78,8 @@ pub enum ServiceResponse {
     ServerInfo {
         server_url: String,
         port: u16,
-        http_password: String,
+        password: String,
+        cert_sha256: String,
     },
     /// Success response
     Success { message: String },

@@ -79,6 +79,10 @@ pub enum KopiaError {
     #[error("Repository is not connected")]
     RepositoryNotConnected,
 
+    /// Repository not initialized (storage exists but no repository)
+    #[error("Repository not initialized: {message}")]
+    RepositoryNotInitialized { message: String },
+
     /// Repository creation failed
     #[error("Failed to create repository: {message}")]
     RepositoryCreationFailed {
@@ -368,13 +372,55 @@ pub enum KopiaError {
 /// Result type alias using KopiaError
 pub type Result<T> = std::result::Result<T, KopiaError>;
 
+/// Kopia API error response format
+#[derive(Debug, serde::Deserialize)]
+struct KopiaApiErrorResponse {
+    code: Option<String>,
+    error: Option<String>,
+}
+
 impl KopiaError {
     /// Create error from HTTP status code and response body
+    ///
+    /// Parses the Kopia API error format: `{"code": "...", "error": "..."}`
+    /// Falls back to using raw body if parsing fails.
     pub fn from_api_response(status_code: u16, body: &str, operation: &str) -> Self {
+        // Try to parse Kopia's error format
+        let (code, message) = match serde_json::from_str::<KopiaApiErrorResponse>(body) {
+            Ok(err_response) => {
+                let code = err_response.code.clone();
+                let message = match (err_response.code, err_response.error) {
+                    (Some(code), Some(error)) => format!("{}: {}", code, error),
+                    (Some(code), None) => code,
+                    (None, Some(error)) => error,
+                    (None, None) => body.to_string(),
+                };
+                (code, message)
+            }
+            Err(_) => (None, body.to_string()),
+        };
+
+        // Handle specific error codes
+        if let Some(ref error_code) = code {
+            match error_code.as_str() {
+                "NOT_CONNECTED" => {
+                    return KopiaError::RepositoryNotConnected;
+                }
+                "NOT_INITIALIZED" => {
+                    return KopiaError::RepositoryNotInitialized {
+                        message: message.clone(),
+                    };
+                }
+                "INVALID_PASSWORD" => {
+                    return KopiaError::AuthenticationFailed { message };
+                }
+                _ => {}
+            }
+        }
+
+        // Handle by HTTP status code
         match status_code {
-            401 => KopiaError::AuthenticationFailed {
-                message: body.to_string(),
-            },
+            401 => KopiaError::AuthenticationFailed { message },
             403 => KopiaError::Unauthorized {
                 resource: operation.to_string(),
             },
@@ -383,7 +429,7 @@ impl KopiaError {
             },
             _ => KopiaError::ApiError {
                 status_code,
-                message: body.to_string(),
+                message,
                 operation: operation.to_string(),
             },
         }

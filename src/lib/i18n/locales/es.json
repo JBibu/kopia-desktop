@@ -115,7 +115,11 @@
     "errorCorrectionAlgorithm": "Algoritmo de corrección de errores",
     "errorCorrectionOverhead": "Sobrecarga de corrección de errores",
     "internalCompression": "Compresión interna",
-    "disabled": "Desactivado"
+    "disabled": "Desactivado",
+    "initializing": "Inicializando repositorio...",
+    "initializingDescription": "Por favor espera mientras se establece la conexión al repositorio. Esto puede tardar unos momentos.",
+    "initCancelled": "Inicialización del repositorio cancelada",
+    "cancelFailed": "Error al cancelar la inicialización"
   },
   "snapshots": {
     "title": "Respaldos",

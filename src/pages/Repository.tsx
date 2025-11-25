@@ -2,15 +2,17 @@
  * Repository management page
  */
 
+import { useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useKopiaStore } from '@/stores/kopia';
+import { cancelTask } from '@/lib/kopia/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { EmptyState } from '@/components/ui/empty-state';
-import { CheckCircle, XCircle, Settings } from 'lucide-react';
+import { CheckCircle, XCircle, Settings, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function Repository() {
@@ -19,7 +21,9 @@ export function Repository() {
   const status = useKopiaStore((state) => state.repositoryStatus);
   const isLoading = useKopiaStore((state) => state.isRepositoryLoading);
   const isConnected = useKopiaStore((state) => state.isRepoConnected());
+  const isInitializing = useKopiaStore((state) => state.isRepoInitializing());
   const disconnect = useKopiaStore((state) => state.disconnectRepo);
+  const refreshRepositoryStatus = useKopiaStore((state) => state.refreshRepositoryStatus);
 
   const handleDisconnect = async () => {
     await disconnect();
@@ -27,6 +31,29 @@ export function Repository() {
     // Redirect to setup after disconnect
     void navigate('/setup');
   };
+
+  const handleCancelInit = useCallback(async () => {
+    if (status?.initTaskID) {
+      try {
+        await cancelTask(status.initTaskID);
+        toast.success(t('repository.initCancelled'));
+        void refreshRepositoryStatus();
+      } catch {
+        toast.error(t('repository.cancelFailed'));
+      }
+    }
+  }, [status, refreshRepositoryStatus, t]);
+
+  // Poll for status updates while initializing
+  useEffect(() => {
+    if (!isInitializing) return;
+
+    const interval = setInterval(() => {
+      void refreshRepositoryStatus();
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isInitializing, refreshRepositoryStatus]);
 
   // Helper to get translated repository description
   const getRepositoryDescription = (): string => {
@@ -66,10 +93,28 @@ export function Repository() {
       </div>
 
       {/* Connection Status */}
-      {isLoading && !isConnected ? (
+      {isLoading && !isConnected && !isInitializing ? (
         <div className="flex items-center justify-center py-12">
           <Spinner className="h-8 w-8" />
         </div>
+      ) : isInitializing ? (
+        // Initializing state - show progress
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center justify-center py-8 space-y-4">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+              <div className="text-center space-y-2">
+                <h3 className="text-lg font-medium">{t('repository.initializing')}</h3>
+                <p className="text-sm text-muted-foreground">
+                  {t('repository.initializingDescription')}
+                </p>
+              </div>
+              <Button variant="destructive" size="sm" onClick={() => void handleCancelInit()}>
+                {t('common.cancel')}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       ) : !isConnected ? (
         <EmptyState
           icon={XCircle}

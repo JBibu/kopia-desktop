@@ -84,38 +84,43 @@ mod tests {
         let info = KopiaServerInfo {
             server_url: "https://127.0.0.1:51515".to_string(),
             port: 51515,
-            http_password: "test-password-123".to_string(),
+            password: "test-password-123".to_string(),
+            control_password: Some("control-password-456".to_string()),
+            cert_sha256: "abc123def456".to_string(),
             pid: 12345,
-            csrf_token: Some("csrf-token-456".to_string()),
         };
 
         let json = serde_json::to_string(&info).unwrap();
         assert!(json.contains("51515"));
         assert!(json.contains("test-password-123"));
-        assert!(json.contains("csrf-token-456"));
+        assert!(json.contains("abc123def456"));
 
         let deserialized: KopiaServerInfo = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.port, 51515);
         assert_eq!(deserialized.pid, 12345);
-        assert_eq!(deserialized.csrf_token, Some("csrf-token-456".to_string()));
+        assert_eq!(
+            deserialized.control_password,
+            Some("control-password-456".to_string())
+        );
     }
 
     #[test]
-    fn test_kopia_server_info_without_csrf() {
+    fn test_kopia_server_info_without_control_password() {
         use crate::kopia_server::KopiaServerInfo;
 
         let info = KopiaServerInfo {
             server_url: "https://127.0.0.1:51516".to_string(),
             port: 51516,
-            http_password: "password".to_string(),
+            password: "password".to_string(),
+            control_password: None,
+            cert_sha256: "deadbeef".to_string(),
             pid: 999,
-            csrf_token: None,
         };
 
         let json = serde_json::to_string(&info).unwrap();
         let deserialized: KopiaServerInfo = serde_json::from_str(&json).unwrap();
 
-        assert_eq!(deserialized.csrf_token, None);
+        assert_eq!(deserialized.control_password, None);
         assert_eq!(deserialized.port, 51516);
     }
 
@@ -201,9 +206,10 @@ mod tests {
         let info = KopiaServerInfo {
             server_url: "https://127.0.0.1:51515".to_string(),
             port: 51515,
-            http_password: "password".to_string(),
+            password: "password".to_string(),
+            control_password: Some("control".to_string()),
+            cert_sha256: "abc123".to_string(),
             pid: 12345,
-            csrf_token: Some("token".to_string()),
         };
 
         let cloned = info.clone();
@@ -211,7 +217,8 @@ mod tests {
         assert_eq!(info.server_url, cloned.server_url);
         assert_eq!(info.port, cloned.port);
         assert_eq!(info.pid, cloned.pid);
-        assert_eq!(info.csrf_token, cloned.csrf_token);
+        assert_eq!(info.control_password, cloned.control_password);
+        assert_eq!(info.cert_sha256, cloned.cert_sha256);
     }
 
     #[test]
@@ -285,9 +292,10 @@ mod tests {
         let info = KopiaServerInfo {
             server_url: "https://127.0.0.1:51515".to_string(),
             port: 51515,
-            http_password: "password".to_string(),
+            password: "password".to_string(),
+            control_password: None,
+            cert_sha256: "abc123".to_string(),
             pid: 12345,
-            csrf_token: None,
         };
 
         let debug_str = format!("{:?}", info);

@@ -115,7 +115,11 @@
     "errorCorrectionAlgorithm": "Error correction Algorithm",
     "errorCorrectionOverhead": "Error correction overhead",
     "internalCompression": "Internal Compression",
-    "disabled": "Disabled"
+    "disabled": "Disabled",
+    "initializing": "Initializing Repository...",
+    "initializingDescription": "Please wait while the repository connection is being established. This may take a few moments.",
+    "initCancelled": "Repository initialization cancelled",
+    "cancelFailed": "Failed to cancel initialization"
   },
   "snapshots": {
     "title": "Backups",

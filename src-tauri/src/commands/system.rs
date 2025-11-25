@@ -3,9 +3,11 @@
 //! Provides system-level utility commands for file/folder selection, system information,
 //! and user detection.
 
-use crate::error::{KopiaError, Result};
+use super::lock_server;
+use crate::error::{HttpResultExt, KopiaError, Result};
+use crate::kopia_server::KopiaServerState;
 use serde::{Deserialize, Serialize};
-use tauri::AppHandle;
+use tauri::{AppHandle, State};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SystemInfo {
@@ -24,9 +26,64 @@ pub async fn get_system_info() -> Result<SystemInfo> {
     })
 }
 
-/// Get current username and hostname
+/// Get current username and hostname from Kopia server
+///
+/// When the Kopia server is running, this queries the `/api/v1/current-user` endpoint
+/// to get the username and hostname that Kopia will use for snapshots. This ensures
+/// consistency with how Kopia identifies the user.
+///
+/// Falls back to OS-level detection if the server is not running.
 #[tauri::command]
-pub async fn get_current_user() -> Result<(String, String)> {
+pub async fn get_current_user(server: State<'_, KopiaServerState>) -> Result<(String, String)> {
+    // Try to get from Kopia server first
+    let server_result = {
+        let mut server_guard = lock_server!(server);
+        let status = server_guard.status();
+
+        if status.running {
+            if let (Some(server_url), Some(client)) =
+                (status.server_url, server_guard.get_http_client())
+            {
+                Some((server_url, client))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    };
+
+    if let Some((server_url, client)) = server_result {
+        #[derive(Deserialize)]
+        struct CurrentUserResponse {
+            username: String,
+            hostname: String,
+        }
+
+        let response = client
+            .get(format!("{}/api/v1/current-user", server_url))
+            .send()
+            .await
+            .map_http_error("Failed to get current user")?;
+
+        if response.status().is_success() {
+            let user_info: CurrentUserResponse = response
+                .json()
+                .await
+                .map_http_error("Failed to parse current user response")?;
+
+            return Ok((user_info.username, user_info.hostname));
+        }
+        // If request failed, fall through to OS-level detection
+        log::warn!("Failed to get current user from Kopia server, falling back to OS detection");
+    }
+
+    // Fallback to OS-level detection when server is not running
+    get_current_user_from_os()
+}
+
+/// Get current username and hostname from OS (fallback)
+pub fn get_current_user_from_os() -> Result<(String, String)> {
     let username = std::env::var("USER")
         .or_else(|_| std::env::var("USERNAME"))
         .unwrap_or_else(|_| "unknown".into());

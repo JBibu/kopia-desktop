@@ -101,6 +101,7 @@ interface KopiaStore {
   isPolling: boolean;
   serverPollingInterval: number; // For server/repo (30s)
   tasksPollingInterval: number; // For tasks (5s - real-time, fallback if WebSocket fails)
+  sourcesPollingInterval: number; // For sources (3s - matches official KopiaUI)
 
   // WebSocket state
   isWebSocketConnected: boolean;
@@ -109,6 +110,7 @@ interface KopiaStore {
   // Derived state
   isServerRunning: () => boolean;
   isRepoConnected: () => boolean;
+  isRepoInitializing: () => boolean;
 
   // Server actions
   refreshServerStatus: () => Promise<void>;
@@ -186,6 +188,7 @@ interface KopiaStore {
 // Polling timer references (outside store to avoid serialization issues)
 let serverPollingTimer: ReturnType<typeof setInterval> | null = null;
 let tasksPollingTimer: ReturnType<typeof setInterval> | null = null;
+let sourcesPollingTimer: ReturnType<typeof setInterval> | null = null;
 
 // WebSocket event listener (outside store to avoid serialization issues)
 let wsEventUnlisten: UnlistenFn | null = null;
@@ -239,6 +242,7 @@ export const useKopiaStore = create<KopiaStore>()(
     isPolling: false,
     serverPollingInterval: 30000, // 30 seconds
     tasksPollingInterval: 5000, // 5 seconds
+    sourcesPollingInterval: 3000, // 3 seconds (matches official KopiaUI)
 
     // WebSocket
     isWebSocketConnected: false,
@@ -256,6 +260,15 @@ export const useKopiaStore = create<KopiaStore>()(
     isRepoConnected: () => {
       const { repositoryStatus } = get();
       return repositoryStatus?.connected ?? false;
+    },
+
+    /**
+     * Check if repository connection/initialization is in progress
+     * (async connection that shows progress via initTaskID)
+     */
+    isRepoInitializing: () => {
+      const { repositoryStatus } = get();
+      return !!repositoryStatus?.initTaskID;
     },
 
     // ========================================================================
@@ -513,9 +526,10 @@ export const useKopiaStore = create<KopiaStore>()(
     getPolicy: async (userName?: string, host?: string, path?: string) => {
       set({ isPoliciesLoading: true, policiesError: null });
       try {
-        const policy = await apiGetPolicy(userName, host, path);
+        const response = await apiGetPolicy(userName, host, path);
         set({ isPoliciesLoading: false });
-        return policy;
+        // Extract just the policy definition from the response
+        return response.policy;
       } catch (error) {
         const message = getErrorMessage(error);
         set({ policiesError: message, isPoliciesLoading: false });
@@ -641,7 +655,7 @@ export const useKopiaStore = create<KopiaStore>()(
       const { isRepoConnected } = get();
 
       // Only fetch maintenance info if repository is connected
-      if (!isRepoConnected) {
+      if (!isRepoConnected()) {
         return;
       }
 
@@ -734,7 +748,13 @@ export const useKopiaStore = create<KopiaStore>()(
     // ========================================================================
 
     startPolling: () => {
-      const { isPolling, serverPollingInterval, tasksPollingInterval, useWebSocket } = get();
+      const {
+        isPolling,
+        serverPollingInterval,
+        tasksPollingInterval,
+        sourcesPollingInterval,
+        useWebSocket,
+      } = get();
 
       if (isPolling) return;
 
@@ -758,12 +778,16 @@ export const useKopiaStore = create<KopiaStore>()(
       // Tasks polling (5s for real-time updates)
       // Always poll tasks as fallback even if WebSocket is enabled
       // WebSocket events will trigger additional refreshes for better real-time updates
-      // Also poll sources to update snapshot status on the Snapshots page
       tasksPollingTimer = setInterval(() => {
         void get().refreshTasks();
         void get().refreshTasksSummary();
-        void get().refreshSources();
       }, tasksPollingInterval);
+
+      // Sources polling (3s - matches official KopiaUI)
+      // Separate timer for faster source status updates
+      sourcesPollingTimer = setInterval(() => {
+        void get().refreshSources();
+      }, sourcesPollingInterval);
 
       set({ isPolling: true });
     },
@@ -776,6 +800,10 @@ export const useKopiaStore = create<KopiaStore>()(
       if (tasksPollingTimer) {
         clearInterval(tasksPollingTimer);
         tasksPollingTimer = null;
+      }
+      if (sourcesPollingTimer) {
+        clearInterval(sourcesPollingTimer);
+        sourcesPollingTimer = null;
       }
       // Stop WebSocket if connected
       if (get().isWebSocketConnected) {
@@ -834,7 +862,7 @@ export const useKopiaStore = create<KopiaStore>()(
         // Connect to WebSocket
         await connectWebSocket(
           serverStatus.serverUrl,
-          'kopia-desktop', // Server username (constant from backend)
+          'kopia', // Server username (must match SERVER_USERNAME in kopia_server.rs)
           serverInfo.password
         );
 
