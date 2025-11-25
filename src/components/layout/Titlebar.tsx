@@ -1,0 +1,83 @@
+/**
+ * Custom window titlebar with drag region and window controls
+ */
+
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { Minus, Maximize, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import kopiaIcon from '../../../src-tauri/icons/icon.svg';
+
+// Lazy-load window instance to avoid crashes in non-Tauri environments
+let appWindow: ReturnType<typeof getCurrentWindow> | null = null;
+const getAppWindow = () => {
+  if (!appWindow && typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+    try {
+      appWindow = getCurrentWindow();
+    } catch {
+      // Ignore errors in non-Tauri environment
+    }
+  }
+  return appWindow;
+};
+
+export function Titlebar() {
+  const { t } = useTranslation();
+  const handleMinimize = () => {
+    const win = getAppWindow();
+    if (win) void win.minimize();
+  };
+
+  const handleMaximize = () => {
+    const win = getAppWindow();
+    if (win) void win.toggleMaximize();
+  };
+
+  const handleClose = () => {
+    const win = getAppWindow();
+    if (win) void win.close();
+  };
+
+  return (
+    <div
+      data-tauri-drag-region
+      className="fixed top-0 left-0 right-0 h-8 bg-background border-b border-border flex items-center justify-between px-3 select-none z-50"
+    >
+      {/* Left side - App title with icon */}
+      <div className="flex items-center gap-2 text-sm font-medium">
+        <img src={kopiaIcon} alt="Kopia" className="h-4 w-4" />
+        <span className="text-foreground font-semibold">Kopia Desktop</span>
+      </div>
+
+      {/* Right side - Window controls */}
+      <div className="flex items-center">
+        <button
+          type="button"
+          onClick={handleMinimize}
+          className="h-8 w-10 inline-flex items-center justify-center hover:bg-accent hover:text-accent-foreground transition-colors"
+          title={t('accessibility.minimize')}
+          aria-label={t('accessibility.minimizeWindow')}
+        >
+          <Minus className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={handleMaximize}
+          className="h-8 w-10 inline-flex items-center justify-center hover:bg-accent hover:text-accent-foreground transition-colors"
+          title={t('accessibility.maximize')}
+          aria-label={t('accessibility.maximizeWindow')}
+        >
+          <Maximize className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={handleClose}
+          className="h-8 w-10 inline-flex items-center justify-center hover:bg-destructive hover:text-destructive-foreground transition-colors"
+          title={t('accessibility.close')}
+          aria-label={t('accessibility.closeWindow')}
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}

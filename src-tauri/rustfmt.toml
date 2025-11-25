@@ -1,0 +1,19 @@
+# Rust formatting configuration for Kopia Desktop
+# https://rust-lang.github.io/rustfmt/
+# Using only stable features
+
+# Edition
+edition = "2021"
+
+# Indentation
+max_width = 100
+hard_tabs = false
+tab_spaces = 4
+
+# Formatting
+newline_style = "Unix"
+use_small_heuristics = "Default"
+
+# Misc
+use_field_init_shorthand = true
+use_try_shorthand = true

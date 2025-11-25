@@ -1,0 +1,268 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
+import { Card, CardContent } from '@/components/ui/card';
+import { toast } from 'sonner';
+import { useKopiaStore } from '@/stores/kopia';
+import {
+  createRepository,
+  connectRepository,
+  disconnectRepository,
+  getRepositoryStatus,
+} from '@/lib/kopia/client';
+import { getErrorMessage, parseKopiaError, KopiaErrorCode } from '@/lib/kopia/errors';
+import type { StorageType, StorageConfig } from '@/lib/kopia/types';
+import type { SetupWizardState } from './types';
+import { ProviderSelection } from './steps/ProviderSelection';
+import { ProviderConfig } from './steps/ProviderConfig';
+import { StorageVerification } from './steps/StorageVerification';
+import { PasswordSetup } from './steps/PasswordSetup';
+
+export function SetupRepository() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const refreshStatus = useKopiaStore((state) => state.refreshRepositoryStatus);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [state, setState] = useState<SetupWizardState>({
+    step: 'provider',
+    provider: null,
+    storageConfig: {},
+    mode: null,
+    password: '',
+    confirmPassword: '',
+    description: '',
+    advancedOptions: {
+      hash: 'BLAKE3-256',
+      encryption: 'AES256-GCM-HMAC-SHA256',
+      splitter: 'DYNAMIC-4M-BUZHASH',
+    },
+  });
+
+  const handleProviderSelect = (provider: StorageType) => {
+    setState((prev) => ({
+      ...prev,
+      step: 'config',
+      provider,
+      storageConfig: {},
+    }));
+  };
+
+  const handleConfigChange = (config: Partial<StorageConfig['config']>) => {
+    setState((prev) => ({
+      ...prev,
+      storageConfig: config,
+    }));
+  };
+
+  const handleConfigNext = () => {
+    setState((prev) => ({
+      ...prev,
+      step: 'verify',
+    }));
+  };
+
+  const handleVerifyBack = () => {
+    setState((prev) => ({
+      ...prev,
+      step: 'config',
+    }));
+  };
+
+  const handleCreateNew = () => {
+    setState((prev) => ({
+      ...prev,
+      step: 'password',
+      mode: 'create',
+    }));
+  };
+
+  const handleConnect = () => {
+    setState((prev) => ({
+      ...prev,
+      step: 'password',
+      mode: 'connect',
+    }));
+  };
+
+  const handlePasswordBack = () => {
+    setState((prev) => ({
+      ...prev,
+      step: 'verify',
+      password: '',
+      confirmPassword: '',
+    }));
+  };
+
+  const handleSubmit = async () => {
+    if (!state.provider || !state.mode) return;
+
+    setIsSubmitting(true);
+
+    try {
+      // Ensure we're disconnected from any existing repository before connecting to a new one
+      const currentStatus = await getRepositoryStatus();
+
+      if (currentStatus.connected) {
+        try {
+          await disconnectRepository();
+          // Wait for disconnect to complete fully
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        } catch {
+          // If disconnect fails, we can't proceed - repository is in unknown state
+          throw new Error(t('setup.toasts.disconnectFailed'));
+        }
+      }
+
+      // Prepare storage configuration
+      // At this point, the wizard has validated all required fields,
+      // so we can safely cast the partial config to the full type
+      const storageConfig: StorageConfig = {
+        type: state.provider,
+        config: state.storageConfig as unknown as StorageConfig['config'],
+      };
+
+      // Create or connect to repository
+      if (state.mode === 'create') {
+        await createRepository({
+          storage: storageConfig,
+          password: state.password,
+          clientOptions: {
+            description: state.description || undefined,
+          },
+          options: {
+            blockFormat: {
+              hash: state.advancedOptions.hash,
+              encryption: state.advancedOptions.encryption,
+              splitter: state.advancedOptions.splitter,
+            },
+          },
+        });
+      } else {
+        await connectRepository({
+          storage: storageConfig,
+          password: state.password,
+        });
+      }
+
+      // Wait for connection to be ready with exponential backoff
+      // Total attempts: 10, Total time: up to ~10 seconds
+      let connected = false;
+      const maxAttempts = 10;
+
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const newStatus = await getRepositoryStatus();
+
+        if (newStatus.connected) {
+          connected = true;
+          break;
+        }
+
+        // Don't wait after the last attempt
+        if (attempt < maxAttempts - 1) {
+          // Exponential backoff: 200ms, 400ms, 800ms, 1000ms (capped)
+          const delay = Math.min(200 * Math.pow(2, attempt), 1000);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
+
+      if (!connected) {
+        throw new Error(t('setup.toasts.verificationFailed'));
+      }
+
+      // Connection verified - show success and navigate
+      const successTitle =
+        state.mode === 'create' ? t('setup.toasts.repoCreated') : t('setup.toasts.connected');
+      const successDesc =
+        state.mode === 'create'
+          ? t('setup.toasts.repoCreatedDesc')
+          : t('setup.toasts.connectedDesc');
+      toast.success(successTitle, { description: successDesc });
+
+      await refreshStatus();
+      void navigate('/', { replace: true });
+    } catch (error) {
+      // Parse error for better user feedback
+      const kopiaError = parseKopiaError(error);
+      let userMessage = getErrorMessage(error);
+
+      // Handle common error cases with user-friendly messages
+      if (kopiaError.is(KopiaErrorCode.REPOSITORY_ALREADY_EXISTS)) {
+        userMessage = t('setup.toasts.alreadyConnected');
+      } else if (kopiaError.isAuthError()) {
+        userMessage = t('setup.toasts.invalidPassword');
+      } else if (kopiaError.is(KopiaErrorCode.REPOSITORY_NOT_CONNECTED)) {
+        userMessage = t('setup.toasts.notInitialized');
+      } else if (kopiaError.is(KopiaErrorCode.SERVER_NOT_RUNNING)) {
+        userMessage = t('setup.toasts.serverUnavailable');
+      }
+
+      const errorTitle =
+        state.mode === 'create' ? t('setup.toasts.createFailed') : t('setup.toasts.connectFailed');
+      toast.error(errorTitle, { description: userMessage });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleProviderBack = () => {
+    setState((prev) => ({
+      ...prev,
+      step: 'provider',
+      storageConfig: {},
+    }));
+  };
+
+  return (
+    <div className="flex items-center justify-center min-h-full">
+      <Card className="w-full max-w-3xl">
+        <CardContent className="p-6">
+          {state.step === 'provider' && <ProviderSelection onSelect={handleProviderSelect} />}
+
+          {state.step === 'config' && state.provider && (
+            <ProviderConfig
+              provider={state.provider}
+              config={state.storageConfig}
+              onChange={handleConfigChange}
+              onBack={handleProviderBack}
+              onNext={handleConfigNext}
+            />
+          )}
+
+          {state.step === 'verify' && state.provider && (
+            <StorageVerification
+              storageConfig={{
+                type: state.provider,
+                config: state.storageConfig as unknown as StorageConfig['config'],
+              }}
+              onBack={handleVerifyBack}
+              onCreateNew={handleCreateNew}
+              onConnect={handleConnect}
+            />
+          )}
+
+          {state.step === 'password' && state.mode && (
+            <PasswordSetup
+              mode={state.mode}
+              password={state.password}
+              confirmPassword={state.confirmPassword}
+              description={state.description}
+              advancedOptions={state.advancedOptions}
+              onPasswordChange={(password) => setState((prev) => ({ ...prev, password }))}
+              onConfirmPasswordChange={(confirmPassword) =>
+                setState((prev) => ({ ...prev, confirmPassword }))
+              }
+              onDescriptionChange={(description) => setState((prev) => ({ ...prev, description }))}
+              onAdvancedOptionsChange={(advancedOptions) =>
+                setState((prev) => ({ ...prev, advancedOptions }))
+              }
+              onBack={handlePasswordBack}
+              onSubmit={() => void handleSubmit()}
+              isSubmitting={isSubmitting}
+            />
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
