@@ -216,11 +216,15 @@ pub fn run() {
             commands::repository_exists,
             commands::repository_get_algorithms,
             commands::repository_update_description,
+            commands::repository_get_throttle,
+            commands::repository_set_throttle,
             // Snapshot sources
             commands::sources_list,
             commands::snapshot_create,
             commands::snapshot_upload,
             commands::snapshot_cancel,
+            commands::snapshot_pause,
+            commands::snapshot_resume,
             // Snapshot history
             commands::snapshots_list,
             commands::snapshot_edit,
@@ -244,9 +248,6 @@ pub fn run() {
             commands::task_logs,
             commands::task_cancel,
             commands::tasks_summary,
-            // Maintenance
-            commands::maintenance_info,
-            commands::maintenance_run,
             // Utilities
             commands::path_resolve,
             commands::estimate_snapshot,

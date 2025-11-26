@@ -180,6 +180,7 @@ mod tests {
             password: "secret".to_string(),
             token: None,
             client_options: None,
+            sync_wait_time: None,
         };
 
         let debug_str = format!("{:?}", request);
@@ -198,6 +199,7 @@ mod tests {
             password: "secret".to_string(),
             options: None,
             client_options: None,
+            sync_wait_time: None,
         };
 
         let debug_str = format!("{:?}", request);

@@ -275,6 +275,40 @@ pub async fn repository_update_description(
     handle_empty_response(response, "Update description").await
 }
 
+/// Get throttling limits for repository operations
+#[tauri::command]
+pub async fn repository_get_throttle(
+    server: State<'_, KopiaServerState>,
+) -> Result<crate::types::ThrottleLimits> {
+    let (server_url, client) = get_server_client(&server)?;
+
+    let response = client
+        .get(format!("{}/api/v1/repo/throttle", server_url))
+        .send()
+        .await
+        .map_http_error("Failed to get throttle limits")?;
+
+    handle_response(response, "Get throttle limits").await
+}
+
+/// Set throttling limits for repository operations
+#[tauri::command]
+pub async fn repository_set_throttle(
+    server: State<'_, KopiaServerState>,
+    limits: crate::types::ThrottleLimits,
+) -> Result<()> {
+    let (server_url, client) = get_server_client(&server)?;
+
+    let response = client
+        .put(format!("{}/api/v1/repo/throttle", server_url))
+        .json(&limits)
+        .send()
+        .await
+        .map_http_error("Failed to set throttle limits")?;
+
+    handle_empty_response(response, "Set throttle limits").await
+}
+
 // ============================================================================
 // Snapshot Sources Commands
 // ============================================================================
@@ -349,31 +383,20 @@ pub async fn snapshot_create(
         resolve_result.source
     };
 
-    // Use provided userName/host or fall back to resolved values
+    // Note: userName and host are derived from repository client options by the server,
+    // so we only send path, createSnapshot, and policy as per official API spec.
+    // The user_name/host parameters are kept for logging purposes only.
     let final_user_name = user_name.unwrap_or(source_info.user_name.clone());
     let final_host = host.unwrap_or(source_info.host.clone());
 
     // Create source and optionally start snapshot
-    let should_create_snapshot = create_snapshot.unwrap_or(false); // Default to false - user must explicitly opt-in
-    let mut payload = serde_json::Map::new();
-    payload.insert(
-        "path".to_string(),
-        serde_json::json!(source_info.path.clone()),
-    );
-    payload.insert(
-        "createSnapshot".to_string(),
-        serde_json::json!(should_create_snapshot),
-    );
-    payload.insert(
-        "userName".to_string(),
-        serde_json::json!(final_user_name.clone()),
-    );
-    payload.insert("host".to_string(), serde_json::json!(final_host.clone()));
-    // Add policy (use provided policy or empty object for defaults)
-    payload.insert(
-        "policy".to_string(),
-        serde_json::json!(policy.unwrap_or_default()),
-    );
+    // API only expects: path, createSnapshot, policy
+    let should_create_snapshot = create_snapshot.unwrap_or(false);
+    let payload = serde_json::json!({
+        "path": source_info.path,
+        "createSnapshot": should_create_snapshot,
+        "policy": policy.unwrap_or_default()
+    });
 
     log::info!(
         "Creating snapshot for {}@{}:{}",
@@ -483,6 +506,54 @@ pub async fn snapshot_cancel(
         .map_http_error("Failed to cancel snapshot")?;
 
     handle_empty_response(response, "Cancel snapshot").await
+}
+
+/// Pause a snapshot source
+#[tauri::command]
+pub async fn snapshot_pause(
+    server: State<'_, KopiaServerState>,
+    user_name: String,
+    host: String,
+    path: String,
+) -> Result<crate::types::MultipleSourceActionResponse> {
+    let (server_url, client) = get_server_client(&server)?;
+
+    let query_params = build_source_query(&user_name, &host, &path);
+
+    let response = client
+        .post(format!(
+            "{}/api/v1/control/pause-source{}",
+            server_url, query_params
+        ))
+        .send()
+        .await
+        .map_http_error("Failed to pause snapshot")?;
+
+    handle_response(response, "Pause snapshot").await
+}
+
+/// Resume a paused snapshot source
+#[tauri::command]
+pub async fn snapshot_resume(
+    server: State<'_, KopiaServerState>,
+    user_name: String,
+    host: String,
+    path: String,
+) -> Result<crate::types::MultipleSourceActionResponse> {
+    let (server_url, client) = get_server_client(&server)?;
+
+    let query_params = build_source_query(&user_name, &host, &path);
+
+    let response = client
+        .post(format!(
+            "{}/api/v1/control/resume-source{}",
+            server_url, query_params
+        ))
+        .send()
+        .await
+        .map_http_error("Failed to resume snapshot")?;
+
+    handle_response(response, "Resume snapshot").await
 }
 
 // ============================================================================
@@ -810,7 +881,7 @@ pub async fn policy_set(
 
     let response = client
         .put(format!("{}/api/v1/policy{}", server_url, query_string))
-        .json(&serde_json::json!({ "policy": policy }))
+        .json(&policy) // API expects policy directly, not wrapped
         .send()
         .await
         .map_http_error("Failed to set policy")?;
@@ -934,58 +1005,6 @@ pub async fn tasks_summary(
 }
 
 // ============================================================================
-// Maintenance Commands
-// ============================================================================
-
-/// Get maintenance information
-#[tauri::command]
-pub async fn maintenance_info(
-    server: State<'_, KopiaServerState>,
-) -> Result<crate::types::MaintenanceInfo> {
-    let (server_url, client) = get_server_client(&server)?;
-
-    let response = client
-        .get(format!("{}/api/v1/repo/maintenance/info", server_url))
-        .send()
-        .await
-        .map_http_error("Failed to get maintenance info")?;
-
-    handle_response(response, "Get maintenance info").await
-}
-
-/// Run maintenance
-#[tauri::command]
-pub async fn maintenance_run(
-    server: State<'_, KopiaServerState>,
-    full: bool,
-    safety: Option<String>,
-) -> Result<String> {
-    let (server_url, client) = get_server_client(&server)?;
-
-    let mut payload = serde_json::Map::new();
-    payload.insert("full".to_string(), serde_json::json!(full));
-    if let Some(s) = safety {
-        payload.insert("safety".to_string(), serde_json::json!(s));
-    }
-
-    let response = client
-        .post(format!("{}/api/v1/repo/maintenance/run", server_url))
-        .json(&payload)
-        .send()
-        .await
-        .map_http_error("Failed to run maintenance")?;
-
-    #[derive(Deserialize)]
-    struct MaintenanceResponse {
-        id: String,
-    }
-
-    let result: MaintenanceResponse = handle_response(response, "Run maintenance").await?;
-
-    Ok(result.id)
-}
-
-// ============================================================================
 // Utility Commands
 // ============================================================================
 
@@ -1064,6 +1083,7 @@ pub async fn estimate_snapshot(
     let estimate_req = crate::types::EstimateRequest {
         root: resolved_path,
         max_examples_per_bucket,
+        policy_override: None,
     };
 
     let response = client

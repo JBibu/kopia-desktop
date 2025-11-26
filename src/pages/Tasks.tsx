@@ -588,8 +588,10 @@ export function Tasks() {
                         source.schedule?.timeOfDay &&
                         source.schedule.timeOfDay.length > 0
                       ) {
+                        const tod = source.schedule.timeOfDay[0];
+                        const timeStr = `${tod.hour.toString().padStart(2, '0')}:${tod.min.toString().padStart(2, '0')}`;
                         scheduleDesc = t('tasks.scheduleDailyAt', {
-                          time: source.schedule.timeOfDay[0],
+                          time: timeStr,
                         });
                       } else {
                         scheduleDesc = t('tasks.scheduleUnknown');

@@ -137,6 +137,27 @@ export async function repositoryExists(storage: import('./types').StorageConfig)
   return invoke('repository_exists', { storage });
 }
 
+/**
+ * Get repository throttling limits
+ *
+ * Returns the current bandwidth and operation throttling limits for the repository.
+ */
+export async function getThrottleLimits(): Promise<import('./types').ThrottleLimits> {
+  return invoke('repository_get_throttle');
+}
+
+/**
+ * Set repository throttling limits
+ *
+ * Sets bandwidth and operation throttling limits for the repository.
+ * Pass 0 or undefined for a limit to disable throttling for that parameter.
+ *
+ * @param limits - The throttling limits to set
+ */
+export async function setThrottleLimits(limits: import('./types').ThrottleLimits): Promise<void> {
+  return invoke('repository_set_throttle', { limits });
+}
+
 // ============================================================================
 // Snapshot Sources
 // ============================================================================
@@ -185,6 +206,63 @@ export async function createSnapshot(
  */
 export async function uploadSnapshot(userName: string, host: string, path: string): Promise<void> {
   return await invoke('snapshot_upload', {
+    userName,
+    host,
+    path,
+  });
+}
+
+/**
+ * Cancel a running snapshot
+ *
+ * @param userName - Username of the source owner
+ * @param host - Hostname of the source
+ * @param path - Path of the source
+ */
+export async function cancelSnapshot(userName: string, host: string, path: string): Promise<void> {
+  return await invoke('snapshot_cancel', {
+    userName,
+    host,
+    path,
+  });
+}
+
+/**
+ * Pause a snapshot source
+ *
+ * Pauses the specified snapshot source, halting any running upload.
+ *
+ * @param userName - Username of the source owner
+ * @param host - Hostname of the source
+ * @param path - Path of the source
+ */
+export async function pauseSnapshot(
+  userName: string,
+  host: string,
+  path: string
+): Promise<import('./types').MultipleSourceActionResponse> {
+  return await invoke('snapshot_pause', {
+    userName,
+    host,
+    path,
+  });
+}
+
+/**
+ * Resume a paused snapshot source
+ *
+ * Resumes a previously paused snapshot source.
+ *
+ * @param userName - Username of the source owner
+ * @param host - Hostname of the source
+ * @param path - Path of the source
+ */
+export async function resumeSnapshot(
+  userName: string,
+  host: string,
+  path: string
+): Promise<import('./types').MultipleSourceActionResponse> {
+  return await invoke('snapshot_resume', {
     userName,
     host,
     path,
@@ -367,17 +445,6 @@ export async function cancelTask(taskId: string): Promise<void> {
  */
 export async function getTasksSummary(): Promise<import('./types').TasksSummary> {
   return invoke('tasks_summary');
-}
-
-// ============================================================================
-// Maintenance
-// ============================================================================
-
-/**
- * Get maintenance information
- */
-export async function getMaintenanceInfo(): Promise<import('./types').MaintenanceInfo> {
-  return invoke('maintenance_info');
 }
 
 // ============================================================================

@@ -98,6 +98,7 @@ mod tests {
                 hostname: None,
                 readonly: Some(false),
             }),
+            sync_wait_time: None,
         };
 
         let json = serde_json::to_string(&request).unwrap();
@@ -261,6 +262,7 @@ mod tests {
                 hostname: Some("host".to_string()),
                 readonly: Some(true),
             }),
+            sync_wait_time: None,
         };
 
         let json = serde_json::to_string(&request).unwrap();
@@ -297,6 +299,7 @@ mod tests {
                 password: format!("password{}", i),
                 token: None,
                 client_options: None,
+                sync_wait_time: None,
             };
 
             let json = serde_json::to_string(&request).unwrap();

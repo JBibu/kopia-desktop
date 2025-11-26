@@ -35,7 +35,6 @@ import {
   cancelTask as apiCancelTask,
   connectWebSocket,
   disconnectWebSocket,
-  getMaintenanceInfo,
   listMounts,
   mountSnapshot as apiMountSnapshot,
   unmountSnapshot as apiUnmountSnapshot,
@@ -52,7 +51,6 @@ import type {
   Task,
   TasksSummary,
   WebSocketEvent,
-  MaintenanceInfo,
   MountsResponse,
 } from '@/lib/kopia/types';
 import { getErrorMessage } from '@/lib/kopia/errors';
@@ -86,11 +84,6 @@ interface KopiaStore {
   tasksSummary: TasksSummary | null;
   tasksError: string | null;
   isTasksLoading: boolean;
-
-  // Maintenance state
-  maintenanceInfo: MaintenanceInfo | null;
-  maintenanceError: string | null;
-  isMaintenanceLoading: boolean;
 
   // Mounts state
   mounts: MountsResponse | null;
@@ -160,9 +153,6 @@ interface KopiaStore {
   getTask: (taskId: string) => Promise<Task | null>;
   cancelTask: (taskId: string) => Promise<void>;
 
-  // Maintenance actions
-  refreshMaintenanceInfo: () => Promise<void>;
-
   // Mount actions
   refreshMounts: () => Promise<void>;
   mountSnapshot: (root: string) => Promise<string | null>;
@@ -227,11 +217,6 @@ export const useKopiaStore = create<KopiaStore>()(
     tasksSummary: null,
     tasksError: null,
     isTasksLoading: false,
-
-    // Maintenance
-    maintenanceInfo: null,
-    maintenanceError: null,
-    isMaintenanceLoading: false,
 
     // Mounts
     mounts: null,
@@ -648,31 +633,6 @@ export const useKopiaStore = create<KopiaStore>()(
     },
 
     // ========================================================================
-    // Maintenance Actions
-    // ========================================================================
-
-    refreshMaintenanceInfo: async () => {
-      const { isRepoConnected } = get();
-
-      // Only fetch maintenance info if repository is connected
-      if (!isRepoConnected()) {
-        return;
-      }
-
-      try {
-        const info = await getMaintenanceInfo();
-        set({ maintenanceInfo: info, maintenanceError: null });
-      } catch (error) {
-        const message = getErrorMessage(error);
-        const currentError = get().maintenanceError;
-
-        if (currentError !== message) {
-          set({ maintenanceError: message });
-        }
-      }
-    },
-
-    // ========================================================================
     // Mount Actions
     // ========================================================================
 
@@ -766,11 +726,10 @@ export const useKopiaStore = create<KopiaStore>()(
         void get().startWebSocket();
       }
 
-      // Server/Repo/Maintenance/Snapshots/Mounts polling (30s)
+      // Server/Repo/Snapshots/Mounts polling (30s)
       serverPollingTimer = setInterval(() => {
         void get().refreshServerStatus();
         void get().refreshRepositoryStatus();
-        void get().refreshMaintenanceInfo();
         void get().refreshSnapshots();
         void get().refreshMounts();
       }, serverPollingInterval);
@@ -1002,7 +961,6 @@ export const useKopiaStore = create<KopiaStore>()(
         get().refreshPolicies(),
         get().refreshTasks(),
         get().refreshTasksSummary(),
-        get().refreshMaintenanceInfo(),
         get().refreshMounts(),
       ]);
     },
@@ -1029,9 +987,6 @@ export const useKopiaStore = create<KopiaStore>()(
         tasksSummary: null,
         tasksError: null,
         isTasksLoading: false,
-        maintenanceInfo: null,
-        maintenanceError: null,
-        isMaintenanceLoading: false,
         mounts: null,
         mountsError: null,
         isMountsLoading: false,

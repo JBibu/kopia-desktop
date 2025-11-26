@@ -84,6 +84,7 @@ mod tests {
             password: "secret".to_string(),
             token: None,
             client_options: None,
+            sync_wait_time: None,
         };
 
         let json = serde_json::to_string(&request).unwrap();
