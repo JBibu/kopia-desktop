@@ -16,6 +16,7 @@ import { ProfileHistory } from './pages/ProfileHistory';
 import { Policies } from './pages/Policies';
 import { PolicyEdit } from './pages/PolicyEdit';
 import { Tasks } from './pages/Tasks';
+import { TaskDetail } from './pages/TaskDetail';
 import { Mounts } from './pages/Mounts';
 import { Preferences } from './pages/Preferences';
 import { Setup } from './pages/Setup';
@@ -163,6 +164,14 @@ function App(): React.JSX.Element {
               element={
                 <ProtectedRoute>
                   <Tasks />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="tasks/:taskId"
+              element={
+                <ProtectedRoute>
+                  <TaskDetail />
                 </ProtectedRoute>
               }
             />

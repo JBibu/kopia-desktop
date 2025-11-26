@@ -192,7 +192,9 @@ mod tests {
         let errors = vec![
             (KopiaError::ServerNotRunning, "Kopia server is not running"),
             (
-                KopiaError::RepositoryNotConnected,
+                KopiaError::RepositoryNotConnected {
+                    api_error_code: None,
+                },
                 "Repository is not connected",
             ),
             (

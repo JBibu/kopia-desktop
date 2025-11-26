@@ -31,7 +31,10 @@
     "unpin": "Desfijar",
     "dragToReorder": "Arrastrar para reordenar",
     "yes": "Sí",
-    "no": "No"
+    "no": "No",
+    "excluded": "excluidos",
+    "ignored": "ignorados",
+    "close": "Cerrar"
   },
   "errorBoundary": {
     "title": "Algo salió mal",
@@ -116,7 +119,12 @@
     "initializing": "Inicializando repositorio...",
     "initializingDescription": "Por favor espera mientras se establece la conexión al repositorio. Esto puede tardar unos momentos.",
     "initCancelled": "Inicialización del repositorio cancelada",
-    "cancelFailed": "Error al cancelar la inicialización"
+    "cancelFailed": "Error al cancelar la inicialización",
+    "description": {
+      "clickToEdit": "Clic para editar la descripción",
+      "cannotBeEmpty": "La descripción no puede estar vacía",
+      "updateSuccess": "Descripción del repositorio actualizada correctamente"
+    }
   },
   "snapshots": {
     "title": "Respaldos",
@@ -185,6 +193,31 @@
       "emptyName": "El nombre del anclaje no puede estar vacío",
       "duplicateName": "Este anclaje ya existe",
       "updateSuccess": "Anclajes actualizados correctamente"
+    },
+    "description": {
+      "title": "Descripción del respaldo",
+      "description": "Añade una descripción para ayudar a identificar este respaldo",
+      "label": "Descripción",
+      "placeholder": "Escribe una descripción para este respaldo...",
+      "hint": "Máximo 500 caracteres",
+      "clickToEdit": "Clic para editar la descripción",
+      "clickToAdd": "Clic para añadir una descripción",
+      "updateSuccess": "Descripción actualizada correctamente",
+      "removeSuccess": "Descripción eliminada correctamente",
+      "remove": "Eliminar descripción"
+    },
+    "estimate": "Estimar",
+    "estimation": {
+      "title": "Estimación del respaldo",
+      "started": "Estimación iniciada",
+      "running": "Estimando tamaño del respaldo...",
+      "completed": "Estimación completada",
+      "failed": "Estimación fallida",
+      "canceled": "Estimación cancelada",
+      "bytes": "Bytes",
+      "files": "Archivos",
+      "directories": "Directorios",
+      "errors": "Errores"
     },
     "retention": {
       "retention": "Retención"
@@ -613,7 +646,25 @@
     "taskSucceeded": "Tarea completada después de",
     "finished": "Finalizada",
     "logs": "Registros",
-    "noLogsAvailable": "No hay registros disponibles para esta tarea"
+    "noLogsAvailable": "No hay registros disponibles para esta tarea",
+    "detail": {
+      "title": "Detalles de la Tarea",
+      "succeeded": "Tarea completada después de {{duration}}",
+      "canceled": "La tarea fue cancelada",
+      "canceling": "Cancelando tarea (ejecutándose durante {{duration}})",
+      "running": "Tarea ejecutándose durante {{duration}}"
+    },
+    "startTime": "Hora de Inicio",
+    "endTime": "Hora de Finalización",
+    "counters": "Contadores",
+    "showZeroCounters": "Mostrar contadores en cero",
+    "detailCounters": "Contadores Detallados",
+    "debugCounters": "Contadores de Depuración",
+    "unknownError": "Error desconocido",
+    "noDescription": "Sin descripción",
+    "showLog": "Mostrar Registro",
+    "hideLog": "Ocultar Registro",
+    "noLogs": "No hay registros disponibles"
   },
   "mounts": {
     "title": "Explorar respaldos",
@@ -993,6 +1044,18 @@
   "errors": {
     "unknownError": "Ocurrió un error desconocido",
     "kopia": {
+      "internal": "Ocurrió un error interno del servidor. Por favor inténtalo de nuevo.",
+      "alreadyConnected": "Ya conectado a un destino.",
+      "alreadyInitialized": "Destino ya inicializado.",
+      "invalidPassword": "Contraseña no válida. Por favor verifica tu contraseña e inténtalo de nuevo.",
+      "invalidToken": "Token de autenticación no válido.",
+      "malformedRequest": "Formato de solicitud no válido. Por favor inténtalo de nuevo.",
+      "notConnected": "No conectado al destino. Por favor conéctate primero.",
+      "notFound": "Recurso no encontrado.",
+      "notInitialized": "Destino no inicializado. Crea un repositorio primero.",
+      "pathNotFound": "Ruta no encontrada.",
+      "storageConnection": "Error al conectar al almacenamiento. Por favor verifica tu configuración.",
+      "accessDenied": "Acceso denegado. Por favor verifica tus permisos.",
       "serverStartFailed": "Error al iniciar el servidor Kopia. Por favor verifica los registros.",
       "serverStopFailed": "Error al detener el servidor Kopia.",
       "serverNotRunning": "El servidor Kopia no está en ejecución. Por favor inicia el servidor primero.",

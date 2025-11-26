@@ -31,7 +31,10 @@
     "unpin": "Unpin",
     "dragToReorder": "Drag to reorder",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "excluded": "excluded",
+    "ignored": "ignored",
+    "close": "Close"
   },
   "errorBoundary": {
     "title": "Something went wrong",
@@ -116,7 +119,12 @@
     "initializing": "Initializing Repository...",
     "initializingDescription": "Please wait while the repository connection is being established. This may take a few moments.",
     "initCancelled": "Repository initialization cancelled",
-    "cancelFailed": "Failed to cancel initialization"
+    "cancelFailed": "Failed to cancel initialization",
+    "description": {
+      "clickToEdit": "Click to edit description",
+      "cannotBeEmpty": "Description cannot be empty",
+      "updateSuccess": "Repository description updated successfully"
+    }
   },
   "snapshots": {
     "title": "Backups",
@@ -185,6 +193,31 @@
       "emptyName": "Pin name cannot be empty",
       "duplicateName": "Pin already exists",
       "updateSuccess": "Pins updated successfully"
+    },
+    "description": {
+      "title": "Snapshot Description",
+      "description": "Add a description to help identify this snapshot",
+      "label": "Description",
+      "placeholder": "Enter a description for this snapshot...",
+      "hint": "Max 500 characters",
+      "clickToEdit": "Click to edit description",
+      "clickToAdd": "Click to add description",
+      "updateSuccess": "Description updated successfully",
+      "removeSuccess": "Description removed successfully",
+      "remove": "Remove Description"
+    },
+    "estimate": "Estimate",
+    "estimation": {
+      "title": "Snapshot Estimation",
+      "started": "Estimation started",
+      "running": "Estimating snapshot size...",
+      "completed": "Estimation complete",
+      "failed": "Estimation failed",
+      "canceled": "Estimation canceled",
+      "bytes": "Bytes",
+      "files": "Files",
+      "directories": "Directories",
+      "errors": "Errors"
     },
     "retention": {
       "retention": "Retention"
@@ -613,7 +646,25 @@
     "taskSucceeded": "Task succeeded after",
     "finished": "Finished",
     "logs": "Logs",
-    "noLogsAvailable": "No logs available for this task"
+    "noLogsAvailable": "No logs available for this task",
+    "detail": {
+      "title": "Task Details",
+      "succeeded": "Task succeeded after {{duration}}",
+      "canceled": "Task was canceled",
+      "canceling": "Canceling task (running for {{duration}})",
+      "running": "Task running for {{duration}}"
+    },
+    "startTime": "Start Time",
+    "endTime": "End Time",
+    "counters": "Counters",
+    "showZeroCounters": "Show zero counters",
+    "detailCounters": "Detailed Counters",
+    "debugCounters": "Debug Counters",
+    "unknownError": "Unknown error",
+    "noDescription": "No description",
+    "showLog": "Show Log",
+    "hideLog": "Hide Log",
+    "noLogs": "No logs available"
   },
   "mounts": {
     "title": "Browse Backups",
@@ -993,6 +1044,18 @@
   "errors": {
     "unknownError": "An unknown error occurred",
     "kopia": {
+      "internal": "An internal server error occurred. Please try again.",
+      "alreadyConnected": "Already connected to a destination.",
+      "alreadyInitialized": "Destination already initialized.",
+      "invalidPassword": "Invalid password. Please check your password and try again.",
+      "invalidToken": "Invalid authentication token.",
+      "malformedRequest": "Invalid request format. Please try again.",
+      "notConnected": "Not connected to destination. Please connect first.",
+      "notFound": "Resource not found.",
+      "notInitialized": "Destination not initialized. Create a repository first.",
+      "pathNotFound": "Path not found.",
+      "storageConnection": "Failed to connect to storage. Please check your configuration.",
+      "accessDenied": "Access denied. Please check your permissions.",
       "serverStartFailed": "Failed to start Kopia server. Please check the logs.",
       "serverStopFailed": "Failed to stop Kopia server.",
       "serverNotRunning": "Kopia server is not running. Please start the server first.",

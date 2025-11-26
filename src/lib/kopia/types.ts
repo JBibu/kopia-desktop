@@ -495,7 +495,8 @@ export interface PolicyDefinition {
   };
   files?: {
     ignore?: string[];
-    dotIgnoreFiles?: string[];
+    /** Note: JSON field is "ignoreDotFiles" (NOT camelCase "dotIgnoreFiles") */
+    ignoreDotFiles?: string[];
     oneFileSystem?: boolean;
     noParentIgnore?: boolean;
     noParentDotFiles?: boolean;

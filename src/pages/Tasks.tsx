@@ -3,6 +3,7 @@
  */
 
 import { Fragment, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useKopiaStore } from '@/stores/kopia';
 import { Button } from '@/components/ui/button';
@@ -51,6 +52,7 @@ import { usePreferencesStore } from '@/stores/preferences';
 import { getTask } from '@/lib/kopia/client';
 
 export function Tasks() {
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const language = usePreferencesStore((state) => state.language);
   const tasks = useKopiaStore((state) => state.tasks);
@@ -332,7 +334,16 @@ export function Tasks() {
                       <Fragment key={task.id}>
                         <TableRow>
                           <TableCell className="font-mono text-xs">
-                            {task.id.slice(0, 8)}...
+                            <button
+                              type="button"
+                              className="h-auto p-0 font-mono text-xs text-primary hover:underline cursor-pointer"
+                              onClick={() => {
+                                void navigate(`/tasks/${task.id}`);
+                              }}
+                              title={t('tasks.viewDetails')}
+                            >
+                              {task.id.slice(0, 8)}...
+                            </button>
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline">{task.kind || t('tasks.unknown')}</Badge>

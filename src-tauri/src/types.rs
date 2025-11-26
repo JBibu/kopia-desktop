@@ -86,7 +86,10 @@ pub struct RepositoryStatus {
     pub init_task_id: Option<String>,
 }
 
-/// ThrottlingLimits matches throttling.Limits from official Kopia
+/// ThrottlingLimits represents the bandwidth throttling limits in RepositoryStatus
+/// This is a simplified version returned by the status API endpoint.
+/// For more detailed throttle configuration, see ThrottleLimits below.
+/// Matches throttling.Limits from official Kopia
 /// See: internal/throttling/throttling.go
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -372,7 +375,9 @@ pub struct MultipleSourceActionResponse {
     pub sources: std::collections::HashMap<String, SourceActionResponse>,
 }
 
-/// ThrottleLimits for repository operations
+/// ThrottleLimits for repository operations (detailed configuration)
+/// Used by GET/PUT /api/v1/repo/throttle endpoints for fine-grained control.
+/// This is more detailed than ThrottlingLimits (status-only bandwidth limits).
 /// See: repo/blob/throttling/throttler.go (Limits)
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -638,11 +643,15 @@ pub struct TimeOfDay {
     pub minute: i32,
 }
 
+/// FilesPolicy matches policy.FilesPolicy from official Kopia
+/// See: snapshot/policy/files_policy.go:3-16
+/// IMPORTANT: JSON field is "ignoreDotFiles" (NOT camelCase "dotIgnoreFiles")
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FilesPolicy {
     pub ignore: Option<Vec<String>>,
-    #[serde(rename = "dotIgnoreFiles")]
+    // Official field: DotIgnoreFiles with json:"ignoreDotFiles,omitempty" (NOT camelCase)
+    #[serde(rename = "ignoreDotFiles")]
     pub ignore_dot_files: Option<Vec<String>>,
     pub one_file_system: Option<bool>,
     pub no_parent_ignore: Option<bool>,
@@ -835,14 +844,18 @@ pub struct TaskDetail {
 }
 
 /// CounterValue describes the counter value reported by task with optional units for presentation.
+/// See: internal/uitask/uitask_counter.go:4-8
+/// IMPORTANT: level field does NOT have omitempty in official - always serialized
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CounterValue {
     pub value: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub units: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub level: Option<String>, // "", "notice", "warning" or "error"
+    /// Level: "", "notice", "warning", or "error"
+    /// Note: Always serialized (no omitempty), empty string if not set
+    #[serde(default)]
+    pub level: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

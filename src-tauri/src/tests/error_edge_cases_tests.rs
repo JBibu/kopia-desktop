@@ -209,10 +209,12 @@ mod tests {
 
     #[test]
     fn test_all_simple_errors_serialize() {
-        // Errors with no fields
+        // Errors with no fields or optional fields
         let simple_errors = vec![
             KopiaError::ServerNotRunning,
-            KopiaError::RepositoryNotConnected,
+            KopiaError::RepositoryNotConnected {
+                api_error_code: None,
+            },
             KopiaError::WebSocketAlreadyConnected,
             KopiaError::WebSocketNotConnected,
         ];
@@ -261,7 +263,9 @@ mod tests {
         let error_variants = vec![
             KopiaError::ServerNotRunning,
             KopiaError::ServerAlreadyRunning { port: 0 },
-            KopiaError::RepositoryNotConnected,
+            KopiaError::RepositoryNotConnected {
+                api_error_code: None,
+            },
             KopiaError::WebSocketNotConnected,
             KopiaError::InvalidInput {
                 message: "x".to_string(),

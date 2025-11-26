@@ -36,7 +36,9 @@ mod tests {
                 message: "connection failed".to_string(),
                 storage_type: Some("s3".to_string()),
             },
-            KopiaError::RepositoryNotConnected,
+            KopiaError::RepositoryNotConnected {
+                api_error_code: None,
+            },
             KopiaError::RepositoryCreationFailed {
                 message: "creation failed".to_string(),
                 storage_type: None,
@@ -129,6 +131,7 @@ mod tests {
             },
             KopiaError::AuthenticationFailed {
                 message: "auth failed".to_string(),
+                api_error_code: None,
             },
             KopiaError::Unauthorized {
                 resource: "snapshots".to_string(),

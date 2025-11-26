@@ -252,11 +252,37 @@ export function useSnapshots() {
 
 ## Error Handling
 
-Use centralized `KopiaError` class:
+**Two-Tier Error System:**
+
+Kopia Desktop maintains **API parity** with official Kopia while providing enhanced error handling:
+
+1. **Official Kopia API Errors** (12 codes from `serverapi.ErrorResponse`):
+   - `INTERNAL`, `ALREADY_CONNECTED`, `ALREADY_INITIALIZED`
+   - `INVALID_PASSWORD`, `INVALID_TOKEN`, `MALFORMED_REQUEST`
+   - `NOT_CONNECTED`, `NOT_FOUND`, `NOT_INITIALIZED`
+   - `PATH_NOT_FOUND`, `STORAGE_CONNECTION`, `ACCESS_DENIED`
+
+2. **Extended Desktop Errors** (70+ codes for application-specific scenarios):
+   - Server lifecycle, WebSocket, Notifications, etc.
+   - Mapped from official codes (see `API_ERROR_CODE_MAPPING` in errors.ts)
+
+**Error Flow:**
+
+```
+Kopia Server API Error
+  ↓ (Rust: src-tauri/src/error.rs)
+Preserves original API error code in api_error_code field
+  ↓ (TypeScript: src/lib/kopia/errors.ts)
+KopiaError with both custom code + API error code
+  ↓ (i18n: src/lib/i18n/locales/*.json)
+Translated user message
+```
+
+**Usage:**
 
 ```typescript
-import { getErrorMessage } from '@/lib/utils';
-import { isNotConnectedError } from '@/lib/kopia/errors';
+import { getErrorMessage, isNotConnectedError } from '@/lib/kopia/errors';
+import { OfficialKopiaAPIErrorCode } from '@/lib/kopia/errors';
 
 try {
   await someKopiaOperation();
@@ -264,13 +290,20 @@ try {
   const message = getErrorMessage(err);
   toast.error(message);
 
+  // Check custom code OR official API code
   if (isNotConnectedError(err)) {
     navigate('/setup');
+  }
+
+  // Check specific official API code
+  const kopiaError = parseKopiaError(err);
+  if (kopiaError.isAPIError(OfficialKopiaAPIErrorCode.INVALID_PASSWORD)) {
+    // Handle password error
   }
 }
 ```
 
-All error variants are tested in both Rust and TypeScript.
+All error variants tested in Rust (src-tauri/src/tests/) and TypeScript (tests/).
 
 ---
 

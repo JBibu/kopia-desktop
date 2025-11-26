@@ -77,11 +77,18 @@ pub enum KopiaError {
 
     /// Repository not connected
     #[error("Repository is not connected")]
-    RepositoryNotConnected,
+    RepositoryNotConnected {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        api_error_code: Option<String>,
+    },
 
     /// Repository not initialized (storage exists but no repository)
     #[error("Repository not initialized: {message}")]
-    RepositoryNotInitialized { message: String },
+    RepositoryNotInitialized {
+        message: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        api_error_code: Option<String>,
+    },
 
     /// Repository creation failed
     #[error("Failed to create repository: {message}")]
@@ -258,7 +265,11 @@ pub enum KopiaError {
 
     /// Authentication failed
     #[error("Authentication failed: {message}")]
-    AuthenticationFailed { message: String },
+    AuthenticationFailed {
+        message: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        api_error_code: Option<String>,
+    },
 
     /// Unauthorized access
     #[error("Unauthorized access to: {resource}")]
@@ -400,19 +411,57 @@ impl KopiaError {
             Err(_) => (None, body.to_string()),
         };
 
-        // Handle specific error codes
+        // Handle specific error codes (preserve original API code for parity)
         if let Some(ref error_code) = code {
             match error_code.as_str() {
                 "NOT_CONNECTED" => {
-                    return KopiaError::RepositoryNotConnected;
+                    return KopiaError::RepositoryNotConnected {
+                        api_error_code: Some(error_code.clone()),
+                    };
                 }
                 "NOT_INITIALIZED" => {
                     return KopiaError::RepositoryNotInitialized {
                         message: message.clone(),
+                        api_error_code: Some(error_code.clone()),
                     };
                 }
-                "INVALID_PASSWORD" => {
-                    return KopiaError::AuthenticationFailed { message };
+                "INVALID_PASSWORD" | "INVALID_TOKEN" | "ACCESS_DENIED" => {
+                    return KopiaError::AuthenticationFailed {
+                        message,
+                        api_error_code: Some(error_code.clone()),
+                    };
+                }
+                "STORAGE_CONNECTION" => {
+                    return KopiaError::RepositoryConnectionFailed {
+                        message,
+                        storage_type: None,
+                    };
+                }
+                "ALREADY_CONNECTED" => {
+                    return KopiaError::RepositoryConnectionFailed {
+                        message: "Repository is already connected".to_string(),
+                        storage_type: None,
+                    };
+                }
+                "ALREADY_INITIALIZED" => {
+                    return KopiaError::RepositoryAlreadyExists { message };
+                }
+                "PATH_NOT_FOUND" => {
+                    return KopiaError::PathNotFound {
+                        path: operation.to_string(),
+                    };
+                }
+                "MALFORMED_REQUEST" => {
+                    return KopiaError::InvalidInput {
+                        message,
+                        field: None,
+                    };
+                }
+                "INTERNAL" => {
+                    return KopiaError::InternalError {
+                        message,
+                        details: None,
+                    };
                 }
                 _ => {}
             }
@@ -420,7 +469,10 @@ impl KopiaError {
 
         // Handle by HTTP status code
         match status_code {
-            401 => KopiaError::AuthenticationFailed { message },
+            401 => KopiaError::AuthenticationFailed {
+                message,
+                api_error_code: None,
+            },
             403 => KopiaError::Unauthorized {
                 resource: operation.to_string(),
             },
@@ -524,6 +576,42 @@ mod tests {
 
         let err = KopiaError::from_api_response(500, "Server error", "Create snapshot");
         assert!(matches!(err, KopiaError::ApiError { .. }));
+    }
+
+    #[test]
+    fn test_api_error_code_preservation() {
+        // Test that official API error codes are preserved
+        let body = r#"{"code":"NOT_CONNECTED","error":"Repository not connected"}"#;
+        let err = KopiaError::from_api_response(400, body, "test");
+        if let KopiaError::RepositoryNotConnected { api_error_code } = err {
+            assert_eq!(api_error_code, Some("NOT_CONNECTED".to_string()));
+        } else {
+            panic!("Expected RepositoryNotConnected, got {:?}", err);
+        }
+
+        // Test INVALID_PASSWORD preserves API code
+        let body = r#"{"code":"INVALID_PASSWORD","error":"Invalid password"}"#;
+        let err = KopiaError::from_api_response(401, body, "connect");
+        if let KopiaError::AuthenticationFailed {
+            api_error_code, ..
+        } = err
+        {
+            assert_eq!(api_error_code, Some("INVALID_PASSWORD".to_string()));
+        } else {
+            panic!("Expected AuthenticationFailed with api_error_code");
+        }
+
+        // Test NOT_INITIALIZED preserves API code
+        let body = r#"{"code":"NOT_INITIALIZED","error":"Repository not initialized"}"#;
+        let err = KopiaError::from_api_response(400, body, "test");
+        if let KopiaError::RepositoryNotInitialized {
+            api_error_code, ..
+        } = err
+        {
+            assert_eq!(api_error_code, Some("NOT_INITIALIZED".to_string()));
+        } else {
+            panic!("Expected RepositoryNotInitialized with api_error_code");
+        }
     }
 
     #[test]

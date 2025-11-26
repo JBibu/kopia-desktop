@@ -25,7 +25,16 @@ export type {
 } from './types';
 
 // Re-export error handling utilities
-export { KopiaError, KopiaErrorCode, parseKopiaError, getErrorMessage } from './errors';
+export {
+  KopiaError,
+  KopiaErrorCode,
+  OfficialKopiaAPIErrorCode,
+  parseKopiaError,
+  getErrorMessage,
+  isNotConnectedError,
+  isAuthenticationError,
+  API_ERROR_CODE_MAPPING,
+} from './errors';
 
 // ============================================================================
 // Kopia Server Lifecycle
@@ -138,6 +147,18 @@ export async function repositoryExists(storage: import('./types').StorageConfig)
 }
 
 /**
+ * Update repository description
+ *
+ * Updates the human-readable description for the repository.
+ * This helps identify the repository when managing multiple repositories.
+ *
+ * @param description - The new description for the repository
+ */
+export async function updateRepositoryDescription(description: string): Promise<void> {
+  return invoke('repository_update_description', { description });
+}
+
+/**
  * Get repository throttling limits
  *
  * Returns the current bandwidth and operation throttling limits for the repository.
@@ -191,6 +212,26 @@ export async function createSnapshot(
     host,
     createSnapshot,
     policy,
+  });
+}
+
+/**
+ * Estimate snapshot size before creating it
+ *
+ * Returns a task ID that can be used to monitor the estimation progress.
+ * The task will show estimates for bytes, files, directories, and errors.
+ *
+ * @param path - Path to estimate
+ * @param maxExamplesPerBucket - Maximum examples per bucket (optional, defaults to 10)
+ * @returns Task ID for the estimation task
+ */
+export async function estimateSnapshot(
+  path: string,
+  maxExamplesPerBucket?: number
+): Promise<{ id: string }> {
+  return await invoke('estimate_snapshot', {
+    path,
+    maxExamplesPerBucket: maxExamplesPerBucket || 10,
   });
 }
 

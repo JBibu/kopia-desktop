@@ -457,10 +457,10 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
               />
               <PolicyArrayField
                 label={t('policies.dotIgnoreFiles')}
-                value={policy.files?.dotIgnoreFiles}
-                onChange={(val) => updatePolicy('files', 'dotIgnoreFiles', val)}
-                isDefined={isDefined('files', 'dotIgnoreFiles')}
-                effectiveValue={resolvedPolicy?.effective.files?.dotIgnoreFiles}
+                value={policy.files?.ignoreDotFiles}
+                onChange={(val) => updatePolicy('files', 'ignoreDotFiles', val)}
+                isDefined={isDefined('files', 'ignoreDotFiles')}
+                effectiveValue={resolvedPolicy?.effective.files?.ignoreDotFiles}
                 placeholder="e.g., .kopiaignore, .gitignore"
                 help={t('policies.dotIgnoreFilesHelp')}
               />

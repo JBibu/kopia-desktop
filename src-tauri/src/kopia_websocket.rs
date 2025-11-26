@@ -246,7 +246,8 @@ impl KopiaWebSocket {
         }
     }
 
-    /// Check if WebSocket is connected
+    /// Check if WebSocket is connected (test-only helper)
+    #[cfg(test)]
     pub async fn is_connected(&self) -> bool {
         let conn_guard = self.connection.lock().await;
         conn_guard.is_some()
