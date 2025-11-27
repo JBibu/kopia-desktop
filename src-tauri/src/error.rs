@@ -611,10 +611,7 @@ mod tests {
         // Test INVALID_PASSWORD preserves API code
         let body = r#"{"code":"INVALID_PASSWORD","error":"Invalid password"}"#;
         let err = KopiaError::from_api_response(401, body, "connect");
-        if let KopiaError::AuthenticationFailed {
-            api_error_code, ..
-        } = err
-        {
+        if let KopiaError::AuthenticationFailed { api_error_code, .. } = err {
             assert_eq!(api_error_code, Some("INVALID_PASSWORD".to_string()));
         } else {
             panic!("Expected AuthenticationFailed with api_error_code");
@@ -623,10 +620,7 @@ mod tests {
         // Test NOT_INITIALIZED preserves API code
         let body = r#"{"code":"NOT_INITIALIZED","error":"Repository not initialized"}"#;
         let err = KopiaError::from_api_response(400, body, "test");
-        if let KopiaError::RepositoryNotInitialized {
-            api_error_code, ..
-        } = err
-        {
+        if let KopiaError::RepositoryNotInitialized { api_error_code, .. } = err {
             assert_eq!(api_error_code, Some("NOT_INITIALIZED".to_string()));
         } else {
             panic!("Expected RepositoryNotInitialized with api_error_code");

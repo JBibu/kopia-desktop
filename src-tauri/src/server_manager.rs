@@ -145,10 +145,7 @@ impl ServerManager {
         let server = self.get_or_create_server(repo_id);
 
         let mut server_guard = server.lock().unwrap_or_else(|poisoned| {
-            log::warn!(
-                "Mutex poisoned for repo '{}', recovering...",
-                repo_id
-            );
+            log::warn!("Mutex poisoned for repo '{}', recovering...", repo_id);
             poisoned.into_inner()
         });
 
@@ -165,17 +162,15 @@ impl ServerManager {
 
     /// Stop a server for a specific repository
     pub fn stop_server(&mut self, repo_id: &str) -> Result<()> {
-        let server = self.servers.get(repo_id).ok_or_else(|| {
-            KopiaError::RepositoryNotFound {
+        let server = self
+            .servers
+            .get(repo_id)
+            .ok_or_else(|| KopiaError::RepositoryNotFound {
                 repo_id: repo_id.to_string(),
-            }
-        })?;
+            })?;
 
         let mut server_guard = server.lock().unwrap_or_else(|poisoned| {
-            log::warn!(
-                "Mutex poisoned for repo '{}', recovering...",
-                repo_id
-            );
+            log::warn!("Mutex poisoned for repo '{}', recovering...", repo_id);
             poisoned.into_inner()
         });
 
@@ -188,10 +183,7 @@ impl ServerManager {
 
         for (repo_id, server) in self.servers.iter() {
             let mut server_guard = server.lock().unwrap_or_else(|poisoned| {
-                log::warn!(
-                    "Mutex poisoned for repo '{}', recovering...",
-                    repo_id
-                );
+                log::warn!("Mutex poisoned for repo '{}', recovering...", repo_id);
                 poisoned.into_inner()
             });
 
@@ -221,17 +213,15 @@ impl ServerManager {
 
     /// Get server status for a specific repository
     pub fn get_server_status(&mut self, repo_id: &str) -> Result<KopiaServerStatus> {
-        let server = self.servers.get(repo_id).ok_or_else(|| {
-            KopiaError::RepositoryNotFound {
+        let server = self
+            .servers
+            .get(repo_id)
+            .ok_or_else(|| KopiaError::RepositoryNotFound {
                 repo_id: repo_id.to_string(),
-            }
-        })?;
+            })?;
 
         let mut server_guard = server.lock().unwrap_or_else(|poisoned| {
-            log::warn!(
-                "Mutex poisoned for repo '{}', recovering...",
-                repo_id
-            );
+            log::warn!("Mutex poisoned for repo '{}', recovering...", repo_id);
             poisoned.into_inner()
         });
 
@@ -251,19 +241,12 @@ impl ServerManager {
             // Get or create server to check status
             let server = self.get_or_create_server(&repo_id);
             let mut server_guard = server.lock().unwrap_or_else(|poisoned| {
-                log::warn!(
-                    "Mutex poisoned for repo '{}', recovering...",
-                    repo_id
-                );
+                log::warn!("Mutex poisoned for repo '{}', recovering...", repo_id);
                 poisoned.into_inner()
             });
 
             let status = server_guard.status();
-            let status_str = if status.running {
-                "running"
-            } else {
-                "stopped"
-            };
+            let status_str = if status.running { "running" } else { "stopped" };
 
             entries.push(RepositoryEntry {
                 id: repo_id.clone(),
@@ -301,10 +284,7 @@ impl ServerManager {
 
         // Create and start server instance (required for API calls)
         // Config file will be created by Kopia when connecting/creating
-        log::info!(
-            "Adding new repository '{}' and starting server...",
-            id
-        );
+        log::info!("Adding new repository '{}' and starting server...", id);
 
         // Start the server for this new repository
         self.start_server(&id)?;
@@ -331,10 +311,7 @@ impl ServerManager {
         // Stop server if running
         if let Some(server) = self.servers.get(repo_id) {
             let mut server_guard = server.lock().unwrap_or_else(|poisoned| {
-                log::warn!(
-                    "Mutex poisoned for repo '{}', recovering...",
-                    repo_id
-                );
+                log::warn!("Mutex poisoned for repo '{}', recovering...", repo_id);
                 poisoned.into_inner()
             });
 
@@ -410,11 +387,12 @@ impl ServerManager {
         &self,
         repo_id: &str,
     ) -> Result<impl std::future::Future<Output = Result<()>>> {
-        let server = self.servers.get(repo_id).ok_or_else(|| {
-            KopiaError::RepositoryNotFound {
+        let server = self
+            .servers
+            .get(repo_id)
+            .ok_or_else(|| KopiaError::RepositoryNotFound {
                 repo_id: repo_id.to_string(),
-            }
-        })?;
+            })?;
 
         let server_guard = server
             .lock()
@@ -463,21 +441,9 @@ mod tests {
         let config_dir = temp_dir.path().to_str().unwrap();
 
         // Create some config files
-        fs::write(
-            temp_dir.path().join("repository.config"),
-            "test config",
-        )
-        .unwrap();
-        fs::write(
-            temp_dir.path().join("repository-123.config"),
-            "test config",
-        )
-        .unwrap();
-        fs::write(
-            temp_dir.path().join("other-file.txt"),
-            "not a config",
-        )
-        .unwrap();
+        fs::write(temp_dir.path().join("repository.config"), "test config").unwrap();
+        fs::write(temp_dir.path().join("repository-123.config"), "test config").unwrap();
+        fs::write(temp_dir.path().join("other-file.txt"), "not a config").unwrap();
 
         let manager = ServerManager::new(config_dir);
         let repos = manager.discover_repositories().unwrap();
@@ -525,11 +491,7 @@ mod tests {
         let config_dir = temp_dir.path().to_str().unwrap();
 
         // Create a config file
-        fs::write(
-            temp_dir.path().join("repository.config"),
-            "test config",
-        )
-        .unwrap();
+        fs::write(temp_dir.path().join("repository.config"), "test config").unwrap();
 
         let manager = ServerManager::new(config_dir);
 

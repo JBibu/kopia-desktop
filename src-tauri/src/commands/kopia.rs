@@ -264,7 +264,8 @@ pub async fn repository_create(
 /// - Error with `{"code": "NOT_INITIALIZED", "error": "..."}` if repository doesn't exist
 #[tauri::command]
 pub async fn repository_exists(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     storage: StorageConfig,
 ) -> Result<bool> {
     let (server_url, client) = get_server_client(&manager, &repo_id)?;
@@ -317,7 +318,8 @@ pub async fn repository_exists(
 /// supported by the Kopia server for repository creation.
 #[tauri::command]
 pub async fn repository_get_algorithms(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
 ) -> Result<crate::types::AlgorithmsResponse> {
     let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
@@ -333,7 +335,8 @@ pub async fn repository_get_algorithms(
 /// Update repository description
 #[tauri::command]
 pub async fn repository_update_description(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     description: String,
 ) -> Result<()> {
     let (server_url, client) = get_server_client(&manager, &repo_id)?;
@@ -351,7 +354,8 @@ pub async fn repository_update_description(
 /// Get throttling limits for repository operations
 #[tauri::command]
 pub async fn repository_get_throttle(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
 ) -> Result<crate::types::ThrottleLimits> {
     let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
@@ -367,7 +371,8 @@ pub async fn repository_get_throttle(
 /// Set throttling limits for repository operations
 #[tauri::command]
 pub async fn repository_set_throttle(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     limits: crate::types::ThrottleLimits,
 ) -> Result<()> {
     let (server_url, client) = get_server_client(&manager, &repo_id)?;
@@ -392,7 +397,8 @@ pub async fn repository_set_throttle(
 /// time, upload progress, next scheduled snapshot, and source path.
 #[tauri::command]
 pub async fn sources_list(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
 ) -> Result<crate::types::SourcesResponse> {
     let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
@@ -408,7 +414,8 @@ pub async fn sources_list(
 /// Create a snapshot source and optionally start a snapshot
 #[tauri::command]
 pub async fn snapshot_create(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     path: String,
     user_name: Option<String>,
     host: Option<String>,
@@ -536,7 +543,8 @@ pub async fn snapshot_create(
 /// a backup on an existing backup source.
 #[tauri::command]
 pub async fn snapshot_upload(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     user_name: String,
     host: String,
     path: String,
@@ -560,7 +568,8 @@ pub async fn snapshot_upload(
 /// Cancel a snapshot
 #[tauri::command]
 pub async fn snapshot_cancel(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     user_name: String,
     host: String,
     path: String,
@@ -584,7 +593,8 @@ pub async fn snapshot_cancel(
 /// Pause a snapshot source
 #[tauri::command]
 pub async fn snapshot_pause(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     user_name: String,
     host: String,
     path: String,
@@ -608,7 +618,8 @@ pub async fn snapshot_pause(
 /// Resume a paused snapshot source
 #[tauri::command]
 pub async fn snapshot_resume(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     user_name: String,
     host: String,
     path: String,
@@ -636,7 +647,8 @@ pub async fn snapshot_resume(
 /// List snapshots for a source
 #[tauri::command]
 pub async fn snapshots_list(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     user_name: String,
     host: String,
     path: String,
@@ -662,7 +674,8 @@ pub async fn snapshots_list(
 /// Edit snapshot metadata
 #[tauri::command]
 pub async fn snapshot_edit(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     request: crate::types::SnapshotEditRequest,
 ) -> Result<()> {
     let (server_url, client) = get_server_client(&manager, &repo_id)?;
@@ -680,7 +693,8 @@ pub async fn snapshot_edit(
 /// Delete snapshots
 #[tauri::command]
 pub async fn snapshot_delete(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     user_name: String,
     host: String,
     path: String,
@@ -723,7 +737,8 @@ pub async fn snapshot_delete(
 /// Browse directory contents in a snapshot
 #[tauri::command]
 pub async fn object_browse(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     object_id: String,
 ) -> Result<crate::types::DirectoryObject> {
     let (server_url, client) = get_server_client(&manager, &repo_id)?;
@@ -740,7 +755,8 @@ pub async fn object_browse(
 /// Download a single file from a snapshot
 #[tauri::command]
 pub async fn object_download(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     object_id: String,
     filename: String,
     target_path: String,
@@ -782,7 +798,8 @@ pub async fn object_download(
 /// Start a restore operation
 #[tauri::command]
 pub async fn restore_start(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     request: crate::types::RestoreRequest,
 ) -> Result<String> {
     let (server_url, client) = get_server_client(&manager, &repo_id)?;
@@ -806,7 +823,11 @@ pub async fn restore_start(
 
 /// Mount a snapshot
 #[tauri::command]
-pub async fn mount_snapshot(manager: State<'_, ServerManagerState>, repo_id: String, root: String) -> Result<String> {
+pub async fn mount_snapshot(
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
+    root: String,
+) -> Result<String> {
     let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
@@ -827,7 +848,8 @@ pub async fn mount_snapshot(manager: State<'_, ServerManagerState>, repo_id: Str
 /// Mounted snapshots appear as local filesystems for easy file browsing and restoration.
 #[tauri::command]
 pub async fn mounts_list(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
 ) -> Result<crate::types::MountsResponse> {
     let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
@@ -842,7 +864,11 @@ pub async fn mounts_list(
 
 /// Unmount a snapshot
 #[tauri::command]
-pub async fn mount_unmount(manager: State<'_, ServerManagerState>, repo_id: String, object_id: String) -> Result<()> {
+pub async fn mount_unmount(
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
+    object_id: String,
+) -> Result<()> {
     let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
@@ -864,7 +890,8 @@ pub async fn mount_unmount(manager: State<'_, ServerManagerState>, repo_id: Stri
 /// Policies control retention, scheduling, compression, and other backup behavior.
 #[tauri::command]
 pub async fn policies_list(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
 ) -> Result<crate::types::PoliciesResponse> {
     let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
@@ -880,7 +907,8 @@ pub async fn policies_list(
 /// Get policy for a specific target
 #[tauri::command]
 pub async fn policy_get(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     user_name: Option<String>,
     host: Option<String>,
     path: Option<String>,
@@ -901,7 +929,8 @@ pub async fn policy_get(
 /// Resolve effective policy with inheritance
 #[tauri::command]
 pub async fn policy_resolve(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     user_name: Option<String>,
     host: Option<String>,
     path: Option<String>,
@@ -942,7 +971,8 @@ pub async fn policy_resolve(
 /// Set/update policy
 #[tauri::command]
 pub async fn policy_set(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     user_name: Option<String>,
     host: Option<String>,
     path: Option<String>,
@@ -965,7 +995,8 @@ pub async fn policy_set(
 /// Delete policy (revert to inherited)
 #[tauri::command]
 pub async fn policy_delete(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     user_name: Option<String>,
     host: Option<String>,
     path: Option<String>,
@@ -993,7 +1024,8 @@ pub async fn policy_delete(
 /// Each task includes status, progress, start time, and error information (if failed).
 #[tauri::command]
 pub async fn tasks_list(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
 ) -> Result<crate::types::TasksResponse> {
     let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
@@ -1009,7 +1041,8 @@ pub async fn tasks_list(
 /// Get task details
 #[tauri::command]
 pub async fn task_get(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     task_id: String,
 ) -> Result<crate::types::TaskDetail> {
     let (server_url, client) = get_server_client(&manager, &repo_id)?;
@@ -1026,7 +1059,8 @@ pub async fn task_get(
 /// Get task logs
 #[tauri::command]
 pub async fn task_logs(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     task_id: String,
 ) -> Result<Vec<String>> {
     let (server_url, client) = get_server_client(&manager, &repo_id)?;
@@ -1049,7 +1083,11 @@ pub async fn task_logs(
 
 /// Cancel a task
 #[tauri::command]
-pub async fn task_cancel(manager: State<'_, ServerManagerState>, repo_id: String, task_id: String) -> Result<()> {
+pub async fn task_cancel(
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
+    task_id: String,
+) -> Result<()> {
     let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
@@ -1064,7 +1102,8 @@ pub async fn task_cancel(manager: State<'_, ServerManagerState>, repo_id: String
 /// Get task summary
 #[tauri::command]
 pub async fn tasks_summary(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
 ) -> Result<crate::types::TasksSummary> {
     let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
@@ -1084,7 +1123,8 @@ pub async fn tasks_summary(
 /// Resolve a file system path to get source info (user@host:/path)
 #[tauri::command]
 pub async fn path_resolve(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     path: String,
 ) -> Result<crate::types::SourceInfo> {
     let (server_url, client) = get_server_client(&manager, &repo_id)?;
@@ -1127,7 +1167,8 @@ pub async fn path_resolve(
 pub async fn estimate_snapshot(
     path: String,
     max_examples_per_bucket: Option<i64>,
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
 ) -> Result<crate::types::EstimateResponse> {
     let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
@@ -1176,7 +1217,8 @@ pub async fn estimate_snapshot(
 /// List notification profiles
 #[tauri::command]
 pub async fn notification_profiles_list(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
 ) -> Result<Vec<crate::types::NotificationProfile>> {
     let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
@@ -1211,7 +1253,8 @@ pub async fn notification_profiles_list(
 /// Create notification profile
 #[tauri::command]
 pub async fn notification_profile_create(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     profile: crate::types::NotificationProfile,
 ) -> Result<()> {
     let (server_url, client) = get_server_client(&manager, &repo_id)?;
@@ -1229,7 +1272,8 @@ pub async fn notification_profile_create(
 /// Delete notification profile
 #[tauri::command]
 pub async fn notification_profile_delete(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     profile_name: String,
 ) -> Result<()> {
     let (server_url, client) = get_server_client(&manager, &repo_id)?;
@@ -1249,7 +1293,8 @@ pub async fn notification_profile_delete(
 /// Test notification profile (send test notification)
 #[tauri::command]
 pub async fn notification_profile_test(
-    manager: State<'_, ServerManagerState>, repo_id: String,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     profile: crate::types::NotificationProfile,
 ) -> Result<()> {
     let (server_url, client) = get_server_client(&manager, &repo_id)?;
@@ -1275,11 +1320,12 @@ fn get_server_client(
 ) -> Result<(String, reqwest::Client)> {
     let manager_guard = lock_manager!(manager);
 
-    let server_url = manager_guard
-        .get_server_url(repo_id)
-        .ok_or_else(|| KopiaError::RepositoryNotFound {
-            repo_id: repo_id.to_string(),
-        })?;
+    let server_url =
+        manager_guard
+            .get_server_url(repo_id)
+            .ok_or_else(|| KopiaError::RepositoryNotFound {
+                repo_id: repo_id.to_string(),
+            })?;
 
     let client = manager_guard
         .get_http_client(repo_id)

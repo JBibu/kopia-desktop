@@ -110,11 +110,7 @@ async fn auto_start_servers(manager_state: ServerManagerState) -> error::Result<
 
             match manager.start_server(&repo_id) {
                 Ok(info) => {
-                    log::info!(
-                        "Server for '{}' started at {}",
-                        repo_id,
-                        info.server_url
-                    );
+                    log::info!("Server for '{}' started at {}", repo_id, info.server_url);
                     // Get ready waiter for this server
                     manager.get_ready_waiter(&repo_id).ok()
                 }
@@ -140,8 +136,8 @@ async fn auto_start_servers(manager_state: ServerManagerState) -> error::Result<
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Get config directory for ServerManager
-    let config_dir = commands::kopia::get_default_config_dir()
-        .expect("Failed to determine config directory");
+    let config_dir =
+        commands::kopia::get_default_config_dir().expect("Failed to determine config directory");
 
     // Initialize ServerManager state (manages multiple repositories)
     let manager_state = create_server_manager_state(&config_dir);
