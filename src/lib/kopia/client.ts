@@ -88,16 +88,6 @@ export async function disconnectRepository(): Promise<void> {
   return invoke('repository_disconnect');
 }
 
-/**
- * Sync repository metadata with the storage backend
- *
- * This is useful when multiple clients are connected to the same repository
- * to ensure they all see the latest snapshots and policies.
- */
-export async function syncRepository(): Promise<void> {
-  return invoke('repository_sync');
-}
-
 // ============================================================================
 // System Utilities
 // ============================================================================
@@ -158,27 +148,6 @@ export async function updateRepositoryDescription(description: string): Promise<
   return invoke('repository_update_description', { description });
 }
 
-/**
- * Get repository throttling limits
- *
- * Returns the current bandwidth and operation throttling limits for the repository.
- */
-export async function getThrottleLimits(): Promise<import('./types').ThrottleLimits> {
-  return invoke('repository_get_throttle');
-}
-
-/**
- * Set repository throttling limits
- *
- * Sets bandwidth and operation throttling limits for the repository.
- * Pass 0 or undefined for a limit to disable throttling for that parameter.
- *
- * @param limits - The throttling limits to set
- */
-export async function setThrottleLimits(limits: import('./types').ThrottleLimits): Promise<void> {
-  return invoke('repository_set_throttle', { limits });
-}
-
 // ============================================================================
 // Snapshot Sources
 // ============================================================================
@@ -232,81 +201,6 @@ export async function estimateSnapshot(
   return await invoke('estimate_snapshot', {
     path,
     maxExamplesPerBucket: maxExamplesPerBucket || 10,
-  });
-}
-
-/**
- * Start a snapshot upload for an existing source
- *
- * This triggers a snapshot on an existing source without creating a new source.
- * Use this when you want to manually trigger a backup on a source that already exists.
- *
- * @param userName - Username of the source owner
- * @param host - Hostname of the source
- * @param path - Path of the source
- */
-export async function uploadSnapshot(userName: string, host: string, path: string): Promise<void> {
-  return await invoke('snapshot_upload', {
-    userName,
-    host,
-    path,
-  });
-}
-
-/**
- * Cancel a running snapshot
- *
- * @param userName - Username of the source owner
- * @param host - Hostname of the source
- * @param path - Path of the source
- */
-export async function cancelSnapshot(userName: string, host: string, path: string): Promise<void> {
-  return await invoke('snapshot_cancel', {
-    userName,
-    host,
-    path,
-  });
-}
-
-/**
- * Pause a snapshot source
- *
- * Pauses the specified snapshot source, halting any running upload.
- *
- * @param userName - Username of the source owner
- * @param host - Hostname of the source
- * @param path - Path of the source
- */
-export async function pauseSnapshot(
-  userName: string,
-  host: string,
-  path: string
-): Promise<import('./types').MultipleSourceActionResponse> {
-  return await invoke('snapshot_pause', {
-    userName,
-    host,
-    path,
-  });
-}
-
-/**
- * Resume a paused snapshot source
- *
- * Resumes a previously paused snapshot source.
- *
- * @param userName - Username of the source owner
- * @param host - Hostname of the source
- * @param path - Path of the source
- */
-export async function resumeSnapshot(
-  userName: string,
-  host: string,
-  path: string
-): Promise<import('./types').MultipleSourceActionResponse> {
-  return await invoke('snapshot_resume', {
-    userName,
-    host,
-    path,
   });
 }
 

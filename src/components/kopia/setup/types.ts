@@ -12,13 +12,6 @@ export interface ProviderFormProps {
   errors?: Record<string, string>;
 }
 
-export interface ProviderMetadata {
-  id: StorageType;
-  name: string;
-  description: string;
-  icon: React.ComponentType<{ className?: string }>;
-}
-
 export interface SetupWizardState {
   step: 'provider' | 'config' | 'verify' | 'password';
   provider: StorageType | null;

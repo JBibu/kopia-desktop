@@ -50,6 +50,7 @@ export enum KopiaErrorCode {
   // ============================================================================
   REPOSITORY_CONNECTION_FAILED = 'REPOSITORY_CONNECTION_FAILED',
   REPOSITORY_NOT_CONNECTED = 'REPOSITORY_NOT_CONNECTED',
+  REPOSITORY_ALREADY_CONNECTED = 'REPOSITORY_ALREADY_CONNECTED',
   REPOSITORY_NOT_INITIALIZED = 'REPOSITORY_NOT_INITIALIZED',
   REPOSITORY_CREATION_FAILED = 'REPOSITORY_CREATION_FAILED',
   REPOSITORY_OPERATION_FAILED = 'REPOSITORY_OPERATION_FAILED',
@@ -315,10 +316,13 @@ export function parseKopiaError(error: unknown): KopiaError {
 /**
  * Mapping from official Kopia API error codes to custom error codes
  * This maintains API parity while providing more granular error handling
+ *
+ * NOTE: Most official API errors return HTTP 400 Bad Request.
+ * Only NOT_FOUND (404), ACCESS_DENIED (403), and INTERNAL (500) have specific status codes.
  */
 export const API_ERROR_CODE_MAPPING: Record<OfficialKopiaAPIErrorCode, KopiaErrorCode> = {
   [OfficialKopiaAPIErrorCode.INTERNAL]: KopiaErrorCode.INTERNAL_ERROR,
-  [OfficialKopiaAPIErrorCode.ALREADY_CONNECTED]: KopiaErrorCode.SERVER_ALREADY_RUNNING,
+  [OfficialKopiaAPIErrorCode.ALREADY_CONNECTED]: KopiaErrorCode.REPOSITORY_ALREADY_CONNECTED,
   [OfficialKopiaAPIErrorCode.ALREADY_INITIALIZED]: KopiaErrorCode.REPOSITORY_ALREADY_EXISTS,
   [OfficialKopiaAPIErrorCode.INVALID_PASSWORD]: KopiaErrorCode.AUTHENTICATION_FAILED,
   [OfficialKopiaAPIErrorCode.INVALID_TOKEN]: KopiaErrorCode.AUTHENTICATION_FAILED,
@@ -330,6 +334,13 @@ export const API_ERROR_CODE_MAPPING: Record<OfficialKopiaAPIErrorCode, KopiaErro
   [OfficialKopiaAPIErrorCode.STORAGE_CONNECTION]: KopiaErrorCode.REPOSITORY_CONNECTION_FAILED,
   [OfficialKopiaAPIErrorCode.ACCESS_DENIED]: KopiaErrorCode.PERMISSION_DENIED,
 };
+
+/**
+ * Helper constant: All official API error codes as an array
+ */
+export const OFFICIAL_API_ERROR_CODES = Object.values(
+  OfficialKopiaAPIErrorCode
+) as readonly OfficialKopiaAPIErrorCode[];
 
 /**
  * Extract user-friendly error message

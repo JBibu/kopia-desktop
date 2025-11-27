@@ -82,6 +82,13 @@ pub enum KopiaError {
         api_error_code: Option<String>,
     },
 
+    /// Repository already connected
+    #[error("Repository is already connected")]
+    RepositoryAlreadyConnected {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        api_error_code: Option<String>,
+    },
+
     /// Repository not initialized (storage exists but no repository)
     #[error("Repository not initialized: {message}")]
     RepositoryNotInitialized {
@@ -438,9 +445,13 @@ impl KopiaError {
                     };
                 }
                 "ALREADY_CONNECTED" => {
-                    return KopiaError::RepositoryConnectionFailed {
-                        message: "Repository is already connected".to_string(),
-                        storage_type: None,
+                    return KopiaError::RepositoryAlreadyConnected {
+                        api_error_code: Some(error_code.clone()),
+                    };
+                }
+                "NOT_FOUND" => {
+                    return KopiaError::NotFound {
+                        resource: operation.to_string(),
                     };
                 }
                 "ALREADY_INITIALIZED" => {
