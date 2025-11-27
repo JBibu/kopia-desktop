@@ -17,6 +17,8 @@ export interface SetupWizardState {
   provider: StorageType | null;
   storageConfig: PartialStorageConfig;
   mode: 'create' | 'connect' | null;
+  /** Repository ID to use (set after verification step creates/identifies the repo) */
+  repoId: string | null;
   password: string;
   confirmPassword: string;
   description: string;

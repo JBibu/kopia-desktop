@@ -19,12 +19,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import {
-  createNotificationProfile,
-  testNotificationProfile,
-  getErrorMessage,
-} from '@/lib/kopia/client';
+import { createNotificationProfile, testNotificationProfile } from '@/lib/kopia/client';
+import { getErrorMessage } from '@/lib/kopia/errors';
 import type { NotificationProfile, NotificationSeverity } from '@/lib/kopia/types';
+import { useCurrentRepoId } from '@/hooks/useCurrentRepo';
 import { getSeverityLabel, NotificationSeverities } from '@/lib/kopia/types';
 import { EmailNotificationForm } from './EmailNotificationForm';
 import { PushoverNotificationForm } from './PushoverNotificationForm';
@@ -44,6 +42,7 @@ export function NotificationProfileDialog({
   isNew,
 }: NotificationProfileDialogProps) {
   const { t } = useTranslation();
+  const currentRepoId = useCurrentRepoId();
   const [profile, setProfile] = useState<NotificationProfile>(initialProfile);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -63,9 +62,14 @@ export function NotificationProfileDialog({
       return;
     }
 
+    if (!currentRepoId) {
+      setValidationError(t('preferences.notificationProfiles.noRepository'));
+      return;
+    }
+
     try {
       setSaving(true);
-      await createNotificationProfile(profile);
+      await createNotificationProfile(currentRepoId, profile);
       toast.success(
         isNew
           ? t('preferences.notificationProfiles.created')
@@ -85,9 +89,14 @@ export function NotificationProfileDialog({
   const handleTest = async () => {
     setValidationError(null);
 
+    if (!currentRepoId) {
+      setValidationError(t('preferences.notificationProfiles.noRepository'));
+      return;
+    }
+
     try {
       setTesting(true);
-      await testNotificationProfile(profile);
+      await testNotificationProfile(currentRepoId, profile);
       toast.success(t('preferences.notificationProfiles.testSent'), {
         description: t('preferences.notificationProfiles.testSentDesc'),
       });

@@ -49,7 +49,6 @@ import {
 import type { Task, TaskDetail } from '@/lib/kopia/types';
 import { formatDateTime } from '@/lib/utils';
 import { usePreferencesStore } from '@/stores/preferences';
-import { getTask } from '@/lib/kopia/client';
 
 export function Tasks() {
   const navigate = useNavigate();
@@ -61,6 +60,7 @@ export function Tasks() {
   const error = useKopiaStore((state) => state.tasksError);
   const isWebSocketConnected = useKopiaStore((state) => state.isWebSocketConnected);
   const cancelTask = useKopiaStore((state) => state.cancelTask);
+  const getTask = useKopiaStore((state) => state.getTask);
   const refreshAll = useKopiaStore((state) => state.refreshAll);
   const sourcesResponse = useKopiaStore((state) => state.sourcesResponse);
   const sources = sourcesResponse?.sources || [];
@@ -98,7 +98,9 @@ export function Tasks() {
         setLoadingTaskDetails((prev) => ({ ...prev, [taskId]: true }));
         try {
           const detail = await getTask(taskId);
-          setTaskDetails((prev) => ({ ...prev, [taskId]: detail }));
+          if (detail) {
+            setTaskDetails((prev) => ({ ...prev, [taskId]: detail }));
+          }
         } catch (err) {
           if (import.meta.env.DEV) {
             console.error('Failed to load task details:', err);

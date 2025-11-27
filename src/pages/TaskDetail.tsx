@@ -26,18 +26,22 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
-import { getTask, cancelTask } from '@/lib/kopia/client';
 import type { TaskDetail as TaskDetailType } from '@/lib/kopia/types';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia/errors';
 import { formatDateTime, formatBytes } from '@/lib/utils';
 import { usePreferencesStore } from '@/stores/preferences';
+import { useKopiaStore } from '@/stores/kopia';
 
 export function TaskDetail() {
   const { taskId } = useParams<{ taskId: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation();
   const byteFormat = usePreferencesStore((state) => state.byteFormat);
+
+  // Use store methods which handle repoId internally
+  const getTask = useKopiaStore((state) => state.getTask);
+  const cancelTaskAction = useKopiaStore((state) => state.cancelTask);
 
   const [task, setTask] = useState<TaskDetailType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -54,15 +58,17 @@ export function TaskDetail() {
     const fetchTask = async () => {
       try {
         const taskData = await getTask(taskId);
-        setTask(taskData);
-        setIsLoading(false);
-        setError(null);
+        if (taskData) {
+          setTask(taskData);
+          setError(null);
 
-        // Stop polling when task completes
-        if (taskData.endTime && interval) {
-          clearInterval(interval);
-          interval = null;
+          // Stop polling when task completes
+          if (taskData.endTime && interval) {
+            clearInterval(interval);
+            interval = null;
+          }
         }
+        setIsLoading(false);
       } catch (err) {
         console.error('Failed to fetch task:', err);
         setError(getErrorMessage(err));
@@ -78,14 +84,14 @@ export function TaskDetail() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [taskId]);
+  }, [taskId, getTask]);
 
   const handleCancel = () => {
     if (!taskId) return;
 
     void (async () => {
       try {
-        await cancelTask(taskId);
+        await cancelTaskAction(taskId);
         toast.success(t('tasks.cancelled'));
       } catch (err) {
         toast.error(getErrorMessage(err));

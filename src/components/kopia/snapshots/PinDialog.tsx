@@ -24,6 +24,7 @@ import { Pin, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { editSnapshot } from '@/lib/kopia/client';
 import { getErrorMessage } from '@/lib/kopia/errors';
+import { useCurrentRepoId } from '@/hooks/useCurrentRepo';
 
 interface PinDialogProps {
   open: boolean;
@@ -41,6 +42,7 @@ export function PinDialog({
   onPinsUpdated,
 }: PinDialogProps) {
   const { t } = useTranslation();
+  const currentRepoId = useCurrentRepoId();
   const [pins, setPins] = useState<string[]>(currentPins);
   const [newPinName, setNewPinName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -64,6 +66,11 @@ export function PinDialog({
   };
 
   const handleSave = async () => {
+    if (!currentRepoId) {
+      toast.error(t('common.noRepositorySelected'));
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const pinsToAdd = pins.filter((pin) => !currentPins.includes(pin));
@@ -74,7 +81,7 @@ export function PinDialog({
         return;
       }
 
-      await editSnapshot({
+      await editSnapshot(currentRepoId, {
         snapshots: [snapshotId],
         addPins: pinsToAdd.length > 0 ? pinsToAdd : undefined,
         removePins: pinsToRemove.length > 0 ? pinsToRemove : undefined,

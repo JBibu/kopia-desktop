@@ -51,6 +51,7 @@ import { useState } from 'react';
 import packageJson from '../../package.json';
 import { disconnectRepository } from '@/lib/kopia/client';
 import { getErrorMessage } from '@/lib/kopia/errors';
+import { useCurrentRepoId } from '@/hooks/useCurrentRepo';
 
 export function Preferences() {
   const { t } = useTranslation();
@@ -68,6 +69,7 @@ export function Preferences() {
     desktopNotifications,
     setDesktopNotifications,
   } = usePreferencesStore();
+  const currentRepoId = useCurrentRepoId();
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
 
@@ -84,10 +86,12 @@ export function Preferences() {
 
     try {
       // Step 1: Disconnect from repository
-      try {
-        await disconnectRepository();
-      } catch {
-        // Ignore errors if not connected or server not running
+      if (currentRepoId) {
+        try {
+          await disconnectRepository(currentRepoId);
+        } catch {
+          // Ignore errors if not connected or server not running
+        }
       }
 
       // Step 2: Clear all stores from localStorage

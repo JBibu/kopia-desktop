@@ -1,49 +1,77 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, CheckCircle2, AlertCircle, ArrowLeft } from 'lucide-react';
-import { repositoryExists } from '@/lib/kopia/client';
+import { repositoryExists, addRepository, startKopiaServer } from '@/lib/kopia/client';
 import { getErrorMessage } from '@/lib/kopia/errors';
 import type { StorageConfig } from '@/lib/kopia/types';
+import { useCurrentRepoId } from '@/hooks/useCurrentRepo';
 
 interface StorageVerificationProps {
   storageConfig: StorageConfig;
+  isAddingNew?: boolean;
   onBack: () => void;
-  onCreateNew: () => void;
-  onConnect: () => void;
+  onCreateNew: (repoId: string) => void;
+  onConnect: (repoId: string) => void;
 }
 
 type VerificationStatus = 'checking' | 'exists' | 'not-exists' | 'error';
 
 export function StorageVerification({
   storageConfig,
+  isAddingNew = false,
   onBack,
   onCreateNew,
   onConnect,
 }: StorageVerificationProps) {
   const { t } = useTranslation();
+  const currentRepoId = useCurrentRepoId();
   const [status, setStatus] = useState<VerificationStatus>('checking');
   const [error, setError] = useState<string | null>(null);
+  const [repoIdToUse, setRepoIdToUse] = useState<string | null>(null);
+  const hasChecked = useRef(false);
 
-  const checkRepository = useCallback(async () => {
+  const checkRepository = async () => {
     setStatus('checking');
     setError(null);
+    setRepoIdToUse(null); // Reset to prevent stale state
 
     try {
-      const exists = await repositoryExists(storageConfig);
+      let repoId: string;
+
+      if (isAddingNew) {
+        // For new repositories, we need to create the repo entry first
+        // This starts the server so we can check if storage has existing repo
+        repoId = await addRepository();
+        setRepoIdToUse(repoId);
+
+        // Wait for server to be ready
+        await startKopiaServer(repoId);
+        // Small delay to ensure server is fully initialized
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      } else {
+        // For existing repos, use current repo ID or fall back to 'repository' (default)
+        repoId = currentRepoId || 'repository';
+        setRepoIdToUse(repoId);
+      }
+
+      const exists = await repositoryExists(repoId, storageConfig);
       setStatus(exists ? 'exists' : 'not-exists');
     } catch (err) {
       // Show error in Alert component only - don't propagate to avoid duplicate toasts
       setStatus('error');
       setError(getErrorMessage(err));
     }
-  }, [storageConfig]);
+  };
 
+  // Run verification once on mount
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (hasChecked.current) return;
+    hasChecked.current = true;
     void checkRepository();
-  }, [checkRepository]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleRetry = () => {
     void checkRepository();
@@ -102,14 +130,14 @@ export function StorageVerification({
         </Button>
 
         <div className="flex gap-2">
-          {status === 'exists' && (
-            <Button type="button" onClick={onConnect}>
+          {status === 'exists' && repoIdToUse && (
+            <Button type="button" onClick={() => onConnect(repoIdToUse)}>
               {t('setup.connect')}
             </Button>
           )}
 
-          {status === 'not-exists' && (
-            <Button type="button" onClick={onCreateNew}>
+          {status === 'not-exists' && repoIdToUse && (
+            <Button type="button" onClick={() => onCreateNew(repoIdToUse)}>
               {t('setup.createNew')}
             </Button>
           )}

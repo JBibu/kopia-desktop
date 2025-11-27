@@ -33,6 +33,7 @@ import { formatBytes } from '@/lib/utils';
 import { useKopiaStore } from '@/stores/kopia';
 import { usePreferencesStore } from '@/stores/preferences';
 import { navigateBack } from '@/lib/utils/navigation';
+import { useCurrentRepoId } from '@/hooks/useCurrentRepo';
 
 type RestoreMode = 'filesystem' | 'zip' | 'tar';
 
@@ -41,6 +42,7 @@ export function SnapshotRestore() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const byteFormat = usePreferencesStore((state) => state.byteFormat);
+  const currentRepoId = useCurrentRepoId();
 
   const snapshotId = searchParams.get('snapshotId') || '';
   const objectId = searchParams.get('oid') || '';
@@ -77,8 +79,8 @@ export function SnapshotRestore() {
 
   // Fetch entry info to display what we're restoring
   useEffect(() => {
-    if (objectId) {
-      browseObject(objectId)
+    if (objectId && currentRepoId) {
+      browseObject(currentRepoId, objectId)
         .then((response) => {
           if (response.entries && response.entries.length > 0) {
             // If browsing a directory, calculate total size
@@ -95,7 +97,7 @@ export function SnapshotRestore() {
           }
         });
     }
-  }, [objectId]);
+  }, [objectId, currentRepoId]);
 
   // Monitor restore task progress
   useEffect(() => {
@@ -148,6 +150,11 @@ export function SnapshotRestore() {
       return;
     }
 
+    if (!currentRepoId) {
+      toast.error(t('common.noRepositorySelected'));
+      return;
+    }
+
     try {
       setIsRestoring(true);
 
@@ -186,7 +193,7 @@ export function SnapshotRestore() {
         minSizeForPlaceholder: 2147483647, // Max int32 - never create placeholder files
       };
 
-      const taskId = await restoreStart(request);
+      const taskId = await restoreStart(currentRepoId, request);
       setRestoreTaskId(taskId);
       toast.success(t('restore.restoreStarted'));
     } catch (err) {

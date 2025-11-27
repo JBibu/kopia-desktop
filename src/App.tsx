@@ -20,6 +20,7 @@ import { TaskDetail } from './pages/TaskDetail';
 import { Mounts } from './pages/Mounts';
 import { Preferences } from './pages/Preferences';
 import { Setup } from './pages/Setup';
+import { Repositories } from './pages/Repositories';
 import { NotFound } from './pages/NotFound';
 import './lib/i18n/config';
 import './styles/globals.css';
@@ -184,6 +185,7 @@ function App(): React.JSX.Element {
               }
             />
             <Route path="preferences" element={<Preferences />} />
+            <Route path="repositories" element={<Repositories />} />
             {/* 404 Catch-all route */}
             <Route path="*" element={<NotFound />} />
           </Route>

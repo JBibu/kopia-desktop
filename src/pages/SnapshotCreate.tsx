@@ -32,12 +32,14 @@ import { getErrorMessage } from '@/lib/kopia/errors';
 import { selectFolder, estimateSnapshot } from '@/lib/kopia/client';
 import type { PolicyDefinition } from '@/lib/kopia/types';
 import { SnapshotEstimationResults } from '@/components/kopia/snapshots/SnapshotEstimationResults';
+import { useCurrentRepoId } from '@/hooks/useCurrentRepo';
 
 export function SnapshotCreate() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const createSnapshot = useKopiaStore((state) => state.createSnapshot);
   const getPolicy = useKopiaStore((state) => state.getPolicy);
+  const currentRepoId = useCurrentRepoId();
 
   // Loading states
   const [isCreating, setIsCreating] = useState(false);
@@ -99,8 +101,13 @@ export function SnapshotCreate() {
       return;
     }
 
+    if (!currentRepoId) {
+      toast.error(t('common.noRepositorySelected'));
+      return;
+    }
+
     try {
-      const result = await estimateSnapshot(path);
+      const result = await estimateSnapshot(currentRepoId, path);
       setEstimationTaskId(result.id);
       setShowEstimation(true);
       toast.success(t('snapshots.estimation.started'));

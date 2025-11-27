@@ -15,5 +15,5 @@ fn main() {
         println!("cargo:warning=Note: This is a warning, not an error. Build will continue.");
     }
 
-    tauri_build::build()
+    tauri_build::build();
 }

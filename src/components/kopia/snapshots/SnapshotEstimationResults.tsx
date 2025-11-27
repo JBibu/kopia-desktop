@@ -26,6 +26,7 @@ import { formatBytes } from '@/lib/utils';
 import { usePreferencesStore } from '@/stores/preferences';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia/errors';
+import { useCurrentRepoId } from '@/hooks/useCurrentRepo';
 
 interface SnapshotEstimationResultsProps {
   taskId: string;
@@ -35,17 +36,22 @@ interface SnapshotEstimationResultsProps {
 export function SnapshotEstimationResults({ taskId, onClose }: SnapshotEstimationResultsProps) {
   const { t } = useTranslation();
   const byteFormat = usePreferencesStore((state) => state.byteFormat);
+  const currentRepoId = useCurrentRepoId();
   const [task, setTask] = useState<TaskDetail | null>(null);
   const [showLog, setShowLog] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Fetch task status
   useEffect(() => {
+    if (!currentRepoId) {
+      return;
+    }
+
     let interval: number | null = null;
 
     const fetchTask = async () => {
       try {
-        const taskData = await getTask(taskId);
+        const taskData = await getTask(currentRepoId, taskId);
         setTask(taskData);
         setIsLoading(false);
 
@@ -69,11 +75,12 @@ export function SnapshotEstimationResults({ taskId, onClose }: SnapshotEstimatio
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [taskId]);
+  }, [taskId, currentRepoId]);
 
   const handleCancel = async () => {
+    if (!currentRepoId) return;
     try {
-      await cancelTask(taskId);
+      await cancelTask(currentRepoId, taskId);
       toast.success(t('tasks.cancelled'));
     } catch (err) {
       toast.error(getErrorMessage(err));

@@ -23,6 +23,7 @@ import { FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { editSnapshot } from '@/lib/kopia/client';
 import { getErrorMessage } from '@/lib/kopia/errors';
+import { useCurrentRepoId } from '@/hooks/useCurrentRepo';
 
 interface DescriptionDialogProps {
   open: boolean;
@@ -40,13 +41,19 @@ export function DescriptionDialog({
   onDescriptionUpdated,
 }: DescriptionDialogProps) {
   const { t } = useTranslation();
+  const currentRepoId = useCurrentRepoId();
   const [description, setDescription] = useState(currentDescription);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSave = async () => {
+    if (!currentRepoId) {
+      toast.error(t('common.noRepositorySelected'));
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      await editSnapshot({
+      await editSnapshot(currentRepoId, {
         snapshots: [snapshotId],
         description: description.trim() || '', // Empty string removes description
       });
@@ -66,9 +73,14 @@ export function DescriptionDialog({
   };
 
   const handleRemove = async () => {
+    if (!currentRepoId) {
+      toast.error(t('common.noRepositorySelected'));
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      await editSnapshot({
+      await editSnapshot(currentRepoId, {
         snapshots: [snapshotId],
         description: '', // Empty string removes description
       });

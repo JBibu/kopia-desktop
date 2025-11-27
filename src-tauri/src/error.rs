@@ -109,9 +109,17 @@ pub enum KopiaError {
     #[error("Repository operation failed: {operation} - {message}")]
     RepositoryOperationFailed { operation: String, message: String },
 
-    /// Repository already exists
+    /// Repository already exists (from API - storage already initialized)
     #[error("Repository already exists: {message}")]
     RepositoryAlreadyExists { message: String },
+
+    /// Repository config already exists (multi-repo support)
+    #[error("Repository configuration already exists: {repo_id}")]
+    RepositoryConfigAlreadyExists { repo_id: String },
+
+    /// Repository not found (multi-repo support)
+    #[error("Repository not found: {repo_id}")]
+    RepositoryNotFound { repo_id: String },
 
     /// Invalid repository configuration
     #[error("Invalid repository configuration: {message}")]

@@ -74,7 +74,7 @@ export function Overview() {
   const tasks = useKopiaStore((state) => state.tasks);
   const tasksSummary = useKopiaStore((state) => state.tasksSummary);
   const hasTriedToStart = useRef(false);
-  const [timeRange, setTimeRange] = useState<7 | 14 | 30 | 90>(7);
+  const [timeRange, setTimeRange] = useState<7 | 14 | 30 | 60>(7);
 
   // Map language code to locale (memoized to prevent unnecessary re-renders)
   const locale = useMemo(() => (language === 'es' ? 'es-ES' : 'en-US'), [language]);
@@ -94,8 +94,8 @@ export function Overview() {
   const snapshotStats = useMemo(() => {
     if (!snapshots.length) return null;
 
-    // Use weekly grouping for 90-day range, daily for others
-    const useWeeklyGrouping = timeRange === 90;
+    // Use weekly grouping for 60-day range, daily for others
+    const useWeeklyGrouping = timeRange === 60;
     const periods = useWeeklyGrouping ? Math.ceil(timeRange / 7) : timeRange;
 
     // Group snapshots by date/week based on selected time range
@@ -345,7 +345,7 @@ export function Overview() {
                     </CardTitle>
                     <Select
                       value={timeRange.toString()}
-                      onValueChange={(value) => setTimeRange(Number(value) as 7 | 14 | 30 | 90)}
+                      onValueChange={(value) => setTimeRange(Number(value) as 7 | 14 | 30 | 60)}
                     >
                       <SelectTrigger className="w-[140px]">
                         <SelectValue />

@@ -6,7 +6,7 @@ import { useEffect, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useKopiaStore } from '@/stores/kopia';
-import { cancelTask, updateRepositoryDescription } from '@/lib/kopia/client';
+import { updateRepositoryDescription } from '@/lib/kopia/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +26,8 @@ export function Repository() {
   const isInitializing = useKopiaStore((state) => state.isRepoInitializing());
   const disconnect = useKopiaStore((state) => state.disconnectRepo);
   const refreshRepositoryStatus = useKopiaStore((state) => state.refreshRepositoryStatus);
+  const cancelTask = useKopiaStore((state) => state.cancelTask);
+  const currentRepoId = useKopiaStore((state) => state.currentRepoId);
 
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedDescription, setEditedDescription] = useState('');
@@ -48,7 +50,7 @@ export function Repository() {
         toast.error(t('repository.cancelFailed'));
       }
     }
-  }, [status, refreshRepositoryStatus, t]);
+  }, [status, refreshRepositoryStatus, t, cancelTask]);
 
   const handleSaveDescription = async () => {
     if (!editedDescription.trim()) {
@@ -56,9 +58,14 @@ export function Repository() {
       return;
     }
 
+    if (!currentRepoId) {
+      toast.error(t('repository.noRepositorySelected'));
+      return;
+    }
+
     setIsSavingDescription(true);
     try {
-      await updateRepositoryDescription(editedDescription.trim());
+      await updateRepositoryDescription(currentRepoId, editedDescription.trim());
       await refreshRepositoryStatus();
       toast.success(t('repository.description.updateSuccess'));
       setIsEditingDescription(false);

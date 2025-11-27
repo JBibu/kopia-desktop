@@ -16,14 +16,16 @@ import {
   listNotificationProfiles,
   deleteNotificationProfile,
   testNotificationProfile,
-  getErrorMessage,
 } from '@/lib/kopia/client';
+import { getErrorMessage } from '@/lib/kopia/errors';
 import type { NotificationProfile } from '@/lib/kopia/types';
 import { getSeverityLabel } from '@/lib/kopia/types';
 import { NotificationProfileDialog } from './NotificationProfileDialog';
+import { useCurrentRepoId } from '@/hooks/useCurrentRepo';
 
 export function NotificationProfiles() {
   const { t } = useTranslation();
+  const currentRepoId = useCurrentRepoId();
   const [profiles, setProfiles] = useState<NotificationProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -32,9 +34,14 @@ export function NotificationProfiles() {
   const hasLoadedRef = useRef(false);
 
   const loadProfiles = useCallback(async () => {
+    if (!currentRepoId) {
+      setProfiles([]);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
-      const data = await listNotificationProfiles();
+      const data = await listNotificationProfiles(currentRepoId);
       setProfiles(data);
       hasLoadedRef.current = true;
     } catch (error) {
@@ -48,7 +55,7 @@ export function NotificationProfiles() {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [t, currentRepoId]);
 
   useEffect(() => {
     void loadProfiles();
@@ -85,12 +92,13 @@ export function NotificationProfiles() {
   };
 
   const handleDelete = async (profileName: string) => {
+    if (!currentRepoId) return;
     if (!confirm(t('preferences.notificationProfiles.confirmDelete', { profileName }))) {
       return;
     }
 
     try {
-      await deleteNotificationProfile(profileName);
+      await deleteNotificationProfile(currentRepoId, profileName);
       toast.success(t('preferences.notificationProfiles.deleted'));
       await loadProfiles();
     } catch (error) {
@@ -101,8 +109,9 @@ export function NotificationProfiles() {
   };
 
   const handleTest = async (profile: NotificationProfile) => {
+    if (!currentRepoId) return;
     try {
-      await testNotificationProfile(profile);
+      await testNotificationProfile(currentRepoId, profile);
       toast.success(t('preferences.notificationProfiles.testSent'), {
         description: t('preferences.notificationProfiles.testSentDesc'),
       });

@@ -846,6 +846,27 @@ export interface KopiaServerStatus {
   uptime?: number;
 }
 
+/**
+ * Repository entry from multi-repo management
+ * Represents a repository configuration with its current status
+ */
+export interface RepositoryEntry {
+  /** Unique identifier (derived from config filename) */
+  id: string;
+  /** Display name (from repo description or storage type) */
+  displayName: string;
+  /** Full path to config file */
+  configFile: string;
+  /** Server status: "starting", "running", "stopped", "error" */
+  status: 'starting' | 'running' | 'stopped' | 'error';
+  /** Whether repository is connected */
+  connected: boolean;
+  /** Storage type (filesystem, s3, b2, etc.) */
+  storage?: string;
+  /** Error message if status is "error" */
+  error?: string;
+}
+
 // ============================================================================
 // Storage Configuration Types
 // ============================================================================

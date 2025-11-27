@@ -34,7 +34,8 @@
     "no": "No",
     "excluded": "excluidos",
     "ignored": "ignorados",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "noRepositorySelected": "Ningún repositorio seleccionado"
   },
   "errorBoundary": {
     "title": "Algo salió mal",
@@ -53,7 +54,8 @@
     "policies": "Reglas de respaldo",
     "tasks": "Tareas",
     "mounts": "Explorar respaldos",
-    "preferences": "Preferencias"
+    "preferences": "Preferencias",
+    "repositories": "Repositorios"
   },
   "overview": {
     "title": "Resumen",
@@ -1023,6 +1025,38 @@
       "serverUnavailable": "No se puede conectar al servidor Kopia. Por favor reinicia la aplicación.",
       "disconnectFailed": "Error al desconectar del destino existente. Por favor intenta reiniciar la aplicación.",
       "verificationFailed": "La operación del destino se completó pero la conexión no pudo ser verificada. Por favor verifica el estado del destino."
+    }
+  },
+  "repositories": {
+    "title": "Repositorios",
+    "subtitle": "Administra tus repositorios de respaldo",
+    "selectRepository": "Seleccionar Repositorio",
+    "noRepository": "Ningún repositorio seleccionado",
+    "noRepositories": "No hay repositorios configurados",
+    "addRepository": "Añadir Repositorio",
+    "manageRepositories": "Administrar Repositorios",
+    "current": "Actual",
+    "storage": "Almacenamiento",
+    "configFile": "Archivo de Configuración",
+    "switch": "Cambiar",
+    "configure": "Configurar",
+    "remove": "Eliminar",
+    "removing": "Eliminando...",
+    "switched": "Repositorio cambiado correctamente",
+    "removed": "Repositorio eliminado correctamente",
+    "status": {
+      "running": "Ejecutándose",
+      "starting": "Iniciando",
+      "stopped": "Detenido",
+      "error": "Error"
+    },
+    "empty": {
+      "title": "Sin Repositorios",
+      "description": "Conecta a un repositorio para empezar a respaldar tus archivos"
+    },
+    "removeConfirm": {
+      "title": "Eliminar Repositorio",
+      "description": "¿Estás seguro de que quieres eliminar \"{{name}}\" de esta aplicación? Esto no eliminará los datos del repositorio, solo lo quitará de esta aplicación."
     }
   },
   "status": {

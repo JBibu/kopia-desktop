@@ -56,6 +56,7 @@ import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia/errors';
 import { formatDateTime } from '@/lib/utils';
 import { usePreferencesStore } from '@/stores/preferences';
+import { useCurrentRepoId } from '@/hooks/useCurrentRepo';
 
 interface PolicyEditorProps {
   target: PolicyTarget;
@@ -67,6 +68,7 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
   const { t } = useTranslation();
   const language = usePreferencesStore((state) => state.language);
   const locale = language === 'es' ? 'es-ES' : 'en-US';
+  const currentRepoId = useCurrentRepoId();
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -85,10 +87,15 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
   // Fetch the policy
   useEffect(() => {
     const fetchData = async () => {
+      if (!currentRepoId) {
+        setError(t('common.noRepositorySelected'));
+        setIsLoading(false);
+        return;
+      }
       setIsLoading(true);
       setError(null);
       try {
-        const response = await getPolicy(target.userName, target.host, target.path);
+        const response = await getPolicy(currentRepoId, target.userName, target.host, target.path);
         // Extract just the policy definition from the response
         setPolicy(response.policy || {});
         setIsNew(false);
@@ -138,15 +145,21 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
     };
 
     void fetchData();
-  }, [target]);
+  }, [target, currentRepoId, t]);
 
   // Resolve policy in real-time to show effective values
   useEffect(() => {
     const doResolve = async () => {
+      if (!currentRepoId) return;
       try {
         // Always call resolve without updates parameter to get the effective policy
         // This avoids serialization issues and still shows inherited values
-        const resolved = await resolvePolicy(target.userName, target.host, target.path);
+        const resolved = await resolvePolicy(
+          currentRepoId,
+          target.userName,
+          target.host,
+          target.path
+        );
         setResolvedPolicy(resolved);
       } catch (err) {
         // Log the full error for debugging in development
@@ -165,12 +178,16 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
     };
 
     void doResolve();
-  }, [target]); // Only depend on target, not policy, to avoid constant re-resolution
+  }, [target, currentRepoId]); // Only depend on target, not policy, to avoid constant re-resolution
 
   const handleSave = async () => {
+    if (!currentRepoId) {
+      toast.error(t('common.noRepositorySelected'));
+      return;
+    }
     setIsSaving(true);
     try {
-      await setPolicyClient(policy, target.userName, target.host, target.path);
+      await setPolicyClient(currentRepoId, policy, target.userName, target.host, target.path);
       toast.success(t('policies.policySaved'), {
         description: t('policies.policySavedDescription'),
       });
@@ -183,11 +200,15 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
   };
 
   const handleDelete = async () => {
+    if (!currentRepoId) {
+      toast.error(t('common.noRepositorySelected'));
+      return;
+    }
     if (!confirm(t('policies.confirmDelete'))) return;
 
     setIsDeleting(true);
     try {
-      await deletePolicy(target.userName, target.host, target.path);
+      await deletePolicy(currentRepoId, target.userName, target.host, target.path);
       toast.success(t('policies.policyDeleted'), {
         description: t('policies.policyDeletedDescription'),
       });

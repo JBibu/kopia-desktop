@@ -1,9 +1,10 @@
 /**
  * Global Kopia state store using Zustand
  *
- * Centralized state management for ALL Kopia data to eliminate redundant polling.
+ * Centralized state management for ALL Kopia data with multi-repository support.
  * Single source of truth for:
- * - Server status
+ * - Repository list and current repository selection
+ * - Server status (per repository)
  * - Repository status
  * - Snapshots & sources
  * - Policies
@@ -38,10 +39,14 @@ import {
   listMounts,
   mountSnapshot as apiMountSnapshot,
   unmountSnapshot as apiUnmountSnapshot,
+  listRepositories as apiListRepositories,
+  addRepository as apiAddRepository,
+  removeRepository as apiRemoveRepository,
   type KopiaServerStatus,
   type KopiaServerInfo,
   type RepositoryStatus,
   type RepositoryConnectRequest,
+  type RepositoryEntry,
 } from '@/lib/kopia/client';
 import type {
   Snapshot,
@@ -56,36 +61,45 @@ import type {
 import { getErrorMessage } from '@/lib/kopia/errors';
 import { notifyTaskComplete } from '@/lib/notifications';
 
+/** Default repository ID (matches Kopia CLI default) */
+const DEFAULT_REPO_ID = 'repository';
+
 interface KopiaStore {
-  // Server state
+  // Multi-repository state
+  repositories: RepositoryEntry[];
+  currentRepoId: string | null;
+  repositoriesError: string | null;
+  isRepositoriesLoading: boolean;
+
+  // Server state (for current repository)
   serverStatus: KopiaServerStatus | null;
-  serverInfo: KopiaServerInfo | null; // Store server info including password
+  serverInfo: KopiaServerInfo | null;
   serverError: string | null;
   isServerLoading: boolean;
 
-  // Repository state
+  // Repository state (for current repository)
   repositoryStatus: RepositoryStatus | null;
   repositoryError: string | null;
   isRepositoryLoading: boolean;
 
-  // Snapshots state
+  // Snapshots state (for current repository)
   snapshots: Snapshot[];
   sourcesResponse: SourcesResponse | null;
   snapshotsError: string | null;
   isSnapshotsLoading: boolean;
 
-  // Policies state
+  // Policies state (for current repository)
   policies: PolicyResponse[];
   policiesError: string | null;
   isPoliciesLoading: boolean;
 
-  // Tasks state
+  // Tasks state (for current repository)
   tasks: Task[];
   tasksSummary: TasksSummary | null;
   tasksError: string | null;
   isTasksLoading: boolean;
 
-  // Mounts state
+  // Mounts state (for current repository)
   mounts: MountsResponse | null;
   mountsError: string | null;
   isMountsLoading: boolean;
@@ -104,6 +118,14 @@ interface KopiaStore {
   isServerRunning: () => boolean;
   isRepoConnected: () => boolean;
   isRepoInitializing: () => boolean;
+  hasRepositories: () => boolean;
+  getCurrentRepository: () => RepositoryEntry | null;
+
+  // Multi-repo management actions
+  refreshRepositories: () => Promise<void>;
+  addRepository: (repoId?: string) => Promise<string | null>;
+  removeRepository: (repoId: string) => Promise<void>;
+  setCurrentRepository: (repoId: string) => Promise<void>;
 
   // Server actions
   refreshServerStatus: () => Promise<void>;
@@ -190,6 +212,12 @@ export const useKopiaStore = create<KopiaStore>()(
     // Initial State
     // ========================================================================
 
+    // Multi-repository
+    repositories: [],
+    currentRepoId: null,
+    repositoriesError: null,
+    isRepositoriesLoading: false,
+
     // Server
     serverStatus: null,
     serverInfo: null,
@@ -256,13 +284,137 @@ export const useKopiaStore = create<KopiaStore>()(
       return !!repositoryStatus?.initTaskID;
     },
 
+    hasRepositories: () => {
+      const { repositories } = get();
+      return repositories.length > 0;
+    },
+
+    getCurrentRepository: () => {
+      const { repositories, currentRepoId } = get();
+      if (!currentRepoId) return null;
+      return repositories.find((r) => r.id === currentRepoId) ?? null;
+    },
+
+    // ========================================================================
+    // Multi-Repository Management Actions
+    // ========================================================================
+
+    refreshRepositories: async () => {
+      set({ isRepositoriesLoading: true, repositoriesError: null });
+      try {
+        const repos = await apiListRepositories();
+        const { currentRepoId } = get();
+
+        // If we have repositories but no current selection, select the default or first
+        let newCurrentRepoId = currentRepoId;
+        if (repos.length > 0 && !currentRepoId) {
+          // Prefer the default repository if it exists
+          const defaultRepo = repos.find((r) => r.id === DEFAULT_REPO_ID);
+          newCurrentRepoId = defaultRepo ? defaultRepo.id : repos[0].id;
+        } else if (repos.length === 0) {
+          newCurrentRepoId = null;
+        } else if (currentRepoId && !repos.find((r) => r.id === currentRepoId)) {
+          // Current repo no longer exists, select first available
+          newCurrentRepoId = repos[0].id;
+        }
+
+        set({
+          repositories: repos,
+          currentRepoId: newCurrentRepoId,
+          isRepositoriesLoading: false,
+        });
+      } catch (error) {
+        const message = getErrorMessage(error);
+        set({ repositoriesError: message, isRepositoriesLoading: false });
+      }
+    },
+
+    addRepository: async (repoId?: string) => {
+      set({ isRepositoriesLoading: true, repositoriesError: null });
+      try {
+        const newRepoId = await apiAddRepository(repoId);
+        await get().refreshRepositories();
+        set({ isRepositoriesLoading: false });
+        return newRepoId;
+      } catch (error) {
+        const message = getErrorMessage(error);
+        set({ repositoriesError: message, isRepositoriesLoading: false });
+        return null;
+      }
+    },
+
+    removeRepository: async (repoId: string) => {
+      set({ isRepositoriesLoading: true, repositoriesError: null });
+      try {
+        await apiRemoveRepository(repoId);
+        await get().refreshRepositories();
+        set({ isRepositoriesLoading: false });
+      } catch (error) {
+        const message = getErrorMessage(error);
+        set({ repositoriesError: message, isRepositoriesLoading: false });
+        throw error;
+      }
+    },
+
+    setCurrentRepository: async (repoId: string) => {
+      const { currentRepoId, repositories } = get();
+
+      // Validate the repo exists
+      const repo = repositories.find((r) => r.id === repoId);
+      if (!repo) {
+        throw new Error(`Repository not found: ${repoId}`);
+      }
+
+      // If already current, no-op
+      if (currentRepoId === repoId) {
+        return;
+      }
+
+      // Stop WebSocket for old repo if connected
+      if (get().isWebSocketConnected) {
+        await get().stopWebSocket();
+      }
+
+      // Clear current data before switching
+      set({
+        currentRepoId: repoId,
+        // Reset repository-specific state
+        serverStatus: null,
+        serverInfo: null,
+        serverError: null,
+        repositoryStatus: null,
+        repositoryError: null,
+        snapshots: [],
+        sourcesResponse: null,
+        snapshotsError: null,
+        policies: [],
+        policiesError: null,
+        tasks: [],
+        tasksSummary: null,
+        tasksError: null,
+        mounts: null,
+        mountsError: null,
+      });
+
+      // Refresh data for the new repository
+      await get().refreshAll();
+
+      // Start WebSocket for new repo if enabled
+      if (get().useWebSocket) {
+        await get().startWebSocket();
+      }
+    },
+
     // ========================================================================
     // Server Actions
     // ========================================================================
 
     refreshServerStatus: async () => {
+      const { currentRepoId } = get();
+      if (!currentRepoId) return;
+
       try {
-        const status = await getKopiaServerStatus();
+        const status = await getKopiaServerStatus(currentRepoId);
         set({ serverStatus: status });
       } catch (error) {
         const message = getErrorMessage(error);
@@ -283,9 +435,12 @@ export const useKopiaStore = create<KopiaStore>()(
     },
 
     startServer: async () => {
+      const { currentRepoId } = get();
+      if (!currentRepoId) return null;
+
       set({ isServerLoading: true, serverError: null });
       try {
-        const info = await startKopiaServer();
+        const info = await startKopiaServer(currentRepoId);
         await get().refreshServerStatus();
         set({ isServerLoading: false, serverInfo: info });
         return info;
@@ -297,9 +452,12 @@ export const useKopiaStore = create<KopiaStore>()(
     },
 
     stopServer: async () => {
+      const { currentRepoId } = get();
+      if (!currentRepoId) return;
+
       set({ isServerLoading: true, serverError: null });
       try {
-        await stopKopiaServer();
+        await stopKopiaServer(currentRepoId);
         await get().refreshServerStatus();
         set({ isServerLoading: false });
       } catch (error) {
@@ -313,8 +471,11 @@ export const useKopiaStore = create<KopiaStore>()(
     // ========================================================================
 
     refreshRepositoryStatus: async () => {
+      const { currentRepoId } = get();
+      if (!currentRepoId) return;
+
       try {
-        const status = await getRepositoryStatus();
+        const status = await getRepositoryStatus(currentRepoId);
         set({ repositoryStatus: status });
       } catch (error) {
         const message = getErrorMessage(error);
@@ -344,9 +505,12 @@ export const useKopiaStore = create<KopiaStore>()(
     },
 
     connectRepo: async (config: RepositoryConnectRequest) => {
+      const { currentRepoId } = get();
+      if (!currentRepoId) return false;
+
       set({ isRepositoryLoading: true, repositoryError: null });
       try {
-        const status = await connectRepository(config);
+        const status = await connectRepository(currentRepoId, config);
         set({ repositoryStatus: status, isRepositoryLoading: false });
         return status.connected;
       } catch (error) {
@@ -357,9 +521,12 @@ export const useKopiaStore = create<KopiaStore>()(
     },
 
     disconnectRepo: async () => {
+      const { currentRepoId } = get();
+      if (!currentRepoId) return;
+
       set({ isRepositoryLoading: true, repositoryError: null });
       try {
-        await disconnectRepository();
+        await disconnectRepository(currentRepoId);
         await get().refreshRepositoryStatus();
         set({ isRepositoryLoading: false });
       } catch (error) {
@@ -373,9 +540,12 @@ export const useKopiaStore = create<KopiaStore>()(
     // ========================================================================
 
     refreshSnapshots: async () => {
+      const { currentRepoId } = get();
+      if (!currentRepoId) return;
+
       try {
         // First, get all sources
-        const sourcesResponse = await listSources();
+        const sourcesResponse = await listSources(currentRepoId);
         const sources = sourcesResponse.sources || [];
 
         // Then fetch snapshots for each source
@@ -383,6 +553,7 @@ export const useKopiaStore = create<KopiaStore>()(
         for (const source of sources) {
           try {
             const response = await listSnapshots(
+              currentRepoId,
               source.source.userName,
               source.source.host,
               source.source.path,
@@ -417,8 +588,11 @@ export const useKopiaStore = create<KopiaStore>()(
     },
 
     refreshSources: async () => {
+      const { currentRepoId } = get();
+      if (!currentRepoId) return;
+
       try {
-        const response = await listSources();
+        const response = await listSources(currentRepoId);
         set({ sourcesResponse: response });
       } catch (error) {
         const message = getErrorMessage(error);
@@ -431,9 +605,12 @@ export const useKopiaStore = create<KopiaStore>()(
     },
 
     createSnapshot: async (path: string, createSnapshot?: boolean, policy?: PolicyDefinition) => {
+      const { currentRepoId } = get();
+      if (!currentRepoId) throw new Error('No repository selected');
+
       set({ isSnapshotsLoading: true, snapshotsError: null });
       try {
-        await apiCreateSnapshot(path, undefined, undefined, createSnapshot, policy);
+        await apiCreateSnapshot(currentRepoId, path, undefined, undefined, createSnapshot, policy);
         // Refresh both snapshots and sources to update UI
         await Promise.all([get().refreshSnapshots(), get().refreshSources()]);
         set({ isSnapshotsLoading: false });
@@ -450,9 +627,12 @@ export const useKopiaStore = create<KopiaStore>()(
       path: string,
       manifestIDs: string[]
     ) => {
+      const { currentRepoId } = get();
+      if (!currentRepoId) throw new Error('No repository selected');
+
       set({ isSnapshotsLoading: true, snapshotsError: null });
       try {
-        await apiDeleteSnapshots(userName, host, path, manifestIDs);
+        await apiDeleteSnapshots(currentRepoId, userName, host, path, manifestIDs);
         // Refresh both snapshots and sources to update UI
         await Promise.all([get().refreshSnapshots(), get().refreshSources()]);
         set({ isSnapshotsLoading: false });
@@ -477,9 +657,12 @@ export const useKopiaStore = create<KopiaStore>()(
       path: string,
       all = false
     ): Promise<Snapshot[]> => {
+      const { currentRepoId } = get();
+      if (!currentRepoId) throw new Error('No repository selected');
+
       set({ isSnapshotsLoading: true, snapshotsError: null });
       try {
-        const response = await listSnapshots(userName, host, path, all);
+        const response = await listSnapshots(currentRepoId, userName, host, path, all);
         set({ isSnapshotsLoading: false });
         return response.snapshots || [];
       } catch (error) {
@@ -494,8 +677,11 @@ export const useKopiaStore = create<KopiaStore>()(
     // ========================================================================
 
     refreshPolicies: async () => {
+      const { currentRepoId } = get();
+      if (!currentRepoId) return;
+
       try {
-        const response = await listPolicies();
+        const response = await listPolicies(currentRepoId);
         const newPolicies = response.policies || [];
         set({ policies: newPolicies });
       } catch (error) {
@@ -509,9 +695,12 @@ export const useKopiaStore = create<KopiaStore>()(
     },
 
     getPolicy: async (userName?: string, host?: string, path?: string) => {
+      const { currentRepoId } = get();
+      if (!currentRepoId) return null;
+
       set({ isPoliciesLoading: true, policiesError: null });
       try {
-        const response = await apiGetPolicy(userName, host, path);
+        const response = await apiGetPolicy(currentRepoId, userName, host, path);
         set({ isPoliciesLoading: false });
         // Extract just the policy definition from the response
         return response.policy;
@@ -528,9 +717,12 @@ export const useKopiaStore = create<KopiaStore>()(
       host?: string,
       path?: string
     ) => {
+      const { currentRepoId } = get();
+      if (!currentRepoId) throw new Error('No repository selected');
+
       set({ isPoliciesLoading: true, policiesError: null });
       try {
-        await apiSetPolicy(policy, userName, host, path);
+        await apiSetPolicy(currentRepoId, policy, userName, host, path);
         await get().refreshPolicies();
         set({ isPoliciesLoading: false });
       } catch (error) {
@@ -541,9 +733,12 @@ export const useKopiaStore = create<KopiaStore>()(
     },
 
     deletePolicy: async (userName?: string, host?: string, path?: string) => {
+      const { currentRepoId } = get();
+      if (!currentRepoId) throw new Error('No repository selected');
+
       set({ isPoliciesLoading: true, policiesError: null });
       try {
-        await apiDeletePolicy(userName, host, path);
+        await apiDeletePolicy(currentRepoId, userName, host, path);
         await get().refreshPolicies();
         set({ isPoliciesLoading: false });
       } catch (error) {
@@ -558,8 +753,11 @@ export const useKopiaStore = create<KopiaStore>()(
     // ========================================================================
 
     refreshTasks: async () => {
+      const { currentRepoId } = get();
+      if (!currentRepoId) return;
+
       try {
-        const response = await listTasks();
+        const response = await listTasks(currentRepoId);
         const newTasks = response.tasks || [];
         const currentTasks = get().tasks;
 
@@ -598,8 +796,11 @@ export const useKopiaStore = create<KopiaStore>()(
     },
 
     refreshTasksSummary: async () => {
+      const { currentRepoId } = get();
+      if (!currentRepoId) return;
+
       try {
-        const summary = await getTasksSummary();
+        const summary = await getTasksSummary(currentRepoId);
         set({ tasksSummary: summary });
       } catch {
         // Silently fail for summary - not critical
@@ -607,9 +808,12 @@ export const useKopiaStore = create<KopiaStore>()(
     },
 
     getTask: async (taskId: string) => {
+      const { currentRepoId } = get();
+      if (!currentRepoId) return null;
+
       set({ isTasksLoading: true, tasksError: null });
       try {
-        const task = await apiGetTask(taskId);
+        const task = await apiGetTask(currentRepoId, taskId);
         set({ isTasksLoading: false });
         return task;
       } catch (error) {
@@ -620,9 +824,12 @@ export const useKopiaStore = create<KopiaStore>()(
     },
 
     cancelTask: async (taskId: string) => {
+      const { currentRepoId } = get();
+      if (!currentRepoId) throw new Error('No repository selected');
+
       set({ isTasksLoading: true, tasksError: null });
       try {
-        await apiCancelTask(taskId);
+        await apiCancelTask(currentRepoId, taskId);
         await get().refreshTasks();
         set({ isTasksLoading: false });
       } catch (error) {
@@ -637,7 +844,8 @@ export const useKopiaStore = create<KopiaStore>()(
     // ========================================================================
 
     refreshMounts: async () => {
-      const { isRepoConnected } = get();
+      const { currentRepoId, isRepoConnected } = get();
+      if (!currentRepoId) return;
 
       // Only fetch mounts if repository is connected
       if (!isRepoConnected()) {
@@ -646,7 +854,7 @@ export const useKopiaStore = create<KopiaStore>()(
 
       set({ isMountsLoading: true });
       try {
-        const mounts = await listMounts();
+        const mounts = await listMounts(currentRepoId);
         set({ mounts, mountsError: null, isMountsLoading: false });
       } catch (error) {
         const message = getErrorMessage(error);
@@ -655,7 +863,8 @@ export const useKopiaStore = create<KopiaStore>()(
     },
 
     mountSnapshot: async (root: string) => {
-      const { isRepoConnected } = get();
+      const { currentRepoId, isRepoConnected } = get();
+      if (!currentRepoId) throw new Error('No repository selected');
 
       if (!isRepoConnected()) {
         throw new Error('Repository not connected');
@@ -663,7 +872,7 @@ export const useKopiaStore = create<KopiaStore>()(
 
       set({ isMountsLoading: true });
       try {
-        const path = await apiMountSnapshot(root);
+        const path = await apiMountSnapshot(currentRepoId, root);
         // Refresh mounts list
         await get().refreshMounts();
         set({ isMountsLoading: false });
@@ -676,7 +885,8 @@ export const useKopiaStore = create<KopiaStore>()(
     },
 
     unmountSnapshot: async (objectId: string) => {
-      const { isRepoConnected } = get();
+      const { currentRepoId, isRepoConnected } = get();
+      if (!currentRepoId) throw new Error('No repository selected');
 
       if (!isRepoConnected()) {
         throw new Error('Repository not connected');
@@ -684,7 +894,7 @@ export const useKopiaStore = create<KopiaStore>()(
 
       set({ isMountsLoading: true });
       try {
-        await apiUnmountSnapshot(objectId);
+        await apiUnmountSnapshot(currentRepoId, objectId);
         // Refresh mounts list
         await get().refreshMounts();
         set({ isMountsLoading: false });
@@ -794,7 +1004,14 @@ export const useKopiaStore = create<KopiaStore>()(
     // ========================================================================
 
     startWebSocket: async () => {
-      const { isWebSocketConnected, serverStatus, serverInfo } = get();
+      const { isWebSocketConnected, serverStatus, serverInfo, currentRepoId } = get();
+
+      if (!currentRepoId) {
+        if (import.meta.env.DEV) {
+          console.debug('Cannot connect WebSocket: no repository selected');
+        }
+        return;
+      }
 
       if (isWebSocketConnected) {
         if (import.meta.env.DEV) {
@@ -818,8 +1035,19 @@ export const useKopiaStore = create<KopiaStore>()(
       }
 
       try {
+        // Clean up any existing listeners first to prevent memory leaks
+        if (wsEventUnlisten) {
+          wsEventUnlisten();
+          wsEventUnlisten = null;
+        }
+        if (wsDisconnectUnlisten) {
+          wsDisconnectUnlisten();
+          wsDisconnectUnlisten = null;
+        }
+
         // Connect to WebSocket
         await connectWebSocket(
+          currentRepoId,
           serverStatus.serverUrl,
           'kopia', // Server username (must match SERVER_USERNAME in kopia_server.rs)
           serverInfo.password
@@ -882,7 +1110,7 @@ export const useKopiaStore = create<KopiaStore>()(
     },
 
     stopWebSocket: async () => {
-      const { isWebSocketConnected } = get();
+      const { isWebSocketConnected, currentRepoId } = get();
 
       if (!isWebSocketConnected) {
         return;
@@ -900,7 +1128,9 @@ export const useKopiaStore = create<KopiaStore>()(
         }
 
         // Disconnect WebSocket
-        await disconnectWebSocket();
+        if (currentRepoId) {
+          await disconnectWebSocket(currentRepoId);
+        }
         set({ isWebSocketConnected: false });
         if (import.meta.env.DEV) {
           console.log('WebSocket disconnected');
@@ -953,22 +1183,33 @@ export const useKopiaStore = create<KopiaStore>()(
     // ========================================================================
 
     refreshAll: async () => {
-      await Promise.all([
-        get().refreshServerStatus(),
-        get().refreshRepositoryStatus(),
-        get().refreshSnapshots(),
-        get().refreshSources(),
-        get().refreshPolicies(),
-        get().refreshTasks(),
-        get().refreshTasksSummary(),
-        get().refreshMounts(),
-      ]);
+      // First refresh repositories to ensure we have a current repo
+      await get().refreshRepositories();
+
+      // Then refresh all data for the current repo
+      const { currentRepoId } = get();
+      if (currentRepoId) {
+        await Promise.all([
+          get().refreshServerStatus(),
+          get().refreshRepositoryStatus(),
+          get().refreshSnapshots(),
+          get().refreshSources(),
+          get().refreshPolicies(),
+          get().refreshTasks(),
+          get().refreshTasksSummary(),
+          get().refreshMounts(),
+        ]);
+      }
     },
 
     reset: () => {
       get().stopPolling();
       void get().stopWebSocket();
       set({
+        repositories: [],
+        currentRepoId: null,
+        repositoriesError: null,
+        isRepositoriesLoading: false,
         serverStatus: null,
         serverInfo: null,
         serverError: null,

@@ -34,7 +34,8 @@
     "no": "No",
     "excluded": "excluded",
     "ignored": "ignored",
-    "close": "Close"
+    "close": "Close",
+    "noRepositorySelected": "No repository selected"
   },
   "errorBoundary": {
     "title": "Something went wrong",
@@ -53,7 +54,8 @@
     "policies": "Backup Rules",
     "tasks": "Tasks",
     "mounts": "Browse Backups",
-    "preferences": "Preferences"
+    "preferences": "Preferences",
+    "repositories": "Repositories"
   },
   "overview": {
     "title": "Overview",
@@ -1023,6 +1025,38 @@
       "serverUnavailable": "Cannot connect to Kopia server. Please restart the application.",
       "disconnectFailed": "Failed to disconnect from existing destination. Please try restarting the application.",
       "verificationFailed": "Destination operation completed but connection could not be verified. Please check the destination status."
+    }
+  },
+  "repositories": {
+    "title": "Repositories",
+    "subtitle": "Manage your backup repositories",
+    "selectRepository": "Select Repository",
+    "noRepository": "No repository selected",
+    "noRepositories": "No repositories configured",
+    "addRepository": "Add Repository",
+    "manageRepositories": "Manage Repositories",
+    "current": "Current",
+    "storage": "Storage",
+    "configFile": "Config File",
+    "switch": "Switch",
+    "configure": "Configure",
+    "remove": "Remove",
+    "removing": "Removing...",
+    "switched": "Repository switched successfully",
+    "removed": "Repository removed successfully",
+    "status": {
+      "running": "Running",
+      "starting": "Starting",
+      "stopped": "Stopped",
+      "error": "Error"
+    },
+    "empty": {
+      "title": "No Repositories",
+      "description": "Connect to a repository to start backing up your files"
+    },
+    "removeConfirm": {
+      "title": "Remove Repository",
+      "description": "Are you sure you want to remove \"{{name}}\" from this app? This will not delete the repository data, only remove it from this application."
     }
   },
   "status": {

@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils/cn';
 import { StatusIndicator } from './StatusIndicator';
 import { useKopiaStore } from '@/stores/kopia';
 import { Progress } from '@/components/ui/progress';
+import { RepositorySelector } from '@/components/kopia/RepositorySelector';
 import type { Task } from '@/lib/kopia/types';
 
 interface NavItem {
@@ -76,6 +77,11 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
 
   return (
     <div className="flex h-full w-full flex-col bg-card">
+      {/* Repository Selector */}
+      <div className="border-b px-2 py-2">
+        <RepositorySelector />
+      </div>
+
       {/* Navigation */}
       <nav className="flex-1 overflow-auto px-2 py-3">
         <ul className="space-y-0.5">
