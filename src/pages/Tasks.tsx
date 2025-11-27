@@ -3,6 +3,7 @@
  */
 
 import { Fragment, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useKopiaStore } from '@/stores/kopia';
 import { Button } from '@/components/ui/button';
@@ -48,9 +49,9 @@ import {
 import type { Task, TaskDetail } from '@/lib/kopia/types';
 import { formatDateTime } from '@/lib/utils';
 import { usePreferencesStore } from '@/stores/preferences';
-import { getTask } from '@/lib/kopia/client';
 
 export function Tasks() {
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const language = usePreferencesStore((state) => state.language);
   const tasks = useKopiaStore((state) => state.tasks);
@@ -59,6 +60,7 @@ export function Tasks() {
   const error = useKopiaStore((state) => state.tasksError);
   const isWebSocketConnected = useKopiaStore((state) => state.isWebSocketConnected);
   const cancelTask = useKopiaStore((state) => state.cancelTask);
+  const getTask = useKopiaStore((state) => state.getTask);
   const refreshAll = useKopiaStore((state) => state.refreshAll);
   const sourcesResponse = useKopiaStore((state) => state.sourcesResponse);
   const sources = sourcesResponse?.sources || [];
@@ -96,7 +98,9 @@ export function Tasks() {
         setLoadingTaskDetails((prev) => ({ ...prev, [taskId]: true }));
         try {
           const detail = await getTask(taskId);
-          setTaskDetails((prev) => ({ ...prev, [taskId]: detail }));
+          if (detail) {
+            setTaskDetails((prev) => ({ ...prev, [taskId]: detail }));
+          }
         } catch (err) {
           if (import.meta.env.DEV) {
             console.error('Failed to load task details:', err);
@@ -332,7 +336,16 @@ export function Tasks() {
                       <Fragment key={task.id}>
                         <TableRow>
                           <TableCell className="font-mono text-xs">
-                            {task.id.slice(0, 8)}...
+                            <button
+                              type="button"
+                              className="h-auto p-0 font-mono text-xs text-primary hover:underline cursor-pointer"
+                              onClick={() => {
+                                void navigate(`/tasks/${task.id}`);
+                              }}
+                              title={t('tasks.viewDetails')}
+                            >
+                              {task.id.slice(0, 8)}...
+                            </button>
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline">{task.kind || t('tasks.unknown')}</Badge>
@@ -588,8 +601,10 @@ export function Tasks() {
                         source.schedule?.timeOfDay &&
                         source.schedule.timeOfDay.length > 0
                       ) {
+                        const tod = source.schedule.timeOfDay[0];
+                        const timeStr = `${tod.hour.toString().padStart(2, '0')}:${tod.min.toString().padStart(2, '0')}`;
                         scheduleDesc = t('tasks.scheduleDailyAt', {
-                          time: source.schedule.timeOfDay[0],
+                          time: timeStr,
                         });
                       } else {
                         scheduleDesc = t('tasks.scheduleUnknown');

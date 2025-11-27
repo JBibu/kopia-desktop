@@ -86,7 +86,10 @@ pub struct RepositoryStatus {
     pub init_task_id: Option<String>,
 }
 
-/// ThrottlingLimits matches throttling.Limits from official Kopia
+/// ThrottlingLimits represents the bandwidth throttling limits in RepositoryStatus
+/// This is a simplified version returned by the status API endpoint.
+/// For more detailed throttle configuration, see ThrottleLimits below.
+/// Matches throttling.Limits from official Kopia
 /// See: internal/throttling/throttling.go
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -133,6 +136,9 @@ pub struct RepositoryConnectRequest {
     pub password: String,
     pub token: Option<String>,
     pub client_options: Option<ClientOptions>,
+    /// Time in seconds to wait for repository sync after connection
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sync_wait_time: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -142,6 +148,9 @@ pub struct RepositoryCreateRequest {
     pub password: String,
     pub options: Option<RepositoryCreateOptions>,
     pub client_options: Option<ClientOptions>,
+    /// Time in seconds to wait for repository sync after creation
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sync_wait_time: Option<i32>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -350,6 +359,52 @@ pub struct SnapshotDeleteRequest {
     pub delete_source_and_policy: Option<bool>,
 }
 
+/// SourceActionResponse is a per-source response
+/// See: internal/serverapi/serverapi.go
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceActionResponse {
+    pub success: bool,
+}
+
+/// MultipleSourceActionResponse contains per-source responses for all sources targeted by API command
+/// See: internal/serverapi/serverapi.go
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MultipleSourceActionResponse {
+    pub sources: std::collections::HashMap<String, SourceActionResponse>,
+}
+
+/// ThrottleLimits for repository operations (detailed configuration)
+/// Used by GET/PUT /api/v1/repo/throttle endpoints for fine-grained control.
+/// This is more detailed than ThrottlingLimits (status-only bandwidth limits).
+/// See: repo/blob/throttling/throttler.go (Limits)
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThrottleLimits {
+    /// Read operations per second limit
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reads_per_second: Option<f64>,
+    /// Write operations per second limit
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub writes_per_second: Option<f64>,
+    /// List operations per second limit
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lists_per_second: Option<f64>,
+    /// Maximum upload speed in bytes per second
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_upload_speed_bytes_per_second: Option<f64>,
+    /// Maximum download speed in bytes per second
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_download_speed_bytes_per_second: Option<f64>,
+    /// Maximum concurrent read operations
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub concurrent_reads: Option<i32>,
+    /// Maximum concurrent write operations
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub concurrent_writes: Option<i32>,
+}
+
 // ============================================================================
 // Directory & File Browsing Types
 // ============================================================================
@@ -373,6 +428,12 @@ pub struct DirectoryEntry {
     pub obj: String,
     pub summ: Option<DirectorySummary>,
     pub link_target: Option<String>,
+    /// User ID (owner) of the entry
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uid: Option<u32>,
+    /// Group ID (owner group) of the entry
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gid: Option<u32>,
 }
 
 /// DirectorySummary matches fs.DirectorySummary from official Kopia
@@ -553,13 +614,16 @@ pub struct RetentionPolicy {
     pub ignore_identical_snapshots: Option<bool>,
 }
 
+/// SchedulingPolicy matches policy.SchedulingPolicy from official Kopia
+/// See: snapshot/policy/scheduling_policy.go
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SchedulingPolicy {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub interval_seconds: Option<i64>,
+    /// Times of day to run snapshots (array of {hour, min} objects)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub time_of_day: Option<Vec<String>>,
+    pub time_of_day: Option<Vec<TimeOfDay>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub no_parent_time_of_day: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -570,11 +634,24 @@ pub struct SchedulingPolicy {
     pub run_missed: Option<bool>,
 }
 
+/// TimeOfDay matches policy.TimeOfDay from official Kopia
+/// See: snapshot/policy/scheduling_policy.go:19-46
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeOfDay {
+    pub hour: i32,
+    #[serde(rename = "min")]
+    pub minute: i32,
+}
+
+/// FilesPolicy matches policy.FilesPolicy from official Kopia
+/// See: snapshot/policy/files_policy.go:3-16
+/// IMPORTANT: JSON field is "ignoreDotFiles" (NOT camelCase "dotIgnoreFiles")
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FilesPolicy {
     pub ignore: Option<Vec<String>>,
-    #[serde(rename = "dotIgnoreFiles")]
+    // Official field: DotIgnoreFiles with json:"ignoreDotFiles,omitempty" (NOT camelCase)
+    #[serde(rename = "ignoreDotFiles")]
     pub ignore_dot_files: Option<Vec<String>>,
     pub one_file_system: Option<bool>,
     pub no_parent_ignore: Option<bool>,
@@ -583,6 +660,8 @@ pub struct FilesPolicy {
     pub max_file_size: Option<i64>,
 }
 
+/// CompressionPolicy matches policy.CompressionPolicy from official Kopia
+/// See: snapshot/policy/compression_policy.go:12-21
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompressionPolicy {
@@ -590,7 +669,11 @@ pub struct CompressionPolicy {
     pub min_size: Option<i64>,
     pub max_size: Option<i64>,
     pub only_compress: Option<Vec<String>>,
+    /// Prevents inheriting onlyCompress list from parent policies
+    pub no_parent_only_compress: Option<bool>,
     pub never_compress: Option<Vec<String>>,
+    /// Prevents inheriting neverCompress list from parent policies
+    pub no_parent_never_compress: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -602,12 +685,27 @@ pub struct ActionsPolicy {
     pub after_folder: Option<ActionDefinition>,
 }
 
+/// ActionCommand matches policy.ActionCommand from official Kopia
+/// Supports both script-based and command-based execution
+/// See: snapshot/policy/actions_policy.go:22-33
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActionDefinition {
-    pub script: String,
-    pub timeout: i64,
-    pub mode: String,
+    /// Command executable path (alternative to script)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    /// Command arguments (used with path)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub args: Option<Vec<String>>,
+    /// Inline script content (alternative to path/args)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub script: Option<String>,
+    /// Timeout in seconds
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timeout: Option<i64>,
+    /// Execution mode: "essential", "optional", or "async"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -626,6 +724,8 @@ pub struct UploadPolicy {
     pub parallel_upload_above_size: Option<i64>,
 }
 
+/// LoggingPolicy matches policy.LoggingPolicy from official Kopia
+/// See: snapshot/policy/logging_policy.go:48-63
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoggingPolicy {
@@ -633,76 +733,60 @@ pub struct LoggingPolicy {
     pub entries: Option<LoggingEntriesPolicy>,
 }
 
+/// LoggingDirectoriesPolicy matches policy.DirLoggingPolicy
+/// See: snapshot/policy/logging_policy.go:53-56
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoggingDirectoriesPolicy {
-    pub snapshotted: Option<LogLevel>,
-    pub ignored: Option<LogLevel>,
+    /// LogDetail level: 0=None, 5=Normal, 10=Max
+    pub snapshotted: Option<i64>,
+    /// LogDetail level: 0=None, 5=Normal, 10=Max
+    pub ignored: Option<i64>,
 }
 
+/// LoggingEntriesPolicy matches policy.EntryLoggingPolicy
+/// See: snapshot/policy/logging_policy.go:58-63
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoggingEntriesPolicy {
-    pub snapshotted: Option<LogLevel>,
-    pub ignored: Option<LogLevel>,
-    pub cache_hit: Option<LogLevel>,
-    pub cache_miss: Option<LogLevel>,
+    /// LogDetail level: 0=None, 5=Normal, 10=Max
+    pub snapshotted: Option<i64>,
+    /// LogDetail level: 0=None, 5=Normal, 10=Max
+    pub ignored: Option<i64>,
+    /// LogDetail level: 0=None, 5=Normal, 10=Max
+    pub cache_hit: Option<i64>,
+    /// LogDetail level: 0=None, 5=Normal, 10=Max
+    pub cache_miss: Option<i64>,
 }
 
-// LogLevel can be either a simple number or an object with minSize/maxSize
-#[derive(Debug, Clone, Deserialize)]
-#[serde(untagged)]
-pub enum LogLevel {
-    Simple(i64),
-    Detailed {
-        min_size: Option<i64>,
-        max_size: Option<i64>,
-    },
-}
-
-impl serde::Serialize for LogLevel {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            LogLevel::Simple(n) => serializer.serialize_i64(*n),
-            LogLevel::Detailed { min_size, max_size } => {
-                use serde::ser::SerializeStruct;
-                let mut state = serializer.serialize_struct("LogLevel", 2)?;
-                state.serialize_field("minSize", min_size)?;
-                state.serialize_field("maxSize", max_size)?;
-                state.end()
-            }
-        }
-    }
-}
-
-/// Splitter policy configuration for content splitting algorithms
-///
-/// Note: Kopia's splitter policy is typically configured at the repository level
-/// and not overridden per-snapshot source. The policy definition in Kopia API
-/// returns an empty object in most cases, as splitter algorithms are not
-/// user-configurable at the policy level (they're repository-wide settings).
-///
-/// This struct exists to match the API response structure and may be extended
-/// in future Kopia versions if per-source splitter configuration is added.
+/// SplitterPolicy matches policy.SplitterPolicy from official Kopia
+/// See: snapshot/policy/splitter_policy.go:8-11
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SplitterPolicy {
-    // Currently empty - Kopia does not expose per-policy splitter configuration
-    // The splitter algorithm is configured at repository creation time
+    /// Content splitting algorithm name
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub algorithm: Option<String>,
 }
 
+/// OsSnapshotsPolicy matches policy.OSSnapshotPolicy from official Kopia
+/// See: snapshot/policy/os_snapshot_policy.go
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OsSnapshotsPolicy {
     pub volume_shadow_copy: Option<VolumeShadowCopyPolicy>,
 }
 
+/// VolumeShadowCopyPolicy for Windows VSS snapshots
+/// The 'enable' field uses OSSnapshotMode values:
+///   0 = Never (don't use OS snapshots)
+///   1 = Always (require OS snapshots, fail if unavailable)
+///   2 = WhenAvailable (use if available, continue without if not)
+/// See: snapshot/policy/os_snapshot_policy.go:37-55
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VolumeShadowCopyPolicy {
+    /// OSSnapshotMode: 0=Never, 1=Always, 2=WhenAvailable
     pub enable: Option<i64>,
 }
 
@@ -760,14 +844,18 @@ pub struct TaskDetail {
 }
 
 /// CounterValue describes the counter value reported by task with optional units for presentation.
+/// See: internal/uitask/uitask_counter.go:4-8
+/// IMPORTANT: level field does NOT have omitempty in official - always serialized
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CounterValue {
     pub value: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub units: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub level: Option<String>, // "", "notice", "warning" or "error"
+    /// Level: "", "notice", "warning", or "error"
+    /// Note: Always serialized (no omitempty), empty string if not set
+    #[serde(default)]
+    pub level: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -780,39 +868,6 @@ pub struct TasksSummary {
 }
 
 // ============================================================================
-// Maintenance Types
-// ============================================================================
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MaintenanceInfo {
-    pub last_run: Option<String>,
-    pub next_run: Option<String>,
-    pub schedule: MaintenanceSchedule,
-    pub stats: Option<MaintenanceStats>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MaintenanceSchedule {
-    pub quick: Option<MaintenanceInterval>,
-    pub full: Option<MaintenanceInterval>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MaintenanceInterval {
-    pub interval: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MaintenanceStats {
-    pub blob_count: i64,
-    pub total_blob_size: i64,
-}
-
-// ============================================================================
 // Utility Types
 // ============================================================================
 
@@ -821,6 +876,9 @@ pub struct MaintenanceStats {
 pub struct EstimateRequest {
     pub root: String,
     pub max_examples_per_bucket: Option<i64>,
+    /// Optional policy override for estimation
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub policy_override: Option<PolicyDefinition>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

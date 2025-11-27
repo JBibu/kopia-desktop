@@ -46,6 +46,7 @@ mod tests {
             password: "test-password-123".to_string(),
             token: None,
             client_options: None,
+            sync_wait_time: None,
         };
 
         let json = serde_json::to_string(&valid_request).unwrap();
@@ -192,7 +193,9 @@ mod tests {
         let errors = vec![
             KopiaError::ServerNotRunning,
             KopiaError::ServerAlreadyRunning { port: 51515 },
-            KopiaError::RepositoryNotConnected,
+            KopiaError::RepositoryNotConnected {
+                api_error_code: None,
+            },
             KopiaError::SnapshotNotFound {
                 snapshot_id: "abc123".to_string(),
             },

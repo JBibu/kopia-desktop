@@ -18,6 +18,7 @@ mod tests {
             password: "super-secret-password".to_string(),
             token: Some("auth-token-123".to_string()),
             client_options: None,
+            sync_wait_time: None,
         };
 
         // Serialize and verify
@@ -45,6 +46,7 @@ mod tests {
             password: "password123".to_string(),
             options: None,
             client_options: None,
+            sync_wait_time: None,
         };
 
         let json = serde_json::to_string(&request).unwrap();
@@ -146,6 +148,7 @@ mod tests {
             password: "pass".to_string(),
             token: None,
             client_options: None,
+            sync_wait_time: None,
         };
 
         let json = serde_json::to_string(&request).unwrap();
@@ -189,7 +192,9 @@ mod tests {
         let errors = vec![
             (KopiaError::ServerNotRunning, "Kopia server is not running"),
             (
-                KopiaError::RepositoryNotConnected,
+                KopiaError::RepositoryNotConnected {
+                    api_error_code: None,
+                },
                 "Repository is not connected",
             ),
             (

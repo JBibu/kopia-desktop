@@ -3,7 +3,15 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { KopiaError, KopiaErrorCode, parseKopiaError, getErrorMessage } from '@/lib/kopia/errors';
+import {
+  KopiaError,
+  KopiaErrorCode,
+  OfficialKopiaAPIErrorCode,
+  parseKopiaError,
+  getErrorMessage,
+  isNotConnectedError,
+  isAuthenticationError,
+} from '@/lib/kopia/errors';
 
 // Mock i18n for testing
 vi.mock('@/lib/i18n/config', () => ({
@@ -300,5 +308,114 @@ describe('getErrorMessage', () => {
     expect(getErrorMessage(null)).toBe('An unknown error occurred');
     expect(getErrorMessage(undefined)).toBe('An unknown error occurred');
     expect(getErrorMessage(123)).toBe('An unknown error occurred');
+  });
+});
+
+describe('API Error Code Preservation', () => {
+  it('preserves official API error code from backend', () => {
+    const error = {
+      type: 'REPOSITORY_NOT_CONNECTED',
+      data: {
+        message: 'Repository not connected',
+        api_error_code: 'NOT_CONNECTED',
+      },
+    };
+    const parsed = parseKopiaError(error);
+    expect(parsed.code).toBe('REPOSITORY_NOT_CONNECTED');
+    expect(parsed.apiErrorCode).toBe('NOT_CONNECTED');
+  });
+
+  it('checks both custom and API error codes with is()', () => {
+    const error = new KopiaError(
+      'Not connected',
+      KopiaErrorCode.REPOSITORY_NOT_CONNECTED,
+      undefined,
+      undefined,
+      OfficialKopiaAPIErrorCode.NOT_CONNECTED
+    );
+
+    // Should match custom code
+    expect(error.is(KopiaErrorCode.REPOSITORY_NOT_CONNECTED)).toBe(true);
+
+    // Should also match API code
+    expect(error.is(OfficialKopiaAPIErrorCode.NOT_CONNECTED)).toBe(true);
+
+    // Should not match different codes
+    expect(error.is(KopiaErrorCode.SERVER_NOT_RUNNING)).toBe(false);
+  });
+
+  it('checks specific API error codes with isAPIError()', () => {
+    const error = new KopiaError(
+      'Invalid password',
+      KopiaErrorCode.AUTHENTICATION_FAILED,
+      undefined,
+      undefined,
+      OfficialKopiaAPIErrorCode.INVALID_PASSWORD
+    );
+
+    expect(error.isAPIError(OfficialKopiaAPIErrorCode.INVALID_PASSWORD)).toBe(true);
+    expect(error.isAPIError(OfficialKopiaAPIErrorCode.NOT_CONNECTED)).toBe(false);
+  });
+
+  it('handles authentication errors with official API codes', () => {
+    const error = new KopiaError(
+      'Auth failed',
+      KopiaErrorCode.AUTHENTICATION_FAILED,
+      401,
+      undefined,
+      OfficialKopiaAPIErrorCode.INVALID_PASSWORD
+    );
+
+    expect(error.isAuthError()).toBe(true);
+    expect(error.is(OfficialKopiaAPIErrorCode.INVALID_PASSWORD)).toBe(true);
+  });
+
+  it('handles connection errors with official API codes', () => {
+    const error = new KopiaError(
+      'Storage connection failed',
+      KopiaErrorCode.REPOSITORY_CONNECTION_FAILED,
+      undefined,
+      undefined,
+      OfficialKopiaAPIErrorCode.STORAGE_CONNECTION
+    );
+
+    expect(error.isConnectionError()).toBe(true);
+    expect(error.is(OfficialKopiaAPIErrorCode.STORAGE_CONNECTION)).toBe(true);
+  });
+});
+
+describe('Helper Functions', () => {
+  it('isNotConnectedError checks both code types', () => {
+    const error1 = {
+      type: 'REPOSITORY_NOT_CONNECTED',
+      data: { message: 'Not connected' },
+    };
+    expect(isNotConnectedError(error1)).toBe(true);
+
+    const error2 = new KopiaError(
+      'Not connected',
+      undefined,
+      undefined,
+      undefined,
+      OfficialKopiaAPIErrorCode.NOT_CONNECTED
+    );
+    expect(isNotConnectedError(error2)).toBe(true);
+  });
+
+  it('isAuthenticationError checks both code types', () => {
+    const error1 = {
+      type: 'AUTHENTICATION_FAILED',
+      data: { message: 'Auth failed' },
+    };
+    expect(isAuthenticationError(error1)).toBe(true);
+
+    const error2 = new KopiaError(
+      'Invalid password',
+      undefined,
+      undefined,
+      undefined,
+      OfficialKopiaAPIErrorCode.INVALID_PASSWORD
+    );
+    expect(isAuthenticationError(error2)).toBe(true);
   });
 });

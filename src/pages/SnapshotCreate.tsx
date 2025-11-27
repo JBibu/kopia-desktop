@@ -26,17 +26,20 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { FolderOpen, Camera, Info, Settings, Sliders } from 'lucide-react';
+import { FolderOpen, Camera, Info, Settings, Sliders, Calculator } from 'lucide-react';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia/errors';
-import { selectFolder } from '@/lib/kopia/client';
+import { selectFolder, estimateSnapshot } from '@/lib/kopia/client';
 import type { PolicyDefinition } from '@/lib/kopia/types';
+import { SnapshotEstimationResults } from '@/components/kopia/snapshots/SnapshotEstimationResults';
+import { useCurrentRepoId } from '@/hooks/useCurrentRepo';
 
 export function SnapshotCreate() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const createSnapshot = useKopiaStore((state) => state.createSnapshot);
   const getPolicy = useKopiaStore((state) => state.getPolicy);
+  const currentRepoId = useCurrentRepoId();
 
   // Loading states
   const [isCreating, setIsCreating] = useState(false);
@@ -50,6 +53,10 @@ export function SnapshotCreate() {
   const [policy, setPolicy] = useState<PolicyDefinition | null>(null);
   const [policyOverride, setPolicyOverride] = useState<PolicyDefinition>({});
   const [usePolicyOverride, setUsePolicyOverride] = useState(false);
+
+  // Estimation state
+  const [estimationTaskId, setEstimationTaskId] = useState<string | null>(null);
+  const [showEstimation, setShowEstimation] = useState(false);
 
   // Load inherited policy when path changes (for preview only)
   useEffect(() => {
@@ -83,6 +90,27 @@ export function SnapshotCreate() {
       if (selectedPath) {
         setPath(selectedPath);
       }
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  };
+
+  const handleEstimate = async () => {
+    if (!path.trim()) {
+      toast.error(t('snapshotCreate.pathRequired'));
+      return;
+    }
+
+    if (!currentRepoId) {
+      toast.error(t('common.noRepositorySelected'));
+      return;
+    }
+
+    try {
+      const result = await estimateSnapshot(currentRepoId, path);
+      setEstimationTaskId(result.id);
+      setShowEstimation(true);
+      toast.success(t('snapshots.estimation.started'));
     } catch (err) {
       toast.error(getErrorMessage(err));
     }
@@ -381,6 +409,15 @@ export function SnapshotCreate() {
                   {t('common.cancel')}
                 </Button>
                 <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => void handleEstimate()}
+                  disabled={isCreating || !path.trim()}
+                >
+                  <Calculator className="h-4 w-4 mr-2" />
+                  {t('snapshots.estimate')}
+                </Button>
+                <Button
                   onClick={() => void handleCreateSnapshot()}
                   disabled={isCreating || !path.trim()}
                 >
@@ -492,6 +529,17 @@ export function SnapshotCreate() {
               )}
             </AlertDescription>
           </Alert>
+
+          {/* Estimation Results */}
+          {showEstimation && estimationTaskId && (
+            <SnapshotEstimationResults
+              taskId={estimationTaskId}
+              onClose={() => {
+                setShowEstimation(false);
+                setEstimationTaskId(null);
+              }}
+            />
+          )}
         </div>
       </div>
     </div>

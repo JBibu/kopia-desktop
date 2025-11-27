@@ -2,25 +2,71 @@
 //!
 //! Provides 40+ Tauri commands that wrap the Kopia REST API for repository management,
 //! snapshots, policies, tasks, maintenance, and notifications.
+//!
+//! All commands now take a `repo_id` parameter to support multiple repositories.
 
 use crate::error::{HttpResultExt, IoResultExt, JsonResultExt, KopiaError, Result};
-use crate::kopia_server::{KopiaServerInfo, KopiaServerState, KopiaServerStatus};
+use crate::kopia_server::{KopiaServerInfo, KopiaServerStatus};
+use crate::server_manager::{RepositoryEntry, ServerManagerState};
 use crate::types::{RepositoryConnectRequest, RepositoryStatus, StorageConfig};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use tauri::State;
 
-// Helper macro for mutex recovery
-macro_rules! lock_server {
-    ($server:expr) => {
-        $server.lock().unwrap_or_else(|poisoned| {
-            log::warn!("Mutex poisoned, recovering...");
+/// Helper macro for locking the server manager with poison recovery
+macro_rules! lock_manager {
+    ($manager:expr) => {
+        $manager.lock().unwrap_or_else(|poisoned| {
+            log::warn!("ServerManager mutex poisoned, recovering...");
             poisoned.into_inner()
         })
     };
 }
 
-/// Start the Kopia server
+// ============================================================================
+// Repository Management Commands (Multi-repo)
+// ============================================================================
+
+/// List all discovered repositories
+///
+/// Returns a list of all configured repositories based on *.config files
+/// in the config directory.
+#[tauri::command]
+pub async fn list_repositories(
+    manager: State<'_, ServerManagerState>,
+) -> Result<Vec<RepositoryEntry>> {
+    lock_manager!(manager).list_repositories()
+}
+
+/// Add a new repository configuration
+///
+/// Creates a new repository entry. If `repo_id` is None, generates a unique ID.
+/// Returns the repository ID.
+#[tauri::command]
+pub async fn add_repository(
+    manager: State<'_, ServerManagerState>,
+    repo_id: Option<String>,
+) -> Result<String> {
+    lock_manager!(manager).add_repository(repo_id)
+}
+
+/// Remove a repository configuration
+///
+/// Stops the server if running and removes the repository from the manager.
+/// Cannot remove the default "repository" entry.
+#[tauri::command]
+pub async fn remove_repository(
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
+) -> Result<()> {
+    lock_manager!(manager).remove_repository(&repo_id)
+}
+
+// ============================================================================
+// Server Lifecycle Commands
+// ============================================================================
+
+/// Start the Kopia server for a repository
 ///
 /// Spawns the Kopia server process with a random password and waits for it to become ready.
 /// The server listens on a random available port (localhost-only) with TLS enabled.
@@ -28,13 +74,14 @@ macro_rules! lock_server {
 /// # Returns
 /// `KopiaServerInfo` containing server URL, username, password, and CSRF token
 #[tauri::command]
-pub async fn kopia_server_start(server: State<'_, KopiaServerState>) -> Result<KopiaServerInfo> {
-    let config_dir = get_default_config_dir()?;
-
+pub async fn kopia_server_start(
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
+) -> Result<KopiaServerInfo> {
     let (info, ready_waiter) = {
-        let mut server_guard = lock_server!(server);
-        let info = server_guard.start(&config_dir)?;
-        let waiter = server_guard.get_ready_waiter()?;
+        let mut manager_guard = lock_manager!(manager);
+        let info = manager_guard.start_server(&repo_id)?;
+        let waiter = manager_guard.get_ready_waiter(&repo_id)?;
         (info, waiter)
     };
 
@@ -42,21 +89,27 @@ pub async fn kopia_server_start(server: State<'_, KopiaServerState>) -> Result<K
     Ok(info)
 }
 
-/// Stop the Kopia server
+/// Stop the Kopia server for a repository
 ///
 /// Gracefully terminates the Kopia server process and cleans up resources.
 #[tauri::command]
-pub async fn kopia_server_stop(server: State<'_, KopiaServerState>) -> Result<()> {
-    lock_server!(server).stop()
+pub async fn kopia_server_stop(
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
+) -> Result<()> {
+    lock_manager!(manager).stop_server(&repo_id)
 }
 
-/// Get Kopia server status
+/// Get Kopia server status for a repository
 ///
 /// Returns the current status of the Kopia server including whether it's running,
 /// server URL (if running), and uptime.
 #[tauri::command]
-pub async fn kopia_server_status(server: State<'_, KopiaServerState>) -> Result<KopiaServerStatus> {
-    Ok(lock_server!(server).status())
+pub async fn kopia_server_status(
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
+) -> Result<KopiaServerStatus> {
+    lock_manager!(manager).get_server_status(&repo_id)
 }
 
 /// Get the default Kopia configuration directory
@@ -105,8 +158,11 @@ pub fn get_default_config_dir() -> Result<String> {
 /// Returns information about the connected repository including storage configuration,
 /// connection status, and repository description.
 #[tauri::command]
-pub async fn repository_status(server: State<'_, KopiaServerState>) -> Result<RepositoryStatus> {
-    let (server_url, client) = get_server_client(&server)?;
+pub async fn repository_status(
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
+) -> Result<RepositoryStatus> {
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .get(format!("{}/api/v1/repo/status", server_url))
@@ -120,10 +176,11 @@ pub async fn repository_status(server: State<'_, KopiaServerState>) -> Result<Re
 /// Connect to an existing repository
 #[tauri::command]
 pub async fn repository_connect(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     config: RepositoryConnectRequest,
 ) -> Result<RepositoryStatus> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .post(format!("{}/api/v1/repo/connect", server_url))
@@ -135,13 +192,16 @@ pub async fn repository_connect(
     handle_empty_response(response, "Connect to repository").await?;
 
     // Return updated status
-    repository_status(server).await
+    repository_status(manager, repo_id).await
 }
 
 /// Disconnect from repository
 #[tauri::command]
-pub async fn repository_disconnect(server: State<'_, KopiaServerState>) -> Result<()> {
-    let (server_url, client) = get_server_client(&server)?;
+pub async fn repository_disconnect(
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
+) -> Result<()> {
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .post(format!("{}/api/v1/repo/disconnect", server_url))
@@ -152,16 +212,38 @@ pub async fn repository_disconnect(server: State<'_, KopiaServerState>) -> Resul
     handle_empty_response(response, "Disconnect from repository").await
 }
 
+/// Sync repository metadata
+///
+/// Synchronizes repository metadata with the storage backend. This is useful
+/// when multiple clients are connected to the same repository to ensure
+/// they all see the latest snapshots and policies.
+#[tauri::command]
+pub async fn repository_sync(
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
+) -> Result<()> {
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
+
+    let response = client
+        .post(format!("{}/api/v1/repo/sync", server_url))
+        .send()
+        .await
+        .map_http_error("Failed to sync repository")?;
+
+    handle_empty_response(response, "Sync repository").await
+}
+
 /// Create a new repository
 ///
 /// The Kopia API returns an empty object `{}` on success.
 /// We just need to verify the request succeeded, no task ID is returned.
 #[tauri::command]
 pub async fn repository_create(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     config: crate::types::RepositoryCreateRequest,
 ) -> Result<String> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .post(format!("{}/api/v1/repo/create", server_url))
@@ -182,10 +264,11 @@ pub async fn repository_create(
 /// - Error with `{"code": "NOT_INITIALIZED", "error": "..."}` if repository doesn't exist
 #[tauri::command]
 pub async fn repository_exists(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     storage: StorageConfig,
 ) -> Result<bool> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .post(format!("{}/api/v1/repo/exists", server_url))
@@ -235,9 +318,10 @@ pub async fn repository_exists(
 /// supported by the Kopia server for repository creation.
 #[tauri::command]
 pub async fn repository_get_algorithms(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
 ) -> Result<crate::types::AlgorithmsResponse> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .get(format!("{}/api/v1/repo/algorithms", server_url))
@@ -251,10 +335,11 @@ pub async fn repository_get_algorithms(
 /// Update repository description
 #[tauri::command]
 pub async fn repository_update_description(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     description: String,
 ) -> Result<()> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .post(format!("{}/api/v1/repo/description", server_url))
@@ -264,6 +349,42 @@ pub async fn repository_update_description(
         .map_http_error("Failed to update description")?;
 
     handle_empty_response(response, "Update description").await
+}
+
+/// Get throttling limits for repository operations
+#[tauri::command]
+pub async fn repository_get_throttle(
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
+) -> Result<crate::types::ThrottleLimits> {
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
+
+    let response = client
+        .get(format!("{}/api/v1/repo/throttle", server_url))
+        .send()
+        .await
+        .map_http_error("Failed to get throttle limits")?;
+
+    handle_response(response, "Get throttle limits").await
+}
+
+/// Set throttling limits for repository operations
+#[tauri::command]
+pub async fn repository_set_throttle(
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
+    limits: crate::types::ThrottleLimits,
+) -> Result<()> {
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
+
+    let response = client
+        .put(format!("{}/api/v1/repo/throttle", server_url))
+        .json(&limits)
+        .send()
+        .await
+        .map_http_error("Failed to set throttle limits")?;
+
+    handle_empty_response(response, "Set throttle limits").await
 }
 
 // ============================================================================
@@ -276,9 +397,10 @@ pub async fn repository_update_description(
 /// time, upload progress, next scheduled snapshot, and source path.
 #[tauri::command]
 pub async fn sources_list(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
 ) -> Result<crate::types::SourcesResponse> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .get(format!("{}/api/v1/sources", server_url))
@@ -292,14 +414,15 @@ pub async fn sources_list(
 /// Create a snapshot source and optionally start a snapshot
 #[tauri::command]
 pub async fn snapshot_create(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     path: String,
     user_name: Option<String>,
     host: Option<String>,
     create_snapshot: Option<bool>,
     policy: Option<crate::types::PolicyDefinition>,
 ) -> Result<crate::types::SourceInfo> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     // First, resolve the path to get source info (userName@host)
     log::info!("Resolving path: {}", path);
@@ -340,31 +463,20 @@ pub async fn snapshot_create(
         resolve_result.source
     };
 
-    // Use provided userName/host or fall back to resolved values
+    // Note: userName and host are derived from repository client options by the server,
+    // so we only send path, createSnapshot, and policy as per official API spec.
+    // The user_name/host parameters are kept for logging purposes only.
     let final_user_name = user_name.unwrap_or(source_info.user_name.clone());
     let final_host = host.unwrap_or(source_info.host.clone());
 
     // Create source and optionally start snapshot
-    let should_create_snapshot = create_snapshot.unwrap_or(false); // Default to false - user must explicitly opt-in
-    let mut payload = serde_json::Map::new();
-    payload.insert(
-        "path".to_string(),
-        serde_json::json!(source_info.path.clone()),
-    );
-    payload.insert(
-        "createSnapshot".to_string(),
-        serde_json::json!(should_create_snapshot),
-    );
-    payload.insert(
-        "userName".to_string(),
-        serde_json::json!(final_user_name.clone()),
-    );
-    payload.insert("host".to_string(), serde_json::json!(final_host.clone()));
-    // Add policy (use provided policy or empty object for defaults)
-    payload.insert(
-        "policy".to_string(),
-        serde_json::json!(policy.unwrap_or_default()),
-    );
+    // API only expects: path, createSnapshot, policy
+    let should_create_snapshot = create_snapshot.unwrap_or(false);
+    let payload = serde_json::json!({
+        "path": source_info.path,
+        "createSnapshot": should_create_snapshot,
+        "policy": policy.unwrap_or_default()
+    });
 
     log::info!(
         "Creating snapshot for {}@{}:{}",
@@ -421,15 +533,48 @@ pub async fn snapshot_create(
     Ok(source_info)
 }
 
-/// Cancel a snapshot
+/// Start a snapshot upload for an existing source
+///
+/// This uses `/api/v1/sources/upload` which triggers a snapshot on an existing
+/// source. Unlike `snapshot_create`, this endpoint doesn't create the source
+/// if it doesn't exist.
+///
+/// This is the correct endpoint to use when the user wants to manually trigger
+/// a backup on an existing backup source.
 #[tauri::command]
-pub async fn snapshot_cancel(
-    server: State<'_, KopiaServerState>,
+pub async fn snapshot_upload(
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     user_name: String,
     host: String,
     path: String,
 ) -> Result<()> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
+
+    let query_params = build_source_query(&user_name, &host, &path);
+
+    let response = client
+        .post(format!(
+            "{}/api/v1/sources/upload{}",
+            server_url, query_params
+        ))
+        .send()
+        .await
+        .map_http_error("Failed to start snapshot upload")?;
+
+    handle_empty_response(response, "Start snapshot upload").await
+}
+
+/// Cancel a snapshot
+#[tauri::command]
+pub async fn snapshot_cancel(
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
+    user_name: String,
+    host: String,
+    path: String,
+) -> Result<()> {
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let query_params = build_source_query(&user_name, &host, &path);
 
@@ -445,6 +590,56 @@ pub async fn snapshot_cancel(
     handle_empty_response(response, "Cancel snapshot").await
 }
 
+/// Pause a snapshot source
+#[tauri::command]
+pub async fn snapshot_pause(
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
+    user_name: String,
+    host: String,
+    path: String,
+) -> Result<crate::types::MultipleSourceActionResponse> {
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
+
+    let query_params = build_source_query(&user_name, &host, &path);
+
+    let response = client
+        .post(format!(
+            "{}/api/v1/control/pause-source{}",
+            server_url, query_params
+        ))
+        .send()
+        .await
+        .map_http_error("Failed to pause snapshot")?;
+
+    handle_response(response, "Pause snapshot").await
+}
+
+/// Resume a paused snapshot source
+#[tauri::command]
+pub async fn snapshot_resume(
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
+    user_name: String,
+    host: String,
+    path: String,
+) -> Result<crate::types::MultipleSourceActionResponse> {
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
+
+    let query_params = build_source_query(&user_name, &host, &path);
+
+    let response = client
+        .post(format!(
+            "{}/api/v1/control/resume-source{}",
+            server_url, query_params
+        ))
+        .send()
+        .await
+        .map_http_error("Failed to resume snapshot")?;
+
+    handle_response(response, "Resume snapshot").await
+}
+
 // ============================================================================
 // Snapshot History Commands
 // ============================================================================
@@ -452,13 +647,14 @@ pub async fn snapshot_cancel(
 /// List snapshots for a source
 #[tauri::command]
 pub async fn snapshots_list(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     user_name: String,
     host: String,
     path: String,
     all: bool,
 ) -> Result<crate::types::SnapshotsResponse> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let query_params = format!(
         "{}&all={}",
@@ -478,10 +674,11 @@ pub async fn snapshots_list(
 /// Edit snapshot metadata
 #[tauri::command]
 pub async fn snapshot_edit(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     request: crate::types::SnapshotEditRequest,
 ) -> Result<()> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .post(format!("{}/api/v1/snapshots/edit", server_url))
@@ -496,13 +693,14 @@ pub async fn snapshot_edit(
 /// Delete snapshots
 #[tauri::command]
 pub async fn snapshot_delete(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     user_name: String,
     host: String,
     path: String,
     manifest_ids: Vec<String>,
 ) -> Result<i64> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     // API expects source info + manifest IDs
     let payload = crate::types::SnapshotDeleteRequest {
@@ -539,10 +737,11 @@ pub async fn snapshot_delete(
 /// Browse directory contents in a snapshot
 #[tauri::command]
 pub async fn object_browse(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     object_id: String,
 ) -> Result<crate::types::DirectoryObject> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .get(format!("{}/api/v1/objects/{}", server_url, object_id))
@@ -556,12 +755,13 @@ pub async fn object_browse(
 /// Download a single file from a snapshot
 #[tauri::command]
 pub async fn object_download(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     object_id: String,
     filename: String,
     target_path: String,
 ) -> Result<()> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let query_params = format!("?fname={}", urlencoding::encode(&filename));
 
@@ -598,10 +798,11 @@ pub async fn object_download(
 /// Start a restore operation
 #[tauri::command]
 pub async fn restore_start(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     request: crate::types::RestoreRequest,
 ) -> Result<String> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .post(format!("{}/api/v1/restore", server_url))
@@ -622,8 +823,12 @@ pub async fn restore_start(
 
 /// Mount a snapshot
 #[tauri::command]
-pub async fn mount_snapshot(server: State<'_, KopiaServerState>, root: String) -> Result<String> {
-    let (server_url, client) = get_server_client(&server)?;
+pub async fn mount_snapshot(
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
+    root: String,
+) -> Result<String> {
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .post(format!("{}/api/v1/mounts", server_url))
@@ -643,9 +848,10 @@ pub async fn mount_snapshot(server: State<'_, KopiaServerState>, root: String) -
 /// Mounted snapshots appear as local filesystems for easy file browsing and restoration.
 #[tauri::command]
 pub async fn mounts_list(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
 ) -> Result<crate::types::MountsResponse> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .get(format!("{}/api/v1/mounts", server_url))
@@ -658,8 +864,12 @@ pub async fn mounts_list(
 
 /// Unmount a snapshot
 #[tauri::command]
-pub async fn mount_unmount(server: State<'_, KopiaServerState>, object_id: String) -> Result<()> {
-    let (server_url, client) = get_server_client(&server)?;
+pub async fn mount_unmount(
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
+    object_id: String,
+) -> Result<()> {
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .delete(format!("{}/api/v1/mounts/{}", server_url, object_id))
@@ -680,9 +890,10 @@ pub async fn mount_unmount(server: State<'_, KopiaServerState>, object_id: Strin
 /// Policies control retention, scheduling, compression, and other backup behavior.
 #[tauri::command]
 pub async fn policies_list(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
 ) -> Result<crate::types::PoliciesResponse> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .get(format!("{}/api/v1/policies", server_url))
@@ -696,12 +907,13 @@ pub async fn policies_list(
 /// Get policy for a specific target
 #[tauri::command]
 pub async fn policy_get(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     user_name: Option<String>,
     host: Option<String>,
     path: Option<String>,
 ) -> Result<crate::types::PolicyWithTarget> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let query_string = build_policy_query(user_name.as_deref(), host.as_deref(), path.as_deref());
 
@@ -717,13 +929,14 @@ pub async fn policy_get(
 /// Resolve effective policy with inheritance
 #[tauri::command]
 pub async fn policy_resolve(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     user_name: Option<String>,
     host: Option<String>,
     path: Option<String>,
     updates: Option<crate::types::PolicyDefinition>,
 ) -> Result<crate::types::ResolvedPolicyResponse> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let query_string = build_policy_query(user_name.as_deref(), host.as_deref(), path.as_deref());
 
@@ -758,19 +971,20 @@ pub async fn policy_resolve(
 /// Set/update policy
 #[tauri::command]
 pub async fn policy_set(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     user_name: Option<String>,
     host: Option<String>,
     path: Option<String>,
     policy: crate::types::PolicyDefinition,
 ) -> Result<()> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let query_string = build_policy_query(user_name.as_deref(), host.as_deref(), path.as_deref());
 
     let response = client
         .put(format!("{}/api/v1/policy{}", server_url, query_string))
-        .json(&serde_json::json!({ "policy": policy }))
+        .json(&policy) // API expects policy directly, not wrapped
         .send()
         .await
         .map_http_error("Failed to set policy")?;
@@ -781,12 +995,13 @@ pub async fn policy_set(
 /// Delete policy (revert to inherited)
 #[tauri::command]
 pub async fn policy_delete(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     user_name: Option<String>,
     host: Option<String>,
     path: Option<String>,
 ) -> Result<()> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let query_string = build_policy_query(user_name.as_deref(), host.as_deref(), path.as_deref());
 
@@ -809,9 +1024,10 @@ pub async fn policy_delete(
 /// Each task includes status, progress, start time, and error information (if failed).
 #[tauri::command]
 pub async fn tasks_list(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
 ) -> Result<crate::types::TasksResponse> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .get(format!("{}/api/v1/tasks", server_url))
@@ -825,10 +1041,11 @@ pub async fn tasks_list(
 /// Get task details
 #[tauri::command]
 pub async fn task_get(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     task_id: String,
 ) -> Result<crate::types::TaskDetail> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .get(format!("{}/api/v1/tasks/{}", server_url, task_id))
@@ -842,10 +1059,11 @@ pub async fn task_get(
 /// Get task logs
 #[tauri::command]
 pub async fn task_logs(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     task_id: String,
 ) -> Result<Vec<String>> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .get(format!("{}/api/v1/tasks/{}/logs", server_url, task_id))
@@ -865,8 +1083,12 @@ pub async fn task_logs(
 
 /// Cancel a task
 #[tauri::command]
-pub async fn task_cancel(server: State<'_, KopiaServerState>, task_id: String) -> Result<()> {
-    let (server_url, client) = get_server_client(&server)?;
+pub async fn task_cancel(
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
+    task_id: String,
+) -> Result<()> {
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .post(format!("{}/api/v1/tasks/{}/cancel", server_url, task_id))
@@ -880,9 +1102,10 @@ pub async fn task_cancel(server: State<'_, KopiaServerState>, task_id: String) -
 /// Get task summary
 #[tauri::command]
 pub async fn tasks_summary(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
 ) -> Result<crate::types::TasksSummary> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .get(format!("{}/api/v1/tasks-summary", server_url))
@@ -894,68 +1117,17 @@ pub async fn tasks_summary(
 }
 
 // ============================================================================
-// Maintenance Commands
-// ============================================================================
-
-/// Get maintenance information
-#[tauri::command]
-pub async fn maintenance_info(
-    server: State<'_, KopiaServerState>,
-) -> Result<crate::types::MaintenanceInfo> {
-    let (server_url, client) = get_server_client(&server)?;
-
-    let response = client
-        .get(format!("{}/api/v1/repo/maintenance/info", server_url))
-        .send()
-        .await
-        .map_http_error("Failed to get maintenance info")?;
-
-    handle_response(response, "Get maintenance info").await
-}
-
-/// Run maintenance
-#[tauri::command]
-pub async fn maintenance_run(
-    server: State<'_, KopiaServerState>,
-    full: bool,
-    safety: Option<String>,
-) -> Result<String> {
-    let (server_url, client) = get_server_client(&server)?;
-
-    let mut payload = serde_json::Map::new();
-    payload.insert("full".to_string(), serde_json::json!(full));
-    if let Some(s) = safety {
-        payload.insert("safety".to_string(), serde_json::json!(s));
-    }
-
-    let response = client
-        .post(format!("{}/api/v1/repo/maintenance/run", server_url))
-        .json(&payload)
-        .send()
-        .await
-        .map_http_error("Failed to run maintenance")?;
-
-    #[derive(Deserialize)]
-    struct MaintenanceResponse {
-        id: String,
-    }
-
-    let result: MaintenanceResponse = handle_response(response, "Run maintenance").await?;
-
-    Ok(result.id)
-}
-
-// ============================================================================
 // Utility Commands
 // ============================================================================
 
 /// Resolve a file system path to get source info (user@host:/path)
 #[tauri::command]
 pub async fn path_resolve(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     path: String,
 ) -> Result<crate::types::SourceInfo> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .post(format!("{}/api/v1/paths/resolve", server_url))
@@ -995,9 +1167,10 @@ pub async fn path_resolve(
 pub async fn estimate_snapshot(
     path: String,
     max_examples_per_bucket: Option<i64>,
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
 ) -> Result<crate::types::EstimateResponse> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     // Step 1: Resolve the path to get the absolute path
     let resolved_path = {
@@ -1024,6 +1197,7 @@ pub async fn estimate_snapshot(
     let estimate_req = crate::types::EstimateRequest {
         root: resolved_path,
         max_examples_per_bucket,
+        policy_override: None,
     };
 
     let response = client
@@ -1043,9 +1217,10 @@ pub async fn estimate_snapshot(
 /// List notification profiles
 #[tauri::command]
 pub async fn notification_profiles_list(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
 ) -> Result<Vec<crate::types::NotificationProfile>> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .get(format!("{}/api/v1/notificationProfiles", server_url))
@@ -1078,10 +1253,11 @@ pub async fn notification_profiles_list(
 /// Create notification profile
 #[tauri::command]
 pub async fn notification_profile_create(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     profile: crate::types::NotificationProfile,
 ) -> Result<()> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .post(format!("{}/api/v1/notificationProfiles", server_url))
@@ -1096,10 +1272,11 @@ pub async fn notification_profile_create(
 /// Delete notification profile
 #[tauri::command]
 pub async fn notification_profile_delete(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     profile_name: String,
 ) -> Result<()> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .delete(format!(
@@ -1116,10 +1293,11 @@ pub async fn notification_profile_delete(
 /// Test notification profile (send test notification)
 #[tauri::command]
 pub async fn notification_profile_test(
-    server: State<'_, KopiaServerState>,
+    manager: State<'_, ServerManagerState>,
+    repo_id: String,
     profile: crate::types::NotificationProfile,
 ) -> Result<()> {
-    let (server_url, client) = get_server_client(&server)?;
+    let (server_url, client) = get_server_client(&manager, &repo_id)?;
 
     let response = client
         .post(format!("{}/api/v1/testNotificationProfile", server_url))
@@ -1135,18 +1313,22 @@ pub async fn notification_profile_test(
 // Helper Functions
 // ============================================================================
 
-/// Get server URL and HTTP client
-fn get_server_client(server: &State<'_, KopiaServerState>) -> Result<(String, reqwest::Client)> {
-    let mut server_guard = lock_server!(server);
-    let status = server_guard.status();
+/// Get server URL and HTTP client for a specific repository
+fn get_server_client(
+    manager: &State<'_, ServerManagerState>,
+    repo_id: &str,
+) -> Result<(String, reqwest::Client)> {
+    let manager_guard = lock_manager!(manager);
 
-    if !status.running {
-        return Err(KopiaError::ServerNotRunning);
-    }
+    let server_url =
+        manager_guard
+            .get_server_url(repo_id)
+            .ok_or_else(|| KopiaError::RepositoryNotFound {
+                repo_id: repo_id.to_string(),
+            })?;
 
-    let server_url = status.server_url.ok_or(KopiaError::ServerNotRunning)?;
-    let client = server_guard
-        .get_http_client()
+    let client = manager_guard
+        .get_http_client(repo_id)
         .ok_or(KopiaError::ServerNotRunning)?;
 
     Ok((server_url, client))

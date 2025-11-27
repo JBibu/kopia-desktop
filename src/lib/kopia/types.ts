@@ -81,6 +81,8 @@ export interface RepositoryCreateRequest {
     hostname?: string;
     readonly?: boolean;
   };
+  /** Time in seconds to wait for repository sync after creation */
+  syncWaitTime?: number;
 }
 
 // ============================================================================
@@ -241,7 +243,8 @@ export interface SnapshotSource {
   schedule: {
     // SchedulingPolicy fields
     intervalSeconds?: number;
-    timeOfDay?: string[];
+    /** Times of day to run snapshots (array of {hour, min} objects) */
+    timeOfDay?: TimeOfDay[];
     noParentTimeOfDay?: boolean;
     manual?: boolean;
     cron?: string[];
@@ -264,6 +267,43 @@ export interface SourcesResponse {
 }
 
 /**
+ * Source action response (per-source)
+ * See: internal/serverapi/serverapi.go (SourceActionResponse)
+ */
+export interface SourceActionResponse {
+  success: boolean;
+}
+
+/**
+ * Multiple source action response
+ * See: internal/serverapi/serverapi.go (MultipleSourceActionResponse)
+ */
+export interface MultipleSourceActionResponse {
+  sources: Record<string, SourceActionResponse>;
+}
+
+/**
+ * Throttling limits for repository operations
+ * See: repo/blob/throttling/throttler.go (Limits)
+ */
+export interface ThrottleLimits {
+  /** Read operations per second limit */
+  readsPerSecond?: number;
+  /** Write operations per second limit */
+  writesPerSecond?: number;
+  /** List operations per second limit */
+  listsPerSecond?: number;
+  /** Maximum upload speed in bytes per second */
+  maxUploadSpeedBytesPerSecond?: number;
+  /** Maximum download speed in bytes per second */
+  maxDownloadSpeedBytesPerSecond?: number;
+  /** Maximum concurrent read operations */
+  concurrentReads?: number;
+  /** Maximum concurrent write operations */
+  concurrentWrites?: number;
+}
+
+/**
  * Snapshots list response
  */
 export interface SnapshotsResponse {
@@ -282,12 +322,23 @@ export interface SnapshotEditRequest {
   removePins?: string[];
 }
 
+/**
+ * Snapshot delete request
+ * See: internal/serverapi/serverapi.go (DeleteSnapshotsRequest)
+ */
+export interface SnapshotDeleteRequest {
+  source: SourceInfo;
+  snapshotManifestIds: string[];
+  deleteSourceAndPolicy?: boolean;
+}
+
 // ============================================================================
 // Directory & File Browsing Types
 // ============================================================================
 
 /**
  * Directory entry (file, folder, symlink, etc.)
+ * See: fs/entry.go (DirEntry)
  */
 export interface DirectoryEntry {
   name: string;
@@ -304,6 +355,10 @@ export interface DirectoryEntry {
     maxTime?: string;
   };
   linkTarget?: string;
+  /** User ID (owner) of the entry */
+  uid?: number;
+  /** Group ID (owner group) of the entry */
+  gid?: number;
 }
 
 /**
@@ -358,12 +413,62 @@ export interface MountsResponse {
 
 /**
  * Action definition for before/after hooks
+ * Supports both script-based and command-based execution
+ * See: snapshot/policy/actions_policy.go:22-33
  */
 export interface ActionDefinition {
-  script: string;
-  timeout: number;
-  mode: 'essential' | 'optional' | 'async';
+  /** Command executable path (alternative to script) */
+  path?: string;
+  /** Command arguments (used with path) */
+  args?: string[];
+  /** Inline script content (alternative to path/args) */
+  script?: string;
+  /** Timeout in seconds */
+  timeout?: number;
+  /** Execution mode: "essential", "optional", or "async" */
+  mode?: 'essential' | 'optional' | 'async';
 }
+
+/**
+ * Time of day for scheduling
+ * See: snapshot/policy/scheduling_policy.go:19-46
+ */
+export interface TimeOfDay {
+  hour: number;
+  /** Note: JSON field is "min", not "minute" */
+  min: number;
+}
+
+/**
+ * Compression policy configuration
+ * See: snapshot/policy/compression_policy.go:12-21
+ */
+export interface CompressionPolicy {
+  compressorName?: string;
+  minSize?: number;
+  maxSize?: number;
+  onlyCompress?: string[];
+  /** Prevents inheriting onlyCompress list from parent policies */
+  noParentOnlyCompress?: boolean;
+  neverCompress?: string[];
+  /** Prevents inheriting neverCompress list from parent policies */
+  noParentNeverCompress?: boolean;
+}
+
+/**
+ * OS Snapshot Mode values for VSS
+ * 0 = Never (don't use OS snapshots)
+ * 1 = Always (require OS snapshots, fail if unavailable)
+ * 2 = WhenAvailable (use if available, continue without if not)
+ */
+export type OSSnapshotMode = 0 | 1 | 2;
+
+/**
+ * LogDetail level values
+ * Common values: 0 = None, 5 = Normal, 10 = Max
+ * But API accepts any number, so we just use number.
+ */
+export type LogDetailLevel = number;
 
 /**
  * Policy definition (complete specification)
@@ -381,7 +486,8 @@ export interface PolicyDefinition {
   };
   scheduling?: {
     intervalSeconds?: number;
-    timeOfDay?: string[];
+    /** Times of day to run snapshots (array of {hour, min} objects) */
+    timeOfDay?: TimeOfDay[];
     noParentTimeOfDay?: boolean;
     manual?: boolean;
     cron?: string[];
@@ -389,28 +495,18 @@ export interface PolicyDefinition {
   };
   files?: {
     ignore?: string[];
-    dotIgnoreFiles?: string[];
+    /** Note: JSON field is "ignoreDotFiles" (NOT camelCase "dotIgnoreFiles") */
+    ignoreDotFiles?: string[];
     oneFileSystem?: boolean;
     noParentIgnore?: boolean;
     noParentDotFiles?: boolean;
     ignoreCacheDirs?: boolean;
     maxFileSize?: number;
   };
-  compression?: {
-    compressorName?: string;
-    minSize?: number;
-    maxSize?: number;
-    onlyCompress?: string[];
-    neverCompress?: string[];
-  };
-  metadataCompression?: {
-    compressorName?: string;
-    minSize?: number;
-    maxSize?: number;
-    onlyCompress?: string[];
-    neverCompress?: string[];
-  };
+  compression?: CompressionPolicy;
+  metadataCompression?: CompressionPolicy;
   splitter?: {
+    /** Content splitting algorithm name */
     algorithm?: string;
   };
   actions?: {
@@ -421,7 +517,8 @@ export interface PolicyDefinition {
   };
   osSnapshots?: {
     volumeShadowCopy?: {
-      enable?: number;
+      /** OSSnapshotMode: 0=Never, 1=Always, 2=WhenAvailable */
+      enable?: OSSnapshotMode;
     };
   };
   errorHandling?: {
@@ -434,16 +531,17 @@ export interface PolicyDefinition {
     maxParallelFileReads?: number;
     parallelUploadAboveSize?: number;
   };
+  /** Logging policy - LogDetail levels: 0=None, 5=Normal, 10=Max */
   logging?: {
     directories?: {
-      snapshotted?: number | { minSize?: number; maxSize?: number };
-      ignored?: number | { minSize?: number; maxSize?: number };
+      snapshotted?: LogDetailLevel;
+      ignored?: LogDetailLevel;
     };
     entries?: {
-      snapshotted?: number | { minSize?: number; maxSize?: number };
-      ignored?: number | { minSize?: number; maxSize?: number };
-      cacheHit?: number | { minSize?: number; maxSize?: number };
-      cacheMiss?: number | { minSize?: number; maxSize?: number };
+      snapshotted?: LogDetailLevel;
+      ignored?: LogDetailLevel;
+      cacheHit?: LogDetailLevel;
+      cacheMiss?: LogDetailLevel;
     };
   };
 }
@@ -515,13 +613,19 @@ export interface Task {
 }
 
 /**
+ * Counter level for task counters
+ * Empty string means normal, others indicate different severity levels
+ */
+export type CounterLevel = '' | 'notice' | 'warning' | 'error';
+
+/**
  * CounterValue describes the counter value reported by task with optional units for presentation.
  * See: internal/uitask/uitask_counter.go:4-10
  */
 export interface CounterValue {
   value: number;
   units?: string;
-  level?: string; // "", "notice", "warning" or "error"
+  level?: CounterLevel;
 }
 
 /**
@@ -546,30 +650,6 @@ export interface TasksSummary {
   success: number;
   failed: number;
   canceled: number;
-}
-
-// ============================================================================
-// Maintenance Types
-// ============================================================================
-
-/**
- * Maintenance information
- */
-export interface MaintenanceInfo {
-  lastRun?: string;
-  nextRun?: string;
-  schedule: {
-    quick?: {
-      interval: string;
-    };
-    full?: {
-      interval: string;
-    };
-  };
-  stats?: {
-    blobCount: number;
-    totalBlobSize: number;
-  };
 }
 
 // ============================================================================
@@ -766,6 +846,27 @@ export interface KopiaServerStatus {
   uptime?: number;
 }
 
+/**
+ * Repository entry from multi-repo management
+ * Represents a repository configuration with its current status
+ */
+export interface RepositoryEntry {
+  /** Unique identifier (derived from config filename) */
+  id: string;
+  /** Display name (from repo description or storage type) */
+  displayName: string;
+  /** Full path to config file */
+  configFile: string;
+  /** Server status: "starting", "running", "stopped", "error" */
+  status: 'starting' | 'running' | 'stopped' | 'error';
+  /** Whether repository is connected */
+  connected: boolean;
+  /** Storage type (filesystem, s3, b2, etc.) */
+  storage?: string;
+  /** Error message if status is "error" */
+  error?: string;
+}
+
 // ============================================================================
 // Storage Configuration Types
 // ============================================================================
@@ -867,6 +968,8 @@ export interface RepositoryConnectRequest {
     hostname?: string;
     readonly?: boolean;
   };
+  /** Time in seconds to wait for repository sync after connection */
+  syncWaitTime?: number;
 }
 
 // ============================================================================
@@ -877,4 +980,28 @@ export interface SystemInfo {
   os: string;
   arch: string;
   version: string;
+}
+
+// ============================================================================
+// Utility Types
+// ============================================================================
+
+/**
+ * Estimate request for snapshot size estimation
+ * See: internal/serverapi/serverapi.go (EstimateRequest)
+ */
+export interface EstimateRequest {
+  root: string;
+  maxExamplesPerBucket?: number;
+  /** Optional policy override for estimation */
+  policyOverride?: PolicyDefinition;
+}
+
+/**
+ * Estimate response (returns task ID to poll)
+ * See: internal/serverapi/serverapi.go (EstimateResponse)
+ */
+export interface EstimateResponse {
+  /** Task ID to poll for estimate results */
+  id: string;
 }

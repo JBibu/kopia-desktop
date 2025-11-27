@@ -68,6 +68,7 @@ import { getErrorMessage } from '@/lib/kopia/errors';
 import { formatBytes, formatDateTime } from '@/lib/utils';
 import { usePreferencesStore } from '@/stores/preferences';
 import { useKopiaStore } from '@/stores/kopia';
+import { useCurrentRepoId } from '@/hooks/useCurrentRepo';
 
 export function SnapshotBrowse() {
   const { t } = useTranslation();
@@ -79,6 +80,7 @@ export function SnapshotBrowse() {
   const mountSnapshot = useKopiaStore((state) => state.mountSnapshot);
   const unmountSnapshot = useKopiaStore((state) => state.unmountSnapshot);
   const isMountLoading = useKopiaStore((state) => state.isMountsLoading);
+  const currentRepoId = useCurrentRepoId();
 
   // Map language code to locale
   const locale = language === 'es' ? 'es-ES' : 'en-US';
@@ -107,10 +109,15 @@ export function SnapshotBrowse() {
   }, [pathParam]);
 
   const fetchDirectory = async (oid: string) => {
+    if (!currentRepoId) {
+      setError(t('browse.noRepositorySelected'));
+      setIsLoading(false);
+      return;
+    }
     try {
       setIsLoading(true);
       setError(null);
-      const response = await browseObject(oid);
+      const response = await browseObject(currentRepoId, oid);
       setEntries(response.entries || []);
     } catch (err) {
       setError(getErrorMessage(err));
@@ -184,7 +191,11 @@ export function SnapshotBrowse() {
       }
 
       // Download the file
-      await downloadObject(entry.obj, entry.name, targetPath);
+      if (!currentRepoId) {
+        toast.error(t('browse.noRepositorySelected'));
+        return;
+      }
+      await downloadObject(currentRepoId, entry.obj, entry.name, targetPath);
 
       toast.success(t('browse.downloadSuccess', { filename: entry.name }));
     } catch (err) {
@@ -219,8 +230,13 @@ export function SnapshotBrowse() {
       // User selects /home/user/Desktop -> contents go to /home/user/Desktop/foldername
       const targetPath = `${parentPath}/${entry.name}`;
 
+      if (!currentRepoId) {
+        toast.error(t('browse.noRepositorySelected'));
+        return;
+      }
+
       // Start restore operation
-      const taskId = await restoreStart({
+      const taskId = await restoreStart(currentRepoId, {
         root: entry.obj,
         fsOutput: {
           targetPath,
@@ -269,8 +285,13 @@ export function SnapshotBrowse() {
         return;
       }
 
+      if (!currentRepoId) {
+        toast.error(t('browse.noRepositorySelected'));
+        return;
+      }
+
       // Start restore operation as ZIP
-      const taskId = await restoreStart({
+      const taskId = await restoreStart(currentRepoId, {
         root: entry.obj,
         zipFile: targetPath,
         uncompressedZip: false,
@@ -309,8 +330,13 @@ export function SnapshotBrowse() {
         return;
       }
 
+      if (!currentRepoId) {
+        toast.error(t('browse.noRepositorySelected'));
+        return;
+      }
+
       // Start restore operation as TAR
-      const taskId = await restoreStart({
+      const taskId = await restoreStart(currentRepoId, {
         root: entry.obj,
         tarFile: targetPath,
       });

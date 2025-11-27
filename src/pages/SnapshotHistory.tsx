@@ -46,6 +46,7 @@ import {
   FolderOpen,
   RotateCcw,
   Pin,
+  FileText,
 } from 'lucide-react';
 import type { Snapshot } from '@/lib/kopia/types';
 import { toast } from 'sonner';
@@ -58,6 +59,7 @@ import { navigateToSnapshotBrowse, navigateToSnapshotRestore } from '@/lib/utils
 import { EmptyState } from '@/components/ui/empty-state';
 import { PinDialog } from '@/components/kopia/snapshots/PinDialog';
 import { RetentionTags } from '@/components/kopia/snapshots/RetentionTags';
+import { DescriptionDialog } from '@/components/kopia/snapshots/DescriptionDialog';
 
 export function SnapshotHistory() {
   const { t } = useTranslation();
@@ -94,6 +96,10 @@ export function SnapshotHistory() {
   const [pinDialogSnapshot, setPinDialogSnapshot] = useState<{
     id: string;
     pins: string[];
+  } | null>(null);
+  const [descriptionDialogSnapshot, setDescriptionDialogSnapshot] = useState<{
+    id: string;
+    description?: string;
   } | null>(null);
 
   const fetchSnapshots = async () => {
@@ -409,9 +415,31 @@ export function SnapshotHistory() {
                       {snapshot.id.slice(0, 16)}...
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm truncate max-w-[200px] block">
-                        {snapshot.description || t('snapshots.noDescription')}
-                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto p-1 hover:underline text-left justify-start max-w-[200px]"
+                        onClick={() =>
+                          setDescriptionDialogSnapshot({
+                            id: snapshot.id,
+                            description: snapshot.description,
+                          })
+                        }
+                        title={
+                          snapshot.description
+                            ? t('snapshots.description.clickToEdit')
+                            : t('snapshots.description.clickToAdd')
+                        }
+                      >
+                        <FileText className="h-3 w-3 mr-1 flex-shrink-0" />
+                        <span className="text-sm truncate">
+                          {snapshot.description || (
+                            <span className="text-muted-foreground italic">
+                              {t('snapshots.noDescription')}
+                            </span>
+                          )}
+                        </span>
+                      </Button>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -576,6 +604,17 @@ export function SnapshotHistory() {
           snapshotId={pinDialogSnapshot.id}
           currentPins={pinDialogSnapshot.pins}
           onPinsUpdated={() => void fetchSnapshots()}
+        />
+      )}
+
+      {/* Description Edit Dialog */}
+      {descriptionDialogSnapshot && (
+        <DescriptionDialog
+          open={!!descriptionDialogSnapshot}
+          onOpenChange={(open) => !open && setDescriptionDialogSnapshot(null)}
+          snapshotId={descriptionDialogSnapshot.id}
+          currentDescription={descriptionDialogSnapshot.description}
+          onDescriptionUpdated={() => void fetchSnapshots()}
         />
       )}
 

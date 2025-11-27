@@ -2,16 +2,20 @@
  * Repository management page
  */
 
+import { useEffect, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useKopiaStore } from '@/stores/kopia';
+import { updateRepositoryDescription } from '@/lib/kopia/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { EmptyState } from '@/components/ui/empty-state';
-import { CheckCircle, XCircle, Settings } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { CheckCircle, XCircle, Settings, Loader2, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/kopia/errors';
 
 export function Repository() {
   const { t } = useTranslation();
@@ -19,7 +23,15 @@ export function Repository() {
   const status = useKopiaStore((state) => state.repositoryStatus);
   const isLoading = useKopiaStore((state) => state.isRepositoryLoading);
   const isConnected = useKopiaStore((state) => state.isRepoConnected());
+  const isInitializing = useKopiaStore((state) => state.isRepoInitializing());
   const disconnect = useKopiaStore((state) => state.disconnectRepo);
+  const refreshRepositoryStatus = useKopiaStore((state) => state.refreshRepositoryStatus);
+  const cancelTask = useKopiaStore((state) => state.cancelTask);
+  const currentRepoId = useKopiaStore((state) => state.currentRepoId);
+
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editedDescription, setEditedDescription] = useState('');
+  const [isSavingDescription, setIsSavingDescription] = useState(false);
 
   const handleDisconnect = async () => {
     await disconnect();
@@ -27,6 +39,53 @@ export function Repository() {
     // Redirect to setup after disconnect
     void navigate('/setup');
   };
+
+  const handleCancelInit = useCallback(async () => {
+    if (status?.initTaskID) {
+      try {
+        await cancelTask(status.initTaskID);
+        toast.success(t('repository.initCancelled'));
+        void refreshRepositoryStatus();
+      } catch {
+        toast.error(t('repository.cancelFailed'));
+      }
+    }
+  }, [status, refreshRepositoryStatus, t, cancelTask]);
+
+  const handleSaveDescription = async () => {
+    if (!editedDescription.trim()) {
+      toast.error(t('repository.description.cannotBeEmpty'));
+      return;
+    }
+
+    if (!currentRepoId) {
+      toast.error(t('repository.noRepositorySelected'));
+      return;
+    }
+
+    setIsSavingDescription(true);
+    try {
+      await updateRepositoryDescription(currentRepoId, editedDescription.trim());
+      await refreshRepositoryStatus();
+      toast.success(t('repository.description.updateSuccess'));
+      setIsEditingDescription(false);
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setIsSavingDescription(false);
+    }
+  };
+
+  // Poll for status updates while initializing
+  useEffect(() => {
+    if (!isInitializing) return;
+
+    const interval = setInterval(() => {
+      void refreshRepositoryStatus();
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isInitializing, refreshRepositoryStatus]);
 
   // Helper to get translated repository description
   const getRepositoryDescription = (): string => {
@@ -66,10 +125,28 @@ export function Repository() {
       </div>
 
       {/* Connection Status */}
-      {isLoading && !isConnected ? (
+      {isLoading && !isConnected && !isInitializing ? (
         <div className="flex items-center justify-center py-12">
           <Spinner className="h-8 w-8" />
         </div>
+      ) : isInitializing ? (
+        // Initializing state - show progress
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center justify-center py-8 space-y-4">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+              <div className="text-center space-y-2">
+                <h3 className="text-lg font-medium">{t('repository.initializing')}</h3>
+                <p className="text-sm text-muted-foreground">
+                  {t('repository.initializingDescription')}
+                </p>
+              </div>
+              <Button variant="destructive" size="sm" onClick={() => void handleCancelInit()}>
+                {t('common.cancel')}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       ) : !isConnected ? (
         <EmptyState
           icon={XCircle}
@@ -89,8 +166,51 @@ export function Repository() {
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3 mb-6">
                   <CheckCircle className="h-6 w-6 text-success" />
-                  <div>
-                    <h3 className="text-lg font-medium">{getRepositoryDescription()}</h3>
+                  <div className="flex-1">
+                    {isEditingDescription ? (
+                      <div className="flex gap-2">
+                        <Input
+                          value={editedDescription}
+                          onChange={(e) => setEditedDescription(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') void handleSaveDescription();
+                            if (e.key === 'Escape') setIsEditingDescription(false);
+                          }}
+                          autoFocus
+                          className="max-w-md"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => void handleSaveDescription()}
+                          disabled={isSavingDescription || !editedDescription.trim()}
+                        >
+                          {isSavingDescription ? <Spinner className="h-4 w-4" /> : t('common.save')}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setIsEditingDescription(false)}
+                          disabled={isSavingDescription}
+                        >
+                          {t('common.cancel')}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-medium">{getRepositoryDescription()}</h3>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setEditedDescription(status?.description || '');
+                            setIsEditingDescription(true);
+                          }}
+                          title={t('repository.description.clickToEdit')}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
                     {status.username && status.hostname && (
                       <p className="text-sm text-muted-foreground">
                         {status.username}@{status.hostname}

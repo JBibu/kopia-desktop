@@ -49,10 +49,18 @@ struct SendHandle(HANDLE);
 #[cfg(windows)]
 unsafe impl Send for SendHandle {}
 
+/// Named pipe path for service communication
+/// Format: \\.\pipe\{name} with null terminator for Windows API
 #[cfg(windows)]
 const PIPE_NAME: &[u8] = b"\\\\.\\pipe\\kopia-desktop-service\0";
+
+/// Buffer size for IPC messages (8 KB)
+/// Sufficient for typical JSON request/response payloads
 #[cfg(windows)]
 const BUFFER_SIZE: u32 = 8192;
+
+/// Timeout for pipe operations (5 seconds)
+/// Used when creating named pipe instances
 #[cfg(windows)]
 const PIPE_TIMEOUT_MS: u32 = 5000;
 
@@ -186,15 +194,20 @@ fn handle_pipe_client(
             })?;
 
             // Get server info if running
-            if let Some(_client) = server.get_http_client() {
-                // Extract credentials from client (not ideal, but needed for compatibility)
-                // TODO: Find better way to share credentials
+            if server.get_http_client().is_some() {
+                // Server info retrieval is not yet implemented for IPC.
+                // The GUI currently connects directly to the Kopia server
+                // rather than going through the Windows service for data access.
+                // This message type is reserved for future use when we want
+                // the GUI to query the service for server connection details.
                 ServiceResponse::Error {
-                    message: "Not implemented yet".to_string(),
+                    message:
+                        "GetServerInfo via IPC is not implemented. Use direct server connection."
+                            .to_string(),
                 }
             } else {
                 ServiceResponse::Error {
-                    message: "Server not running".to_string(),
+                    message: "Kopia server is not running".to_string(),
                 }
             }
         }

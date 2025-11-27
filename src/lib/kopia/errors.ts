@@ -8,8 +8,28 @@
 import i18n from '@/lib/i18n/config';
 
 /**
- * Error codes matching the Rust KopiaError enum
- * These match the SCREAMING_SNAKE_CASE serialization from the backend
+ * Official Kopia API error codes
+ * These match the official Kopia server API specification
+ * See: https://github.com/kopia/kopia/blob/master/internal/serverapi/serverapi.go#L79-96
+ */
+export enum OfficialKopiaAPIErrorCode {
+  INTERNAL = 'INTERNAL',
+  ALREADY_CONNECTED = 'ALREADY_CONNECTED',
+  ALREADY_INITIALIZED = 'ALREADY_INITIALIZED',
+  INVALID_PASSWORD = 'INVALID_PASSWORD',
+  INVALID_TOKEN = 'INVALID_TOKEN',
+  MALFORMED_REQUEST = 'MALFORMED_REQUEST',
+  NOT_CONNECTED = 'NOT_CONNECTED',
+  NOT_FOUND = 'NOT_FOUND',
+  NOT_INITIALIZED = 'NOT_INITIALIZED',
+  PATH_NOT_FOUND = 'PATH_NOT_FOUND',
+  STORAGE_CONNECTION = 'STORAGE_CONNECTION',
+  ACCESS_DENIED = 'ACCESS_DENIED',
+}
+
+/**
+ * Extended error codes for Kopia Desktop
+ * These include official API codes plus additional application-specific codes
  *
  * IMPORTANT: Keep this synchronized with src-tauri/src/error.rs
  */
@@ -30,6 +50,8 @@ export enum KopiaErrorCode {
   // ============================================================================
   REPOSITORY_CONNECTION_FAILED = 'REPOSITORY_CONNECTION_FAILED',
   REPOSITORY_NOT_CONNECTED = 'REPOSITORY_NOT_CONNECTED',
+  REPOSITORY_ALREADY_CONNECTED = 'REPOSITORY_ALREADY_CONNECTED',
+  REPOSITORY_NOT_INITIALIZED = 'REPOSITORY_NOT_INITIALIZED',
   REPOSITORY_CREATION_FAILED = 'REPOSITORY_CREATION_FAILED',
   REPOSITORY_OPERATION_FAILED = 'REPOSITORY_OPERATION_FAILED',
   REPOSITORY_ALREADY_EXISTS = 'REPOSITORY_ALREADY_EXISTS',
@@ -112,6 +134,8 @@ export enum KopiaErrorCode {
   ENVIRONMENT_ERROR = 'ENVIRONMENT_ERROR',
   TIMEOUT = 'TIMEOUT',
   CANCELLED = 'CANCELLED',
+  UNSUPPORTED_PLATFORM = 'UNSUPPORTED_PLATFORM',
+  IO_ERROR = 'IO_ERROR',
 }
 
 /**
@@ -122,7 +146,8 @@ export class KopiaError extends Error {
     message: string,
     public code?: string,
     public statusCode?: number,
-    public details?: unknown
+    public details?: unknown,
+    public apiErrorCode?: string
   ) {
     super(message);
     this.name = 'KopiaError';
@@ -130,10 +155,17 @@ export class KopiaError extends Error {
   }
 
   /**
-   * Check if error is a specific code
+   * Check if error is a specific code (checks both custom and API error codes)
    */
-  is(code: KopiaErrorCode): boolean {
-    return this.code === code;
+  is(code: KopiaErrorCode | OfficialKopiaAPIErrorCode): boolean {
+    return this.code === code || this.apiErrorCode === code;
+  }
+
+  /**
+   * Check if error is a specific official API error code
+   */
+  isAPIError(code: OfficialKopiaAPIErrorCode): boolean {
+    return this.apiErrorCode === code;
   }
 
   /**
@@ -142,6 +174,8 @@ export class KopiaError extends Error {
   isConnectionError(): boolean {
     return (
       this.is(KopiaErrorCode.REPOSITORY_NOT_CONNECTED) ||
+      this.is(OfficialKopiaAPIErrorCode.NOT_CONNECTED) ||
+      this.is(OfficialKopiaAPIErrorCode.STORAGE_CONNECTION) ||
       this.is(KopiaErrorCode.SERVER_NOT_RUNNING) ||
       this.is(KopiaErrorCode.WEBSOCKET_NOT_CONNECTED) ||
       this.statusCode === 0
@@ -154,6 +188,9 @@ export class KopiaError extends Error {
   isAuthError(): boolean {
     return (
       this.is(KopiaErrorCode.AUTHENTICATION_FAILED) ||
+      this.is(OfficialKopiaAPIErrorCode.INVALID_PASSWORD) ||
+      this.is(OfficialKopiaAPIErrorCode.INVALID_TOKEN) ||
+      this.is(OfficialKopiaAPIErrorCode.ACCESS_DENIED) ||
       this.is(KopiaErrorCode.UNAUTHORIZED) ||
       this.statusCode === 401 ||
       this.statusCode === 403
@@ -233,6 +270,7 @@ export function parseKopiaError(error: unknown): KopiaError {
         message?: string;
         details?: string;
         status_code?: number;
+        api_error_code?: string;
         [key: string]: unknown;
       } | null;
       message?: string;
@@ -242,6 +280,9 @@ export function parseKopiaError(error: unknown): KopiaError {
 
     // Extract error type (code) from Rust enum
     const code = err.type;
+
+    // Extract original API error code if present (for API parity)
+    const apiErrorCode = err.data?.api_error_code;
 
     // Extract message from data or use Display trait output
     let message: string;
@@ -265,12 +306,41 @@ export function parseKopiaError(error: unknown): KopiaError {
     // Extract all data as details
     const details = err.data;
 
-    return new KopiaError(message, code, statusCode, details);
+    return new KopiaError(message, code, statusCode, details, apiErrorCode);
   }
 
   // Complete fallback
   return new KopiaError('An unknown error occurred');
 }
+
+/**
+ * Mapping from official Kopia API error codes to custom error codes
+ * This maintains API parity while providing more granular error handling
+ *
+ * NOTE: Most official API errors return HTTP 400 Bad Request.
+ * Only NOT_FOUND (404), ACCESS_DENIED (403), and INTERNAL (500) have specific status codes.
+ */
+export const API_ERROR_CODE_MAPPING: Record<OfficialKopiaAPIErrorCode, KopiaErrorCode> = {
+  [OfficialKopiaAPIErrorCode.INTERNAL]: KopiaErrorCode.INTERNAL_ERROR,
+  [OfficialKopiaAPIErrorCode.ALREADY_CONNECTED]: KopiaErrorCode.REPOSITORY_ALREADY_CONNECTED,
+  [OfficialKopiaAPIErrorCode.ALREADY_INITIALIZED]: KopiaErrorCode.REPOSITORY_ALREADY_EXISTS,
+  [OfficialKopiaAPIErrorCode.INVALID_PASSWORD]: KopiaErrorCode.AUTHENTICATION_FAILED,
+  [OfficialKopiaAPIErrorCode.INVALID_TOKEN]: KopiaErrorCode.AUTHENTICATION_FAILED,
+  [OfficialKopiaAPIErrorCode.MALFORMED_REQUEST]: KopiaErrorCode.INVALID_INPUT,
+  [OfficialKopiaAPIErrorCode.NOT_CONNECTED]: KopiaErrorCode.REPOSITORY_NOT_CONNECTED,
+  [OfficialKopiaAPIErrorCode.NOT_FOUND]: KopiaErrorCode.NOT_FOUND,
+  [OfficialKopiaAPIErrorCode.NOT_INITIALIZED]: KopiaErrorCode.REPOSITORY_NOT_INITIALIZED,
+  [OfficialKopiaAPIErrorCode.PATH_NOT_FOUND]: KopiaErrorCode.PATH_NOT_FOUND,
+  [OfficialKopiaAPIErrorCode.STORAGE_CONNECTION]: KopiaErrorCode.REPOSITORY_CONNECTION_FAILED,
+  [OfficialKopiaAPIErrorCode.ACCESS_DENIED]: KopiaErrorCode.PERMISSION_DENIED,
+};
+
+/**
+ * Helper constant: All official API error codes as an array
+ */
+export const OFFICIAL_API_ERROR_CODES = Object.values(
+  OfficialKopiaAPIErrorCode
+) as readonly OfficialKopiaAPIErrorCode[];
 
 /**
  * Extract user-friendly error message
@@ -281,4 +351,25 @@ export function getErrorMessage(error: unknown, prefix?: string): string {
   const kopiaError = parseKopiaError(error);
   const message = kopiaError.getUserMessage();
   return prefix ? `${prefix}: ${message}` : message;
+}
+
+/**
+ * Helper to check if error is a repository not connected error
+ * Supports both custom and official API error codes
+ */
+export function isNotConnectedError(error: unknown): boolean {
+  const kopiaError = parseKopiaError(error);
+  return (
+    kopiaError.is(KopiaErrorCode.REPOSITORY_NOT_CONNECTED) ||
+    kopiaError.is(OfficialKopiaAPIErrorCode.NOT_CONNECTED)
+  );
+}
+
+/**
+ * Helper to check if error is an authentication error
+ * Supports both custom and official API error codes
+ */
+export function isAuthenticationError(error: unknown): boolean {
+  const kopiaError = parseKopiaError(error);
+  return kopiaError.isAuthError();
 }

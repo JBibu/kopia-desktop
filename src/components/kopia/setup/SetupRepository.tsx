@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
@@ -21,14 +21,21 @@ import { PasswordSetup } from './steps/PasswordSetup';
 export function SetupRepository() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const refreshStatus = useKopiaStore((state) => state.refreshRepositoryStatus);
+  const refreshRepositories = useKopiaStore((state) => state.refreshRepositories);
+  const setCurrentRepository = useKopiaStore((state) => state.setCurrentRepository);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Check if we're adding a new repository (vs configuring existing/first)
+  const isAddingNew = searchParams.get('new') === 'true';
 
   const [state, setState] = useState<SetupWizardState>({
     step: 'provider',
     provider: null,
     storageConfig: {},
     mode: null,
+    repoId: null,
     password: '',
     confirmPassword: '',
     description: '',
@@ -69,19 +76,21 @@ export function SetupRepository() {
     }));
   };
 
-  const handleCreateNew = () => {
+  const handleCreateNew = (repoId: string) => {
     setState((prev) => ({
       ...prev,
       step: 'password',
       mode: 'create',
+      repoId,
     }));
   };
 
-  const handleConnect = () => {
+  const handleConnect = (repoId: string) => {
     setState((prev) => ({
       ...prev,
       step: 'password',
       mode: 'connect',
+      repoId,
     }));
   };
 
@@ -95,22 +104,31 @@ export function SetupRepository() {
   };
 
   const handleSubmit = async () => {
-    if (!state.provider || !state.mode) return;
+    if (!state.provider || !state.mode || !state.repoId) return;
 
     setIsSubmitting(true);
 
     try {
-      // Ensure we're disconnected from any existing repository before connecting to a new one
-      const currentStatus = await getRepositoryStatus();
+      // Use the repo ID that was determined/created during the verification step
+      const repoId = state.repoId;
 
-      if (currentStatus.connected) {
+      // For existing repos (not adding new), check if we need to disconnect first
+      if (!isAddingNew) {
         try {
-          await disconnectRepository();
-          // Wait for disconnect to complete fully
-          await new Promise((resolve) => setTimeout(resolve, 500));
+          const currentStatus = await getRepositoryStatus(repoId);
+
+          if (currentStatus.connected) {
+            try {
+              await disconnectRepository(repoId);
+              // Wait for disconnect to complete fully
+              await new Promise((resolve) => setTimeout(resolve, 500));
+            } catch {
+              // If disconnect fails, we can't proceed - repository is in unknown state
+              throw new Error(t('setup.toasts.disconnectFailed'));
+            }
+          }
         } catch {
-          // If disconnect fails, we can't proceed - repository is in unknown state
-          throw new Error(t('setup.toasts.disconnectFailed'));
+          // If we can't get status, server might not be running - that's OK for setup
         }
       }
 
@@ -124,7 +142,7 @@ export function SetupRepository() {
 
       // Create or connect to repository
       if (state.mode === 'create') {
-        await createRepository({
+        await createRepository(repoId, {
           storage: storageConfig,
           password: state.password,
           clientOptions: {
@@ -139,7 +157,7 @@ export function SetupRepository() {
           },
         });
       } else {
-        await connectRepository({
+        await connectRepository(repoId, {
           storage: storageConfig,
           password: state.password,
         });
@@ -151,7 +169,7 @@ export function SetupRepository() {
       const maxAttempts = 10;
 
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        const newStatus = await getRepositoryStatus();
+        const newStatus = await getRepositoryStatus(repoId);
 
         if (newStatus.connected) {
           connected = true;
@@ -179,6 +197,9 @@ export function SetupRepository() {
           : t('setup.toasts.connectedDesc');
       toast.success(successTitle, { description: successDesc });
 
+      // Refresh repositories list and switch to the new/connected repo
+      await refreshRepositories();
+      await setCurrentRepository(repoId);
       await refreshStatus();
       void navigate('/', { replace: true });
     } catch (error) {
@@ -235,6 +256,7 @@ export function SetupRepository() {
                 type: state.provider,
                 config: state.storageConfig as unknown as StorageConfig['config'],
               }}
+              isAddingNew={isAddingNew}
               onBack={handleVerifyBack}
               onCreateNew={handleCreateNew}
               onConnect={handleConnect}

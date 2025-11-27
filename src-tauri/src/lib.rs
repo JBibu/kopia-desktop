@@ -6,6 +6,7 @@ mod commands;
 mod error;
 mod kopia_server;
 mod kopia_websocket;
+mod server_manager;
 mod types;
 
 // Windows-only modules
@@ -22,8 +23,8 @@ pub use windows_service::run_service;
 #[cfg(test)]
 mod tests;
 
-use kopia_server::{create_server_state, KopiaServerState};
 use kopia_websocket::KopiaWebSocket;
+use server_manager::{create_server_manager_state, ServerManagerState};
 use std::sync::Arc;
 use tauri::{
     menu::{Menu, MenuItem},
@@ -70,67 +71,86 @@ fn hide_main_window(app: &tauri::AppHandle) {
     }
 }
 
-/// Auto-start the Kopia server on app launch
-async fn auto_start_server(state: KopiaServerState) -> error::Result<()> {
-    // Get config directory - fail fast if we can't determine it
-    let config_dir = commands::kopia::get_default_config_dir().map_err(|e| {
-        error::KopiaError::InternalError {
-            message: format!("Failed to determine config directory: {}", e),
-            details: None,
-        }
-    })?;
-
-    // Start server process and get ready waiter
-    let (info, ready_waiter) = {
-        let mut server = state.lock().unwrap_or_else(|poisoned| {
+/// Auto-start Kopia servers for all discovered repositories on app launch
+async fn auto_start_servers(manager_state: ServerManagerState) -> error::Result<()> {
+    // Discover repositories and start servers
+    let repo_ids: Vec<String> = {
+        let manager = manager_state.lock().unwrap_or_else(|poisoned| {
             log::error!(
-                "CRITICAL: Server mutex poisoned during auto-start. \
+                "CRITICAL: ServerManager mutex poisoned during auto-start. \
                  A previous thread panicked while holding the lock. \
-                 Attempting to recover by using the poisoned state..."
+                 Attempting to recover..."
             );
-            #[cfg(debug_assertions)]
-            log::debug!(
-                "Poison recovery stack trace: {:?}",
-                std::backtrace::Backtrace::capture()
-            );
-
-            let mut recovered = poisoned.into_inner();
-
-            // Validate recovered state is safe to use
-            if recovered.is_running() {
-                log::warn!(
-                    "Recovered server state shows running process. \
-                     This may indicate incomplete shutdown. Proceeding with caution."
-                );
-            }
-
-            recovered
+            poisoned.into_inner()
         });
-        let info = server.start(&config_dir)?;
-        let waiter = server.get_ready_waiter()?;
-        (info, waiter)
+
+        manager.discover_repositories().unwrap_or_else(|e| {
+            log::warn!("Failed to discover repositories: {}", e);
+            vec![]
+        })
     };
 
-    // Wait for server to be ready (outside lock)
-    ready_waiter.await?;
-    log::info!("Kopia server started successfully on {}", info.server_url);
+    if repo_ids.is_empty() {
+        log::info!("No repositories found, skipping auto-start");
+        return Ok(());
+    }
+
+    log::info!("Found {} repositories to start", repo_ids.len());
+
+    // Start each repository server
+    for repo_id in repo_ids {
+        log::info!("Starting server for repository '{}'", repo_id);
+
+        // Start server
+        let ready_waiter = {
+            let mut manager = manager_state.lock().unwrap_or_else(|poisoned| {
+                log::warn!("Mutex poisoned, recovering...");
+                poisoned.into_inner()
+            });
+
+            match manager.start_server(&repo_id) {
+                Ok(info) => {
+                    log::info!("Server for '{}' started at {}", repo_id, info.server_url);
+                    // Get ready waiter for this server
+                    manager.get_ready_waiter(&repo_id).ok()
+                }
+                Err(e) => {
+                    log::error!("Failed to start server for '{}': {}", repo_id, e);
+                    continue;
+                }
+            }
+        };
+
+        // Wait for server to be ready (outside lock)
+        if let Some(waiter) = ready_waiter {
+            match waiter.await {
+                Ok(()) => log::info!("Server for '{}' is ready", repo_id),
+                Err(e) => log::error!("Server for '{}' failed health check: {}", repo_id, e),
+            }
+        }
+    }
+
     Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Initialize Kopia server state
-    let server_state = create_server_state();
+    // Get config directory for ServerManager
+    let config_dir =
+        commands::kopia::get_default_config_dir().expect("Failed to determine config directory");
+
+    // Initialize ServerManager state (manages multiple repositories)
+    let manager_state = create_server_manager_state(&config_dir);
     let websocket_state = create_websocket_state();
 
-    // Clone server state for the exit handler (before it's moved into setup closure)
-    let exit_server_state = server_state.clone();
+    // Clone manager state for the exit handler (before it's moved into setup closure)
+    let exit_manager_state = manager_state.clone();
 
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
-        .manage(server_state.clone())
+        .manage(manager_state.clone())
         .manage(websocket_state.clone())
         .setup(move |app| {
             // Create system tray menu
@@ -150,8 +170,8 @@ pub fn run() {
                 })?
                 .clone();
 
-            // Clone server state for tray menu handler
-            let tray_server_state = server_state.clone();
+            // Clone manager state for tray menu handler
+            let tray_manager_state = manager_state.clone();
 
             let _tray = TrayIconBuilder::new()
                 .icon(icon)
@@ -161,17 +181,17 @@ pub fn run() {
                     "show" => restore_main_window(app),
                     "hide" => hide_main_window(app),
                     "quit" => {
-                        log::info!("Quit requested from tray menu, stopping server...");
-                        // Stop the Kopia server before exiting
-                        if let Err(e) = tray_server_state
+                        log::info!("Quit requested from tray menu, stopping all servers...");
+                        // Stop all Kopia servers before exiting
+                        if let Err(e) = tray_manager_state
                             .lock()
                             .unwrap_or_else(|poisoned| {
                                 log::warn!("Mutex poisoned during quit, recovering...");
                                 poisoned.into_inner()
                             })
-                            .stop()
+                            .stop_all()
                         {
-                            log::error!("Failed to stop server during quit: {}", e);
+                            log::error!("Failed to stop servers during quit: {}", e);
                         }
                         app.exit(0);
                     }
@@ -189,20 +209,24 @@ pub fn run() {
                 })
                 .build(app)?;
 
-            // Auto-start Kopia server on app launch
-            let state = server_state.clone();
+            // Auto-start Kopia servers for all discovered repositories
+            let state = manager_state.clone();
             tauri::async_runtime::spawn(async move {
-                // Small delay to let UI initialize before starting server
+                // Small delay to let UI initialize before starting servers
                 tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-                if let Err(e) = auto_start_server(state).await {
-                    log::error!("Failed to auto-start Kopia server: {}", e);
-                    log::info!("You can start the server manually from the UI");
+                if let Err(e) = auto_start_servers(state).await {
+                    log::error!("Failed to auto-start Kopia servers: {}", e);
+                    log::info!("You can start servers manually from the UI");
                 }
             });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            // Multi-repo management
+            commands::list_repositories,
+            commands::add_repository,
+            commands::remove_repository,
             // Kopia server lifecycle
             commands::kopia_server_start,
             commands::kopia_server_stop,
@@ -211,14 +235,20 @@ pub fn run() {
             commands::repository_status,
             commands::repository_connect,
             commands::repository_disconnect,
+            commands::repository_sync,
             commands::repository_create,
             commands::repository_exists,
             commands::repository_get_algorithms,
             commands::repository_update_description,
+            commands::repository_get_throttle,
+            commands::repository_set_throttle,
             // Snapshot sources
             commands::sources_list,
             commands::snapshot_create,
+            commands::snapshot_upload,
             commands::snapshot_cancel,
+            commands::snapshot_pause,
+            commands::snapshot_resume,
             // Snapshot history
             commands::snapshots_list,
             commands::snapshot_edit,
@@ -242,9 +272,6 @@ pub fn run() {
             commands::task_logs,
             commands::task_cancel,
             commands::tasks_summary,
-            // Maintenance
-            commands::maintenance_info,
-            commands::maintenance_run,
             // Utilities
             commands::path_resolve,
             commands::estimate_snapshot,
@@ -279,20 +306,20 @@ pub fn run() {
     // Run the app with cleanup handling
     app.run(move |_app_handle, event| {
         if let tauri::RunEvent::ExitRequested { .. } = event {
-            log::info!("App exit requested, stopping Kopia server...");
+            log::info!("App exit requested, stopping all Kopia servers...");
 
-            // Stop the Kopia server before exit
-            if let Err(e) = exit_server_state
+            // Stop all Kopia servers before exit
+            if let Err(e) = exit_manager_state
                 .lock()
                 .unwrap_or_else(|poisoned| {
                     log::warn!("Mutex poisoned during shutdown, recovering...");
                     poisoned.into_inner()
                 })
-                .stop()
+                .stop_all()
             {
-                log::error!("Failed to stop Kopia server during shutdown: {}", e);
+                log::error!("Failed to stop Kopia servers during shutdown: {}", e);
             } else {
-                log::info!("Kopia server stopped successfully");
+                log::info!("All Kopia servers stopped successfully");
             }
         }
     });

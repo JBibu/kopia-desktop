@@ -70,7 +70,9 @@ mod tests {
 
         let errors = vec![
             KopiaError::ServerNotRunning,
-            KopiaError::RepositoryNotConnected,
+            KopiaError::RepositoryNotConnected {
+                api_error_code: None,
+            },
             KopiaError::WebSocketNotConnected,
         ];
 

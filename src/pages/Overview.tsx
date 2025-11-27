@@ -73,9 +73,8 @@ export function Overview() {
   const snapshotsLoading = useKopiaStore((state) => state.isSnapshotsLoading);
   const tasks = useKopiaStore((state) => state.tasks);
   const tasksSummary = useKopiaStore((state) => state.tasksSummary);
-  const maintenanceInfo = useKopiaStore((state) => state.maintenanceInfo);
   const hasTriedToStart = useRef(false);
-  const [timeRange, setTimeRange] = useState<7 | 14 | 30 | 90>(7);
+  const [timeRange, setTimeRange] = useState<7 | 14 | 30 | 60>(7);
 
   // Map language code to locale (memoized to prevent unnecessary re-renders)
   const locale = useMemo(() => (language === 'es' ? 'es-ES' : 'en-US'), [language]);
@@ -95,8 +94,8 @@ export function Overview() {
   const snapshotStats = useMemo(() => {
     if (!snapshots.length) return null;
 
-    // Use weekly grouping for 90-day range, daily for others
-    const useWeeklyGrouping = timeRange === 90;
+    // Use weekly grouping for 60-day range, daily for others
+    const useWeeklyGrouping = timeRange === 60;
     const periods = useWeeklyGrouping ? Math.ceil(timeRange / 7) : timeRange;
 
     // Group snapshots by date/week based on selected time range
@@ -304,40 +303,6 @@ export function Overview() {
           <CardContent>
             {repoLoading ? (
               <Spinner className="h-4 w-4" />
-            ) : maintenanceInfo?.stats && snapshotStats ? (
-              <div className="space-y-2">
-                <div>
-                  <div className="text-2xl font-bold">
-                    {formatBytes(maintenanceInfo.stats.totalBlobSize, 2, byteFormat)}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {maintenanceInfo.stats.blobCount.toLocaleString()} {t('overview.blobs')}
-                    {' • '}
-                    {t('overview.deduplicated')}
-                  </p>
-                </div>
-                <div className="pt-1 border-t">
-                  <div className="text-base font-medium text-muted-foreground">
-                    {formatBytes(snapshotStats.totalSize, 2, byteFormat)}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {snapshotStats.totalFiles.toLocaleString()} {t('overview.files')}
-                    {' • '}
-                    {t('overview.logicalSize')}
-                  </p>
-                </div>
-              </div>
-            ) : maintenanceInfo?.stats ? (
-              <div className="space-y-1">
-                <div className="text-2xl font-bold">
-                  {formatBytes(maintenanceInfo.stats.totalBlobSize, 2, byteFormat)}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {maintenanceInfo.stats.blobCount.toLocaleString()} {t('overview.blobs')}
-                  {' • '}
-                  {t('overview.deduplicated')}
-                </p>
-              </div>
             ) : snapshotStats ? (
               <div className="space-y-1">
                 <div className="text-2xl font-bold">
@@ -380,7 +345,7 @@ export function Overview() {
                     </CardTitle>
                     <Select
                       value={timeRange.toString()}
-                      onValueChange={(value) => setTimeRange(Number(value) as 7 | 14 | 30 | 90)}
+                      onValueChange={(value) => setTimeRange(Number(value) as 7 | 14 | 30 | 60)}
                     >
                       <SelectTrigger className="w-[140px]">
                         <SelectValue />

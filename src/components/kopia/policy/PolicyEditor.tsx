@@ -35,8 +35,17 @@ import {
   Trash2,
   Clock,
   Upload,
+  Play,
+  ScrollText,
+  Monitor,
+  Scissors,
 } from 'lucide-react';
-import type { PolicyDefinition, PolicyTarget, ResolvedPolicyResponse } from '@/lib/kopia/types';
+import type {
+  PolicyDefinition,
+  PolicyTarget,
+  ResolvedPolicyResponse,
+  TimeOfDay,
+} from '@/lib/kopia/types';
 import {
   getPolicy,
   setPolicy as setPolicyClient,
@@ -47,6 +56,7 @@ import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia/errors';
 import { formatDateTime } from '@/lib/utils';
 import { usePreferencesStore } from '@/stores/preferences';
+import { useCurrentRepoId } from '@/hooks/useCurrentRepo';
 
 interface PolicyEditorProps {
   target: PolicyTarget;
@@ -58,6 +68,7 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
   const { t } = useTranslation();
   const language = usePreferencesStore((state) => state.language);
   const locale = language === 'es' ? 'es-ES' : 'en-US';
+  const currentRepoId = useCurrentRepoId();
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -76,11 +87,17 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
   // Fetch the policy
   useEffect(() => {
     const fetchData = async () => {
+      if (!currentRepoId) {
+        setError(t('common.noRepositorySelected'));
+        setIsLoading(false);
+        return;
+      }
       setIsLoading(true);
       setError(null);
       try {
-        const data: PolicyDefinition = await getPolicy(target.userName, target.host, target.path);
-        setPolicy(data || {});
+        const response = await getPolicy(currentRepoId, target.userName, target.host, target.path);
+        // Extract just the policy definition from the response
+        setPolicy(response.policy || {});
         setIsNew(false);
       } catch (err: unknown) {
         // Policy not found - this is a new policy (expected for new policies)
@@ -128,15 +145,21 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
     };
 
     void fetchData();
-  }, [target]);
+  }, [target, currentRepoId, t]);
 
   // Resolve policy in real-time to show effective values
   useEffect(() => {
     const doResolve = async () => {
+      if (!currentRepoId) return;
       try {
         // Always call resolve without updates parameter to get the effective policy
         // This avoids serialization issues and still shows inherited values
-        const resolved = await resolvePolicy(target.userName, target.host, target.path);
+        const resolved = await resolvePolicy(
+          currentRepoId,
+          target.userName,
+          target.host,
+          target.path
+        );
         setResolvedPolicy(resolved);
       } catch (err) {
         // Log the full error for debugging in development
@@ -155,12 +178,16 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
     };
 
     void doResolve();
-  }, [target]); // Only depend on target, not policy, to avoid constant re-resolution
+  }, [target, currentRepoId]); // Only depend on target, not policy, to avoid constant re-resolution
 
   const handleSave = async () => {
+    if (!currentRepoId) {
+      toast.error(t('common.noRepositorySelected'));
+      return;
+    }
     setIsSaving(true);
     try {
-      await setPolicyClient(policy, target.userName, target.host, target.path);
+      await setPolicyClient(currentRepoId, policy, target.userName, target.host, target.path);
       toast.success(t('policies.policySaved'), {
         description: t('policies.policySavedDescription'),
       });
@@ -173,11 +200,15 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
   };
 
   const handleDelete = async () => {
+    if (!currentRepoId) {
+      toast.error(t('common.noRepositorySelected'));
+      return;
+    }
     if (!confirm(t('policies.confirmDelete'))) return;
 
     setIsDeleting(true);
     try {
-      await deletePolicy(target.userName, target.host, target.path);
+      await deletePolicy(currentRepoId, target.userName, target.host, target.path);
       toast.success(t('policies.policyDeleted'), {
         description: t('policies.policyDeletedDescription'),
       });
@@ -380,7 +411,7 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
                 effectiveValue={resolvedPolicy?.effective.scheduling?.intervalSeconds}
                 help={t('policies.intervalSecondsHelp')}
               />
-              <PolicyArrayField
+              <PolicyTimeOfDayField
                 label={t('policies.timeOfDay')}
                 value={policy.scheduling?.timeOfDay}
                 onChange={(val) => updatePolicy('scheduling', 'timeOfDay', val)}
@@ -388,6 +419,14 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
                 effectiveValue={resolvedPolicy?.effective.scheduling?.timeOfDay}
                 placeholder="e.g., 09:00, 17:00"
                 help={t('policies.timeOfDayHelp')}
+              />
+              <PolicyBooleanField
+                label={t('policies.noParentTimeOfDay')}
+                value={policy.scheduling?.noParentTimeOfDay}
+                onChange={(val) => updatePolicy('scheduling', 'noParentTimeOfDay', val)}
+                isDefined={isDefined('scheduling', 'noParentTimeOfDay')}
+                effectiveValue={resolvedPolicy?.effective.scheduling?.noParentTimeOfDay}
+                help={t('policies.noParentTimeOfDayHelp')}
               />
               <PolicyArrayField
                 label={t('policies.cron')}
@@ -439,10 +478,10 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
               />
               <PolicyArrayField
                 label={t('policies.dotIgnoreFiles')}
-                value={policy.files?.dotIgnoreFiles}
-                onChange={(val) => updatePolicy('files', 'dotIgnoreFiles', val)}
-                isDefined={isDefined('files', 'dotIgnoreFiles')}
-                effectiveValue={resolvedPolicy?.effective.files?.dotIgnoreFiles}
+                value={policy.files?.ignoreDotFiles}
+                onChange={(val) => updatePolicy('files', 'ignoreDotFiles', val)}
+                isDefined={isDefined('files', 'ignoreDotFiles')}
+                effectiveValue={resolvedPolicy?.effective.files?.ignoreDotFiles}
                 placeholder="e.g., .kopiaignore, .gitignore"
                 help={t('policies.dotIgnoreFilesHelp')}
               />
@@ -534,6 +573,14 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
                 placeholder="e.g., .txt, .log, .json"
                 help={t('policies.onlyCompressHelp')}
               />
+              <PolicyBooleanField
+                label={t('policies.noParentOnlyCompress')}
+                value={policy.compression?.noParentOnlyCompress}
+                onChange={(val) => updatePolicy('compression', 'noParentOnlyCompress', val)}
+                isDefined={isDefined('compression', 'noParentOnlyCompress')}
+                effectiveValue={resolvedPolicy?.effective.compression?.noParentOnlyCompress}
+                help={t('policies.noParentOnlyCompressHelp')}
+              />
               <PolicyArrayField
                 label={t('policies.neverCompress')}
                 value={policy.compression?.neverCompress}
@@ -542,6 +589,14 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
                 effectiveValue={resolvedPolicy?.effective.compression?.neverCompress}
                 placeholder="e.g., .jpg, .mp4, .zip"
                 help={t('policies.neverCompressHelp')}
+              />
+              <PolicyBooleanField
+                label={t('policies.noParentNeverCompress')}
+                value={policy.compression?.noParentNeverCompress}
+                onChange={(val) => updatePolicy('compression', 'noParentNeverCompress', val)}
+                isDefined={isDefined('compression', 'noParentNeverCompress')}
+                effectiveValue={resolvedPolicy?.effective.compression?.noParentNeverCompress}
+                help={t('policies.noParentNeverCompressHelp')}
               />
             </div>
           </AccordionContent>
@@ -573,6 +628,14 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
                 effectiveValue={resolvedPolicy?.effective.errorHandling?.ignoreDirectoryErrors}
                 help={t('policies.ignoreDirectoryErrorsHelp')}
               />
+              <PolicyBooleanField
+                label={t('policies.ignoreUnknownTypes')}
+                value={policy.errorHandling?.ignoreUnknownTypes}
+                onChange={(val) => updatePolicy('errorHandling', 'ignoreUnknownTypes', val)}
+                isDefined={isDefined('errorHandling', 'ignoreUnknownTypes')}
+                effectiveValue={resolvedPolicy?.effective.errorHandling?.ignoreUnknownTypes}
+                help={t('policies.ignoreUnknownTypesHelp')}
+              />
             </div>
           </AccordionContent>
         </AccordionItem>
@@ -602,6 +665,392 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
                 isDefined={isDefined('upload', 'maxParallelFileReads')}
                 effectiveValue={resolvedPolicy?.effective.upload?.maxParallelFileReads}
                 help={t('policies.maxParallelFileReadsHelp')}
+              />
+              <PolicyNumberField
+                label={t('policies.parallelUploadAboveSize')}
+                value={policy.upload?.parallelUploadAboveSize}
+                onChange={(val) => updatePolicy('upload', 'parallelUploadAboveSize', val)}
+                isDefined={isDefined('upload', 'parallelUploadAboveSize')}
+                effectiveValue={resolvedPolicy?.effective.upload?.parallelUploadAboveSize}
+                help={t('policies.parallelUploadAboveSizeHelp')}
+              />
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Actions Policy */}
+        <AccordionItem value="actions">
+          <AccordionTrigger>
+            <div className="flex items-center gap-2">
+              <Play className="h-4 w-4 text-muted-foreground" />
+              {t('policies.actionsPolicy')}
+            </div>
+          </AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-4 pt-2">
+              <p className="text-sm text-muted-foreground">{t('policies.actionsPolicyHelp')}</p>
+
+              {/* Before Snapshot Root */}
+              <div className="space-y-2 p-3 border rounded-lg">
+                <Label className="font-medium">{t('policies.beforeSnapshotRoot')}</Label>
+                <PolicyTextField
+                  label={t('policies.actionScript')}
+                  value={policy.actions?.beforeSnapshotRoot?.script}
+                  onChange={(val) => {
+                    const current = policy.actions?.beforeSnapshotRoot || {};
+                    updatePolicy(
+                      'actions',
+                      'beforeSnapshotRoot',
+                      val ? { ...current, script: val } : undefined
+                    );
+                  }}
+                  isDefined={isDefined('actions', 'beforeSnapshotRoot')}
+                  effectiveValue={resolvedPolicy?.effective.actions?.beforeSnapshotRoot?.script}
+                  placeholder={t('policies.actionScriptPlaceholder')}
+                  help={t('policies.beforeSnapshotRootHelp')}
+                />
+                <PolicyTextField
+                  label={t('policies.actionCommand')}
+                  value={policy.actions?.beforeSnapshotRoot?.path}
+                  onChange={(val) => {
+                    const current = policy.actions?.beforeSnapshotRoot || {};
+                    updatePolicy(
+                      'actions',
+                      'beforeSnapshotRoot',
+                      val ? { ...current, path: val } : undefined
+                    );
+                  }}
+                  isDefined={isDefined('actions', 'beforeSnapshotRoot')}
+                  effectiveValue={resolvedPolicy?.effective.actions?.beforeSnapshotRoot?.path}
+                  placeholder={t('policies.actionCommandPlaceholder')}
+                />
+                <PolicyNumberField
+                  label={t('policies.actionTimeout')}
+                  value={policy.actions?.beforeSnapshotRoot?.timeout}
+                  onChange={(val) => {
+                    const current = policy.actions?.beforeSnapshotRoot || {};
+                    updatePolicy('actions', 'beforeSnapshotRoot', { ...current, timeout: val });
+                  }}
+                  isDefined={isDefined('actions', 'beforeSnapshotRoot')}
+                  effectiveValue={resolvedPolicy?.effective.actions?.beforeSnapshotRoot?.timeout}
+                  help={t('policies.actionTimeoutHelp')}
+                />
+                <PolicySelectField
+                  label={t('policies.actionMode')}
+                  value={policy.actions?.beforeSnapshotRoot?.mode}
+                  onChange={(val) => {
+                    const current = policy.actions?.beforeSnapshotRoot || {};
+                    updatePolicy('actions', 'beforeSnapshotRoot', { ...current, mode: val });
+                  }}
+                  isDefined={isDefined('actions', 'beforeSnapshotRoot')}
+                  effectiveValue={resolvedPolicy?.effective.actions?.beforeSnapshotRoot?.mode}
+                  options={[
+                    { value: 'essential', label: t('policies.actionModeEssential') },
+                    { value: 'optional', label: t('policies.actionModeOptional') },
+                    { value: 'async', label: t('policies.actionModeAsync') },
+                  ]}
+                  help={t('policies.actionModeHelp')}
+                />
+              </div>
+
+              {/* After Snapshot Root */}
+              <div className="space-y-2 p-3 border rounded-lg">
+                <Label className="font-medium">{t('policies.afterSnapshotRoot')}</Label>
+                <PolicyTextField
+                  label={t('policies.actionScript')}
+                  value={policy.actions?.afterSnapshotRoot?.script}
+                  onChange={(val) => {
+                    const current = policy.actions?.afterSnapshotRoot || {};
+                    updatePolicy(
+                      'actions',
+                      'afterSnapshotRoot',
+                      val ? { ...current, script: val } : undefined
+                    );
+                  }}
+                  isDefined={isDefined('actions', 'afterSnapshotRoot')}
+                  effectiveValue={resolvedPolicy?.effective.actions?.afterSnapshotRoot?.script}
+                  placeholder={t('policies.actionScriptPlaceholder')}
+                  help={t('policies.afterSnapshotRootHelp')}
+                />
+                <PolicyTextField
+                  label={t('policies.actionCommand')}
+                  value={policy.actions?.afterSnapshotRoot?.path}
+                  onChange={(val) => {
+                    const current = policy.actions?.afterSnapshotRoot || {};
+                    updatePolicy(
+                      'actions',
+                      'afterSnapshotRoot',
+                      val ? { ...current, path: val } : undefined
+                    );
+                  }}
+                  isDefined={isDefined('actions', 'afterSnapshotRoot')}
+                  effectiveValue={resolvedPolicy?.effective.actions?.afterSnapshotRoot?.path}
+                  placeholder={t('policies.actionCommandPlaceholder')}
+                />
+                <PolicyNumberField
+                  label={t('policies.actionTimeout')}
+                  value={policy.actions?.afterSnapshotRoot?.timeout}
+                  onChange={(val) => {
+                    const current = policy.actions?.afterSnapshotRoot || {};
+                    updatePolicy('actions', 'afterSnapshotRoot', { ...current, timeout: val });
+                  }}
+                  isDefined={isDefined('actions', 'afterSnapshotRoot')}
+                  effectiveValue={resolvedPolicy?.effective.actions?.afterSnapshotRoot?.timeout}
+                  help={t('policies.actionTimeoutHelp')}
+                />
+                <PolicySelectField
+                  label={t('policies.actionMode')}
+                  value={policy.actions?.afterSnapshotRoot?.mode}
+                  onChange={(val) => {
+                    const current = policy.actions?.afterSnapshotRoot || {};
+                    updatePolicy('actions', 'afterSnapshotRoot', { ...current, mode: val });
+                  }}
+                  isDefined={isDefined('actions', 'afterSnapshotRoot')}
+                  effectiveValue={resolvedPolicy?.effective.actions?.afterSnapshotRoot?.mode}
+                  options={[
+                    { value: 'essential', label: t('policies.actionModeEssential') },
+                    { value: 'optional', label: t('policies.actionModeOptional') },
+                    { value: 'async', label: t('policies.actionModeAsync') },
+                  ]}
+                  help={t('policies.actionModeHelp')}
+                />
+              </div>
+
+              {/* Before Folder */}
+              <div className="space-y-2 p-3 border rounded-lg">
+                <Label className="font-medium">{t('policies.beforeFolder')}</Label>
+                <PolicyTextField
+                  label={t('policies.actionScript')}
+                  value={policy.actions?.beforeFolder?.script}
+                  onChange={(val) => {
+                    const current = policy.actions?.beforeFolder || {};
+                    updatePolicy(
+                      'actions',
+                      'beforeFolder',
+                      val ? { ...current, script: val } : undefined
+                    );
+                  }}
+                  isDefined={isDefined('actions', 'beforeFolder')}
+                  effectiveValue={resolvedPolicy?.effective.actions?.beforeFolder?.script}
+                  placeholder={t('policies.actionScriptPlaceholder')}
+                  help={t('policies.beforeFolderHelp')}
+                />
+                <PolicyNumberField
+                  label={t('policies.actionTimeout')}
+                  value={policy.actions?.beforeFolder?.timeout}
+                  onChange={(val) => {
+                    const current = policy.actions?.beforeFolder || {};
+                    updatePolicy('actions', 'beforeFolder', { ...current, timeout: val });
+                  }}
+                  isDefined={isDefined('actions', 'beforeFolder')}
+                  effectiveValue={resolvedPolicy?.effective.actions?.beforeFolder?.timeout}
+                />
+                <PolicySelectField
+                  label={t('policies.actionMode')}
+                  value={policy.actions?.beforeFolder?.mode}
+                  onChange={(val) => {
+                    const current = policy.actions?.beforeFolder || {};
+                    updatePolicy('actions', 'beforeFolder', { ...current, mode: val });
+                  }}
+                  isDefined={isDefined('actions', 'beforeFolder')}
+                  effectiveValue={resolvedPolicy?.effective.actions?.beforeFolder?.mode}
+                  options={[
+                    { value: 'essential', label: t('policies.actionModeEssential') },
+                    { value: 'optional', label: t('policies.actionModeOptional') },
+                    { value: 'async', label: t('policies.actionModeAsync') },
+                  ]}
+                />
+              </div>
+
+              {/* After Folder */}
+              <div className="space-y-2 p-3 border rounded-lg">
+                <Label className="font-medium">{t('policies.afterFolder')}</Label>
+                <PolicyTextField
+                  label={t('policies.actionScript')}
+                  value={policy.actions?.afterFolder?.script}
+                  onChange={(val) => {
+                    const current = policy.actions?.afterFolder || {};
+                    updatePolicy(
+                      'actions',
+                      'afterFolder',
+                      val ? { ...current, script: val } : undefined
+                    );
+                  }}
+                  isDefined={isDefined('actions', 'afterFolder')}
+                  effectiveValue={resolvedPolicy?.effective.actions?.afterFolder?.script}
+                  placeholder={t('policies.actionScriptPlaceholder')}
+                  help={t('policies.afterFolderHelp')}
+                />
+                <PolicyNumberField
+                  label={t('policies.actionTimeout')}
+                  value={policy.actions?.afterFolder?.timeout}
+                  onChange={(val) => {
+                    const current = policy.actions?.afterFolder || {};
+                    updatePolicy('actions', 'afterFolder', { ...current, timeout: val });
+                  }}
+                  isDefined={isDefined('actions', 'afterFolder')}
+                  effectiveValue={resolvedPolicy?.effective.actions?.afterFolder?.timeout}
+                />
+                <PolicySelectField
+                  label={t('policies.actionMode')}
+                  value={policy.actions?.afterFolder?.mode}
+                  onChange={(val) => {
+                    const current = policy.actions?.afterFolder || {};
+                    updatePolicy('actions', 'afterFolder', { ...current, mode: val });
+                  }}
+                  isDefined={isDefined('actions', 'afterFolder')}
+                  effectiveValue={resolvedPolicy?.effective.actions?.afterFolder?.mode}
+                  options={[
+                    { value: 'essential', label: t('policies.actionModeEssential') },
+                    { value: 'optional', label: t('policies.actionModeOptional') },
+                    { value: 'async', label: t('policies.actionModeAsync') },
+                  ]}
+                />
+              </div>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Logging Policy */}
+        <AccordionItem value="logging">
+          <AccordionTrigger>
+            <div className="flex items-center gap-2">
+              <ScrollText className="h-4 w-4 text-muted-foreground" />
+              {t('policies.loggingPolicy')}
+            </div>
+          </AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-4 pt-2">
+              <p className="text-sm text-muted-foreground">{t('policies.loggingPolicyHelp')}</p>
+
+              {/* Directory Logging */}
+              <div className="space-y-2 p-3 border rounded-lg">
+                <Label className="font-medium">{t('policies.directoryLogging')}</Label>
+                <PolicyNumberField
+                  label={t('policies.logSnapshotted')}
+                  value={policy.logging?.directories?.snapshotted}
+                  onChange={(val) => {
+                    const current = policy.logging?.directories || {};
+                    updatePolicy('logging', 'directories', { ...current, snapshotted: val });
+                  }}
+                  isDefined={isDefined('logging', 'directories')}
+                  effectiveValue={resolvedPolicy?.effective.logging?.directories?.snapshotted}
+                  help={t('policies.logLevelHelp')}
+                />
+                <PolicyNumberField
+                  label={t('policies.logIgnored')}
+                  value={policy.logging?.directories?.ignored}
+                  onChange={(val) => {
+                    const current = policy.logging?.directories || {};
+                    updatePolicy('logging', 'directories', { ...current, ignored: val });
+                  }}
+                  isDefined={isDefined('logging', 'directories')}
+                  effectiveValue={resolvedPolicy?.effective.logging?.directories?.ignored}
+                />
+              </div>
+
+              {/* Entry Logging */}
+              <div className="space-y-2 p-3 border rounded-lg">
+                <Label className="font-medium">{t('policies.entryLogging')}</Label>
+                <PolicyNumberField
+                  label={t('policies.logSnapshotted')}
+                  value={policy.logging?.entries?.snapshotted}
+                  onChange={(val) => {
+                    const current = policy.logging?.entries || {};
+                    updatePolicy('logging', 'entries', { ...current, snapshotted: val });
+                  }}
+                  isDefined={isDefined('logging', 'entries')}
+                  effectiveValue={resolvedPolicy?.effective.logging?.entries?.snapshotted}
+                  help={t('policies.logLevelHelp')}
+                />
+                <PolicyNumberField
+                  label={t('policies.logIgnored')}
+                  value={policy.logging?.entries?.ignored}
+                  onChange={(val) => {
+                    const current = policy.logging?.entries || {};
+                    updatePolicy('logging', 'entries', { ...current, ignored: val });
+                  }}
+                  isDefined={isDefined('logging', 'entries')}
+                  effectiveValue={resolvedPolicy?.effective.logging?.entries?.ignored}
+                />
+                <PolicyNumberField
+                  label={t('policies.logCacheHit')}
+                  value={policy.logging?.entries?.cacheHit}
+                  onChange={(val) => {
+                    const current = policy.logging?.entries || {};
+                    updatePolicy('logging', 'entries', { ...current, cacheHit: val });
+                  }}
+                  isDefined={isDefined('logging', 'entries')}
+                  effectiveValue={resolvedPolicy?.effective.logging?.entries?.cacheHit}
+                />
+                <PolicyNumberField
+                  label={t('policies.logCacheMiss')}
+                  value={policy.logging?.entries?.cacheMiss}
+                  onChange={(val) => {
+                    const current = policy.logging?.entries || {};
+                    updatePolicy('logging', 'entries', { ...current, cacheMiss: val });
+                  }}
+                  isDefined={isDefined('logging', 'entries')}
+                  effectiveValue={resolvedPolicy?.effective.logging?.entries?.cacheMiss}
+                />
+              </div>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* OS Snapshots Policy (Windows VSS) */}
+        <AccordionItem value="osSnapshots">
+          <AccordionTrigger>
+            <div className="flex items-center gap-2">
+              <Monitor className="h-4 w-4 text-muted-foreground" />
+              {t('policies.osSnapshotsPolicy')}
+            </div>
+          </AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-4 pt-2">
+              <p className="text-sm text-muted-foreground">{t('policies.osSnapshotsPolicyHelp')}</p>
+              <PolicySelectField
+                label={t('policies.volumeShadowCopy')}
+                value={policy.osSnapshots?.volumeShadowCopy?.enable?.toString()}
+                onChange={(val) => {
+                  const numVal = val ? parseInt(val, 10) : undefined;
+                  updatePolicy(
+                    'osSnapshots',
+                    'volumeShadowCopy',
+                    numVal !== undefined ? { enable: numVal } : undefined
+                  );
+                }}
+                isDefined={isDefined('osSnapshots', 'volumeShadowCopy')}
+                effectiveValue={resolvedPolicy?.effective.osSnapshots?.volumeShadowCopy?.enable?.toString()}
+                options={[
+                  { value: '0', label: t('policies.vssNever') },
+                  { value: '1', label: t('policies.vssAlways') },
+                  { value: '2', label: t('policies.vssWhenAvailable') },
+                ]}
+                help={t('policies.volumeShadowCopyHelp')}
+              />
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Splitter Policy */}
+        <AccordionItem value="splitter">
+          <AccordionTrigger>
+            <div className="flex items-center gap-2">
+              <Scissors className="h-4 w-4 text-muted-foreground" />
+              {t('policies.splitterPolicy')}
+            </div>
+          </AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-4 pt-2">
+              <PolicyTextField
+                label={t('policies.splitterAlgorithm')}
+                value={policy.splitter?.algorithm}
+                onChange={(val) => updatePolicy('splitter', 'algorithm', val)}
+                isDefined={isDefined('splitter', 'algorithm')}
+                effectiveValue={resolvedPolicy?.effective.splitter?.algorithm}
+                placeholder={t('policies.splitterAlgorithmPlaceholder')}
+                help={t('policies.splitterAlgorithmHelp')}
               />
             </div>
           </AccordionContent>
@@ -851,6 +1300,165 @@ function PolicyArrayField({
           ))}
         </div>
       )}
+      {help && <p className="text-xs text-muted-foreground">{help}</p>}
+    </div>
+  );
+}
+
+// Helper functions for TimeOfDay conversion
+function timeOfDayToString(tod: TimeOfDay): string {
+  return `${tod.hour.toString().padStart(2, '0')}:${tod.min.toString().padStart(2, '0')}`;
+}
+
+function stringToTimeOfDay(str: string): TimeOfDay | null {
+  const match = str.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const hour = parseInt(match[1], 10);
+  const min = parseInt(match[2], 10);
+  if (hour < 0 || hour > 23 || min < 0 || min > 59) return null;
+  return { hour, min };
+}
+
+interface PolicyTimeOfDayFieldProps extends Omit<PolicyFieldProps, 'effectiveValue'> {
+  value?: TimeOfDay[];
+  onChange: (value: TimeOfDay[] | undefined) => void;
+  placeholder?: string;
+  effectiveValue?: TimeOfDay[];
+}
+
+function PolicyTimeOfDayField({
+  label,
+  value,
+  onChange,
+  isDefined,
+  effectiveValue,
+  placeholder,
+  help,
+}: PolicyTimeOfDayFieldProps) {
+  const { t } = useTranslation();
+  const [inputValue, setInputValue] = useState('');
+
+  const handleAdd = () => {
+    const trimmed = inputValue.trim();
+    if (!trimmed) return;
+    const tod = stringToTimeOfDay(trimmed);
+    if (!tod) {
+      toast.error(t('policies.invalidTimeFormat'));
+      return;
+    }
+    const newValue = [...(value || []), tod];
+    onChange(newValue);
+    setInputValue('');
+  };
+
+  const handleRemove = (index: number) => {
+    const newValue = [...(value || [])];
+    newValue.splice(index, 1);
+    onChange(newValue.length > 0 ? newValue : undefined);
+  };
+
+  // Convert effective value for display
+  const effectiveStrings = effectiveValue?.map(timeOfDayToString);
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="flex items-center gap-2">
+          {label}
+          {isDefined && <Badge variant="outline">{t('policies.overridden')}</Badge>}
+        </Label>
+        {effectiveStrings !== undefined && !isDefined && effectiveStrings.length > 0 && (
+          <span className="text-xs text-muted-foreground">
+            {t('policies.inherited')}: {effectiveStrings.join(', ')}
+          </span>
+        )}
+      </div>
+      <div className="flex gap-2">
+        <Input
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          placeholder={placeholder}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              handleAdd();
+            }
+          }}
+        />
+        <Button type="button" size="sm" onClick={handleAdd}>
+          {t('common.add')}
+        </Button>
+      </div>
+      {value && value.length > 0 && (
+        <div className="space-y-1">
+          {value.map((item, idx) => (
+            <div
+              key={idx}
+              className="flex items-center justify-between p-2 text-sm bg-muted rounded"
+            >
+              <code className="font-mono">{timeOfDayToString(item)}</code>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => handleRemove(idx)}
+                className="h-6 w-6 p-0"
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+      {help && <p className="text-xs text-muted-foreground">{help}</p>}
+    </div>
+  );
+}
+
+interface PolicySelectFieldProps extends PolicyFieldProps {
+  value?: string;
+  onChange: (value: string | undefined) => void;
+  options: Array<{ value: string; label: string }>;
+}
+
+function PolicySelectField({
+  label,
+  value,
+  onChange,
+  isDefined,
+  effectiveValue,
+  options,
+  help,
+}: PolicySelectFieldProps) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="flex items-center gap-2">
+          {label}
+          {isDefined && <Badge variant="outline">{t('policies.overridden')}</Badge>}
+        </Label>
+        {effectiveValue !== undefined && !isDefined && typeof effectiveValue === 'string' && (
+          <span className="text-xs text-muted-foreground">
+            {t('policies.inherited')}:{' '}
+            {options.find((o) => o.value === effectiveValue)?.label || effectiveValue}
+          </span>
+        )}
+      </div>
+      <select
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value || undefined)}
+        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <option value="">{t('policies.notSet')}</option>
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
       {help && <p className="text-xs text-muted-foreground">{help}</p>}
     </div>
   );
