@@ -5,10 +5,10 @@
  * Users can delete individual snapshots or the entire source with all its snapshots.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router';
-import { listen } from '@tauri-apps/api/event';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -102,7 +102,11 @@ export function SnapshotHistory() {
     description?: string;
   } | null>(null);
 
-  const fetchSnapshots = async () => {
+  // Ref to track if component is mounted (for async operations)
+  const isMountedRef = useRef(true);
+
+  // Memoized fetch function to avoid stale closures in listeners
+  const fetchSnapshots = useCallback(async () => {
     if (!userName || !host || !path) {
       return;
     }
@@ -114,40 +118,62 @@ export function SnapshotHistory() {
         path,
         showAllSnapshots
       );
-      setSnapshots(fetchedSnapshots);
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setSnapshots(fetchedSnapshots);
+      }
     } catch (err) {
       // Error is already handled by the store
       logger.error(t('snapshots.errors.fetchFailed'), err);
     }
-  };
+  }, [userName, host, path, showAllSnapshots, fetchSnapshotsForSource, t]);
+
+  // Track mounted state for cleanup
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     void fetchSnapshots();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userName, host, path, showAllSnapshots]);
+  }, [fetchSnapshots]);
 
   // Listen for WebSocket events to auto-refresh
   useEffect(() => {
+    let unlisten: UnlistenFn | null = null;
+    let isCancelled = false;
+
     const setupListener = async () => {
-      const unlisten = await listen('kopia-ws-event', (event) => {
-        const data = event.payload as { type?: string };
+      try {
+        unlisten = await listen('kopia-ws-event', (event) => {
+          if (isCancelled) return;
 
-        // Refresh snapshots when snapshot-related events occur
-        if (data.type === 'snapshot-progress' || data.type === 'task-progress') {
-          void fetchSnapshots();
+          const data = event.payload as { type?: string };
+
+          // Refresh snapshots when snapshot-related events occur
+          if (data.type === 'snapshot-progress' || data.type === 'task-progress') {
+            void fetchSnapshots();
+          }
+        });
+      } catch (err) {
+        // Listener setup failed, likely during cleanup
+        if (import.meta.env.DEV && !isCancelled) {
+          console.error('Failed to setup WebSocket listener:', err);
         }
-      });
-
-      return unlisten;
+      }
     };
 
-    const listenerPromise = setupListener();
+    void setupListener();
 
     return () => {
-      void listenerPromise.then((unlisten) => unlisten());
+      isCancelled = true;
+      if (unlisten) {
+        unlisten();
+      }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userName, host, path]);
+  }, [fetchSnapshots]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -431,7 +457,7 @@ export function SnapshotHistory() {
                             : t('snapshots.description.clickToAdd')
                         }
                       >
-                        <FileText className="h-3 w-3 mr-1 flex-shrink-0" />
+                        <FileText className="h-3 w-3 mr-1 shrink-0" />
                         <span className="text-sm truncate">
                           {snapshot.description || (
                             <span className="text-muted-foreground italic">

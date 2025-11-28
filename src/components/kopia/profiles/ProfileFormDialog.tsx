@@ -2,9 +2,9 @@
  * Profile Form Dialog - Create/Edit backup profiles with directory management
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { listen } from '@tauri-apps/api/event';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useProfilesStore } from '@/stores/profiles';
 import { selectFolder, getCurrentUser } from '@/lib/kopia/client';
 import {
@@ -39,6 +39,25 @@ export function ProfileFormDialog({ open, onOpenChange, profile }: ProfileFormDi
   const [directories, setDirectories] = useState<string[]>(() => profile?.directories || []);
   const [isDragging, setIsDragging] = useState(false);
 
+  // Ref to hold current directories for use in listener without causing re-registration
+  const directoriesRef = useRef<string[]>(directories);
+  useEffect(() => {
+    directoriesRef.current = directories;
+  }, [directories]);
+
+  // Stable callback for adding directories from drag-drop
+  const handleDroppedPaths = useCallback(
+    (paths: string[]) => {
+      const currentDirs = directoriesRef.current;
+      const newDirectories = paths.filter((path) => !currentDirs.includes(path));
+      if (newDirectories.length > 0) {
+        setDirectories([...currentDirs, ...newDirectories]);
+        toast.success(t('profiles.directoriesAdded', { count: newDirectories.length }));
+      }
+    },
+    [t]
+  );
+
   // Reset form when profile or open changes
   useEffect(() => {
     if (!open) return;
@@ -49,37 +68,46 @@ export function ProfileFormDialog({ open, onOpenChange, profile }: ProfileFormDi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, profile?.id]);
 
-  // Set up drag and drop listeners
+  // Set up drag and drop listeners - only recreate when dialog opens/closes
   useEffect(() => {
     if (!open) return;
 
-    const unlistenDragEnter = listen<string[]>('tauri://drag-enter', () => {
-      setIsDragging(true);
-    });
+    const unlistenFns: UnlistenFn[] = [];
+    let isCancelled = false;
 
-    const unlistenDragLeave = listen<string[]>('tauri://drag-leave', () => {
-      setIsDragging(false);
-    });
+    const setupListeners = async () => {
+      try {
+        const unlistenDragEnter = await listen<string[]>('tauri://drag-enter', () => {
+          if (!isCancelled) setIsDragging(true);
+        });
+        if (!isCancelled) unlistenFns.push(unlistenDragEnter);
 
-    const unlistenDrop = listen<{ paths: string[] }>('tauri://drag-drop', (event) => {
-      setIsDragging(false);
-      const paths = event.payload.paths;
+        const unlistenDragLeave = await listen<string[]>('tauri://drag-leave', () => {
+          if (!isCancelled) setIsDragging(false);
+        });
+        if (!isCancelled) unlistenFns.push(unlistenDragLeave);
 
-      // Filter for directories only and add them
-      const newDirectories = paths.filter((path) => !directories.includes(path));
-      if (newDirectories.length > 0) {
-        setDirectories([...directories, ...newDirectories]);
-        toast.success(t('profiles.directoriesAdded', { count: newDirectories.length }));
+        const unlistenDrop = await listen<{ paths: string[] }>('tauri://drag-drop', (event) => {
+          if (isCancelled) return;
+          setIsDragging(false);
+          handleDroppedPaths(event.payload.paths);
+        });
+        if (!isCancelled) unlistenFns.push(unlistenDrop);
+      } catch (err) {
+        if (import.meta.env.DEV && !isCancelled) {
+          console.error('Failed to setup drag-drop listeners:', err);
+        }
       }
-    });
-
-    // Cleanup listeners
-    return () => {
-      void unlistenDragEnter.then((fn) => fn());
-      void unlistenDragLeave.then((fn) => fn());
-      void unlistenDrop.then((fn) => fn());
     };
-  }, [open, directories, t]);
+
+    void setupListeners();
+
+    // Cleanup listeners synchronously
+    return () => {
+      isCancelled = true;
+      unlistenFns.forEach((fn) => fn());
+    };
+  }, [open, handleDroppedPaths]);
 
   const handleAddDirectory = async () => {
     try {

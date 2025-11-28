@@ -471,17 +471,23 @@
     "overridden": "Overridden",
     "inherited": "Inherited",
     "upcomingSnapshots": "Upcoming backups",
+    "retention": "Retention",
     "retentionPolicy": "Retention Rule",
     "retentionDescription": "Keep {{latest}} latest, {{daily}} daily",
     "keepLatest": "Keep latest",
+    "keepLatestPlaceholder": "10",
     "keepHourly": "Keep hourly",
     "keepDaily": "Keep daily",
+    "keepDailyPlaceholder": "7",
     "keepWeekly": "Keep weekly",
     "keepMonthly": "Keep monthly",
     "keepAnnual": "Keep annual",
     "ignoreIdenticalSnapshots": "Ignore identical backups",
+    "latest": "latest",
+    "scheduling": "Scheduling",
     "schedulingPolicy": "Scheduling Rule",
     "intervalSeconds": "Interval (seconds)",
+    "intervalSecondsPlaceholder": "3600",
     "intervalSecondsHelp": "Time between automatic backups in seconds",
     "interval": "Interval",
     "notSet": "Not set",
@@ -493,6 +499,7 @@
     "no": "No",
     "enabled": "Enabled",
     "disabled": "Disabled",
+    "compression": "Compression",
     "compressionPolicy": "Compression Rule",
     "compressorName": "Compressor name",
     "compressorNameHelp": "Algorithm to use for compression (e.g., gzip, zstd, s2-default)",
@@ -587,7 +594,10 @@
     "noParentIgnoreHelp": "Don't inherit ignore rules from parent directories",
     "noParentDotFiles": "No parent ignore files",
     "noParentDotFilesHelp": "Don't inherit ignore rule files from parent directories",
-    "invalidTimeFormat": "Invalid time format. Use HH:MM (e.g., 09:00, 17:30)"
+    "invalidTimeFormat": "Invalid time format. Use HH:MM (e.g., 09:00, 17:30)",
+    "schedule": "Schedule",
+    "every": "Every",
+    "editPolicies": "Edit Policies"
   },
   "tasks": {
     "title": "Tasks",
@@ -1095,7 +1105,7 @@
       "repositoryAlreadyConnected": "Already connected to a destination. Disconnect first to connect to another.",
       "repositoryNotFound": "Destination not found at the specified location.",
       "repositoryInitializationFailed": "Failed to initialize destination.",
-      "invalidPassword": "Invalid destination password. Please check your password and try again.",
+      "repositoryInvalidPassword": "Invalid destination password. Please check your password and try again.",
       "repositoryOperationFailed": "Destination operation failed.",
       "storageConnectionFailed": "Failed to connect to storage. Please check your storage configuration.",
       "invalidStorageConfig": "Invalid storage configuration.",
@@ -1139,6 +1149,7 @@
     "closeWindow": "Close window"
   },
   "time": {
-    "hoursShort": "H"
+    "hoursShort": "H",
+    "hours": "hours"
   }
 }

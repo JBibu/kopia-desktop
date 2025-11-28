@@ -174,7 +174,6 @@
     "size": "Tamaño",
     "files": "Archivos",
     "id": "ID",
-    "description": "Descripción",
     "directory": "Directorio",
     "noDescription": "Sin descripción",
     "searchPlaceholder": "Buscar carpetas...",
@@ -471,17 +470,23 @@
     "overridden": "Anulado",
     "inherited": "Heredado",
     "upcomingSnapshots": "Próximos respaldos",
+    "retention": "Retención",
     "retentionPolicy": "Regla de retención",
     "retentionDescription": "Mantener {{latest}} más recientes, {{daily}} diarios",
     "keepLatest": "Mantener más recientes",
+    "keepLatestPlaceholder": "10",
     "keepHourly": "Mantener por hora",
     "keepDaily": "Mantener diarios",
+    "keepDailyPlaceholder": "7",
     "keepWeekly": "Mantener semanales",
     "keepMonthly": "Mantener mensuales",
     "keepAnnual": "Mantener anuales",
     "ignoreIdenticalSnapshots": "Ignorar respaldos idénticos",
+    "latest": "más recientes",
+    "scheduling": "Programación",
     "schedulingPolicy": "Regla de programación",
     "intervalSeconds": "Intervalo (segundos)",
+    "intervalSecondsPlaceholder": "3600",
     "intervalSecondsHelp": "Tiempo entre respaldos automáticos en segundos",
     "interval": "Intervalo",
     "notSet": "No configurado",
@@ -493,6 +498,7 @@
     "no": "No",
     "enabled": "Habilitado",
     "disabled": "Deshabilitado",
+    "compression": "Compresión",
     "compressionPolicy": "Regla de compresión",
     "compressorName": "Nombre del compresor",
     "compressorNameHelp": "Algoritmo a utilizar para compresión (p. ej. Gzip, zstd, s2-default)",
@@ -587,7 +593,10 @@
     "noParentIgnoreHelp": "No heredar reglas de exclusión de directorios superiores",
     "noParentDotFiles": "Sin archivos de exclusión superiores",
     "noParentDotFilesHelp": "No heredar archivos de reglas de exclusión de directorios superiores",
-    "invalidTimeFormat": "Formato de hora inválido. Usa HH:MM (ej., 09:00, 17:30)"
+    "invalidTimeFormat": "Formato de hora inválido. Usa HH:MM (ej., 09:00, 17:30)",
+    "schedule": "Programación",
+    "every": "Cada",
+    "editPolicies": "Editar reglas"
   },
   "tasks": {
     "title": "Tareas",
@@ -702,7 +711,6 @@
     "notifications": "Notificaciones",
     "desktopNotifications": "Notificaciones de escritorio",
     "kopiaNotificationProfiles": "Perfiles de notificación de Kopia",
-    "system": "Sistema",
     "dangerZone": "Zona de Peligro",
     "minimizeToTray": "Minimizar a la bandeja del sistema",
     "minimizeToTrayDescription": "Mantener la aplicación ejecutándose en la bandeja cuando se cierra la ventana",
@@ -1095,7 +1103,7 @@
       "repositoryAlreadyConnected": "Ya conectado a un destino. Desconecta primero para conectar a otro.",
       "repositoryNotFound": "No se encontró el destino en la ubicación especificada.",
       "repositoryInitializationFailed": "Error al inicializar el destino.",
-      "invalidPassword": "Contraseña de destino no válida. Por favor verifica tu contraseña e inténtalo de nuevo.",
+      "repositoryInvalidPassword": "Contraseña del destino no válida. Por favor verifica tu contraseña e inténtalo de nuevo.",
       "repositoryOperationFailed": "La operación del destino falló.",
       "storageConnectionFailed": "Error al conectar al almacenamiento. Por favor verifica tu configuración de almacenamiento.",
       "invalidStorageConfig": "Configuración de almacenamiento no válida.",
@@ -1139,6 +1147,7 @@
     "closeWindow": "Cerrar ventana"
   },
   "time": {
-    "hoursShort": "H"
+    "hoursShort": "H",
+    "hours": "horas"
   }
 }

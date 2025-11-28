@@ -8,7 +8,7 @@
  * - Immediate snapshot or source-only creation
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useKopiaStore } from '@/stores/kopia';
@@ -58,6 +58,9 @@ export function SnapshotCreate() {
   const [estimationTaskId, setEstimationTaskId] = useState<string | null>(null);
   const [showEstimation, setShowEstimation] = useState(false);
 
+  // Track request ID to prevent race conditions when path changes rapidly
+  const policyRequestIdRef = useRef(0);
+
   // Load inherited policy when path changes (for preview only)
   useEffect(() => {
     if (!path) {
@@ -65,24 +68,32 @@ export function SnapshotCreate() {
       return;
     }
 
+    // Increment request ID to cancel stale requests
+    const requestId = ++policyRequestIdRef.current;
+
     const loadPolicy = async () => {
       setIsLoadingPolicy(true);
       try {
         const resolvedPolicy = await getPolicy();
-        setPolicy(resolvedPolicy);
+        // Only update state if this is still the latest request
+        if (requestId === policyRequestIdRef.current) {
+          setPolicy(resolvedPolicy);
+        }
       } catch (err) {
         // Silently fail - policy preview is optional
-        if (import.meta.env.DEV) {
+        if (import.meta.env.DEV && requestId === policyRequestIdRef.current) {
           console.error(t('snapshotCreate.errors.policyLoadFailed'), err);
         }
       } finally {
-        setIsLoadingPolicy(false);
+        // Only update loading state if this is still the latest request
+        if (requestId === policyRequestIdRef.current) {
+          setIsLoadingPolicy(false);
+        }
       }
     };
 
     void loadPolicy();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path, getPolicy]);
+  }, [path, getPolicy, t]);
 
   const handleBrowseFolder = async () => {
     try {

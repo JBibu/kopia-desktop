@@ -5,7 +5,7 @@
  * with options for overwriting, permissions, and archive formats.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Button } from '@/components/ui/button';
@@ -77,26 +77,37 @@ export function SnapshotRestore() {
   // Get tasks from store to show restore progress
   const tasks = useKopiaStore((state) => state.tasks);
 
+  // Track request ID to prevent race conditions
+  const browseRequestIdRef = useRef(0);
+
   // Fetch entry info to display what we're restoring
   useEffect(() => {
-    if (objectId && currentRepoId) {
-      browseObject(currentRepoId, objectId)
-        .then((response) => {
-          if (response.entries && response.entries.length > 0) {
-            // If browsing a directory, calculate total size
-            const totalSize = response.entries.reduce((sum, entry) => {
-              return sum + (entry.summ?.size || entry.size || 0);
-            }, 0);
-            setEstimatedSize(totalSize);
-          }
-        })
-        .catch((err) => {
-          // Silently fail - size estimation is optional
-          if (import.meta.env.DEV) {
-            console.error('Failed to fetch entry info:', err);
-          }
-        });
+    if (!objectId || !currentRepoId) {
+      return;
     }
+
+    // Increment request ID to cancel stale requests
+    const requestId = ++browseRequestIdRef.current;
+
+    browseObject(currentRepoId, objectId)
+      .then((response) => {
+        // Only update state if this is still the latest request
+        if (requestId !== browseRequestIdRef.current) return;
+
+        if (response.entries && response.entries.length > 0) {
+          // If browsing a directory, calculate total size
+          const totalSize = response.entries.reduce((sum, entry) => {
+            return sum + (entry.summ?.size || entry.size || 0);
+          }, 0);
+          setEstimatedSize(totalSize);
+        }
+      })
+      .catch((err) => {
+        // Silently fail - size estimation is optional
+        if (import.meta.env.DEV && requestId === browseRequestIdRef.current) {
+          console.error('Failed to fetch entry info:', err);
+        }
+      });
   }, [objectId, currentRepoId]);
 
   // Monitor restore task progress
