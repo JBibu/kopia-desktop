@@ -53,6 +53,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Get Kopia version
+        id: kopia-version
+        shell: bash
+        run: echo "version=$(grep '^VERSION=' scripts/download-kopia.sh | cut -d'"' -f2)" >> $GITHUB_OUTPUT
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
@@ -80,7 +85,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: bin/
-          key: kopia-binaries-${{ runner.os }}-${{ runner.arch }}-v0.21.1
+          key: kopia-binaries-${{ runner.os }}-${{ runner.arch }}-v${{ steps.kopia-version.outputs.version }}
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts

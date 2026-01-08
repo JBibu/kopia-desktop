@@ -1,5 +1,1 @@
-# Run all validation checks (typecheck, lint, format, tests)
-echo "Running validation checks..."
-pnpm validate || exit 1
-
-echo "✓ Pre-commit checks passed!"
+pnpm exec lint-staged
