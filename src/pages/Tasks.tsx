@@ -53,7 +53,7 @@ import { usePreferencesStore } from '@/stores/preferences';
 export function Tasks() {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const language = usePreferencesStore((state) => state.language);
+  const locale = usePreferencesStore((state) => state.getLocale());
   const tasks = useKopiaStore((state) => state.tasks);
   const summary = useKopiaStore((state) => state.tasksSummary);
   const isLoading = useKopiaStore((state) => state.isTasksLoading);
@@ -64,9 +64,6 @@ export function Tasks() {
   const refreshAll = useKopiaStore((state) => state.refreshAll);
   const sourcesResponse = useKopiaStore((state) => state.sourcesResponse);
   const sources = sourcesResponse?.sources || [];
-
-  // Map language code to locale
-  const locale = language === 'es' ? 'es-ES' : 'en-US';
 
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);

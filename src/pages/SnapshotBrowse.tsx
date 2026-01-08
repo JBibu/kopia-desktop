@@ -74,16 +74,13 @@ export function SnapshotBrowse() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const language = usePreferencesStore((state) => state.language);
+  const locale = usePreferencesStore((state) => state.getLocale());
   const byteFormat = usePreferencesStore((state) => state.byteFormat);
   const getMountForObject = useKopiaStore((state) => state.getMountForObject);
   const mountSnapshot = useKopiaStore((state) => state.mountSnapshot);
   const unmountSnapshot = useKopiaStore((state) => state.unmountSnapshot);
   const isMountLoading = useKopiaStore((state) => state.isMountsLoading);
   const currentRepoId = useCurrentRepoId();
-
-  // Map language code to locale
-  const locale = language === 'es' ? 'es-ES' : 'en-US';
 
   const snapshotId = searchParams.get('snapshotId') || '';
   const objectId = searchParams.get('oid') || '';

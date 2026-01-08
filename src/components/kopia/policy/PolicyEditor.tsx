@@ -66,8 +66,7 @@ interface PolicyEditorProps {
 
 export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
   const { t } = useTranslation();
-  const language = usePreferencesStore((state) => state.language);
-  const locale = language === 'es' ? 'es-ES' : 'en-US';
+  const locale = usePreferencesStore((state) => state.getLocale());
   const currentRepoId = useCurrentRepoId();
 
   const [isLoading, setIsLoading] = useState(true);

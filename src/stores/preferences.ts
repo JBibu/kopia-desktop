@@ -21,6 +21,12 @@ interface SourcePreference {
   order?: number;
 }
 
+/** Maps language code to full locale string for date/number formatting */
+const LANGUAGE_TO_LOCALE: Record<Language, string> = {
+  en: 'en-US',
+  es: 'es-ES',
+};
+
 interface PreferencesStore {
   // Theme
   theme: Theme;
@@ -29,6 +35,8 @@ interface PreferencesStore {
   // Language
   language: Language;
   setLanguage: (language: Language) => void;
+  /** Get full locale string (e.g., 'en-US') for formatting */
+  getLocale: () => string;
 
   // Font size
   fontSize: FontSize;
@@ -74,7 +82,7 @@ function applyFontSize(size: FontSize) {
 
 export const usePreferencesStore = create<PreferencesStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       // Theme preferences
       theme: 'system',
       setTheme: (theme) => set({ theme }),
@@ -85,6 +93,7 @@ export const usePreferencesStore = create<PreferencesStore>()(
         void i18n.changeLanguage(language);
         set({ language });
       },
+      getLocale: () => LANGUAGE_TO_LOCALE[get().language],
 
       // Font size preferences
       fontSize: 'medium',

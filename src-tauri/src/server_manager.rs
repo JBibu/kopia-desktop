@@ -27,7 +27,35 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+
+// ============================================================================
+// Mutex Recovery Extension Trait
+// ============================================================================
+
+/// Extension trait for Mutex that provides poison recovery with logging
+pub trait MutexRecoveryExt<T> {
+    /// Lock the mutex, recovering from poison if necessary
+    fn lock_or_recover(&self) -> MutexGuard<'_, T>;
+}
+
+impl<T> MutexRecoveryExt<T> for Mutex<T> {
+    fn lock_or_recover(&self) -> MutexGuard<'_, T> {
+        self.lock().unwrap_or_else(|poisoned: PoisonError<MutexGuard<'_, T>>| {
+            log::warn!("Mutex poisoned, recovering...");
+            poisoned.into_inner()
+        })
+    }
+}
+
+impl<T> MutexRecoveryExt<T> for Arc<Mutex<T>> {
+    fn lock_or_recover(&self) -> MutexGuard<'_, T> {
+        self.lock().unwrap_or_else(|poisoned: PoisonError<MutexGuard<'_, T>>| {
+            log::warn!("Mutex poisoned, recovering...");
+            poisoned.into_inner()
+        })
+    }
+}
 
 /// Config file suffix used by Kopia
 const CONFIG_SUFFIX: &str = ".config";
@@ -144,10 +172,7 @@ impl ServerManager {
 
         let server = self.get_or_create_server(repo_id);
 
-        let mut server_guard = server.lock().unwrap_or_else(|poisoned| {
-            log::warn!("Mutex poisoned for repo '{}', recovering...", repo_id);
-            poisoned.into_inner()
-        });
+        let mut server_guard = server.lock_or_recover();
 
         // Check if already running
         if server_guard.is_running() {
@@ -169,10 +194,7 @@ impl ServerManager {
                 repo_id: repo_id.to_string(),
             })?;
 
-        let mut server_guard = server.lock().unwrap_or_else(|poisoned| {
-            log::warn!("Mutex poisoned for repo '{}', recovering...", repo_id);
-            poisoned.into_inner()
-        });
+        let mut server_guard = server.lock_or_recover();
 
         server_guard.stop()
     }
@@ -182,10 +204,7 @@ impl ServerManager {
         let mut errors = Vec::new();
 
         for (repo_id, server) in self.servers.iter() {
-            let mut server_guard = server.lock().unwrap_or_else(|poisoned| {
-                log::warn!("Mutex poisoned for repo '{}', recovering...", repo_id);
-                poisoned.into_inner()
-            });
+            let mut server_guard = server.lock_or_recover();
 
             if server_guard.is_running() {
                 log::info!("Stopping server for repository '{}'", repo_id);
@@ -220,10 +239,7 @@ impl ServerManager {
                 repo_id: repo_id.to_string(),
             })?;
 
-        let mut server_guard = server.lock().unwrap_or_else(|poisoned| {
-            log::warn!("Mutex poisoned for repo '{}', recovering...", repo_id);
-            poisoned.into_inner()
-        });
+        let mut server_guard = server.lock_or_recover();
 
         Ok(server_guard.status())
     }
@@ -240,10 +256,7 @@ impl ServerManager {
 
             // Get or create server to check status
             let server = self.get_or_create_server(&repo_id);
-            let mut server_guard = server.lock().unwrap_or_else(|poisoned| {
-                log::warn!("Mutex poisoned for repo '{}', recovering...", repo_id);
-                poisoned.into_inner()
-            });
+            let mut server_guard = server.lock_or_recover();
 
             let status = server_guard.status();
             let status_str = if status.running { "running" } else { "stopped" };
@@ -310,10 +323,7 @@ impl ServerManager {
 
         // Stop server if running
         if let Some(server) = self.servers.get(repo_id) {
-            let mut server_guard = server.lock().unwrap_or_else(|poisoned| {
-                log::warn!("Mutex poisoned for repo '{}', recovering...", repo_id);
-                poisoned.into_inner()
-            });
+            let mut server_guard = server.lock_or_recover();
 
             if server_guard.is_running() {
                 server_guard.stop()?;
@@ -352,34 +362,25 @@ impl ServerManager {
 
     /// Get HTTP client for a repository (for API calls)
     pub fn get_http_client(&self, repo_id: &str) -> Option<reqwest::Client> {
-        self.servers.get(repo_id).and_then(|server| {
-            server
-                .lock()
-                .unwrap_or_else(|poisoned| poisoned.into_inner())
-                .get_http_client()
-        })
+        self.servers
+            .get(repo_id)
+            .and_then(|server| server.lock_or_recover().get_http_client())
     }
 
     /// Get server URL for a repository
     pub fn get_server_url(&self, repo_id: &str) -> Option<String> {
         self.servers.get(repo_id).and_then(|server| {
-            let mut server_guard = server
-                .lock()
-                .unwrap_or_else(|poisoned| poisoned.into_inner());
-            let status = server_guard.status();
-            status.server_url
+            let mut server_guard = server.lock_or_recover();
+            server_guard.status().server_url
         })
     }
 
     /// Get server info for a repository
     #[allow(dead_code)]
     pub fn get_server_info(&self, repo_id: &str) -> Option<KopiaServerInfo> {
-        self.servers.get(repo_id).and_then(|server| {
-            server
-                .lock()
-                .unwrap_or_else(|poisoned| poisoned.into_inner())
-                .get_info()
-        })
+        self.servers
+            .get(repo_id)
+            .and_then(|server| server.lock_or_recover().get_info())
     }
 
     /// Get ready waiter for a repository (for waiting after start)
@@ -394,11 +395,7 @@ impl ServerManager {
                 repo_id: repo_id.to_string(),
             })?;
 
-        let server_guard = server
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-
-        server_guard.get_ready_waiter()
+        server.lock_or_recover().get_ready_waiter()
     }
 }
 

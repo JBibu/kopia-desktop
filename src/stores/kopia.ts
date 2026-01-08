@@ -64,6 +64,49 @@ import { notifyTaskComplete } from '@/lib/notifications';
 /** Default repository ID (matches Kopia CLI default) */
 const DEFAULT_REPO_ID = 'repository';
 
+// ============================================================================
+// Store Helper Functions (reduce repetitive patterns)
+// ============================================================================
+
+type StoreGet = () => KopiaStore;
+type StoreSet = (partial: Partial<KopiaStore>) => void;
+
+/** Helper to run action only if a repository is selected, returning early otherwise */
+async function withRepoId<T>(
+  get: StoreGet,
+  fn: (repoId: string) => Promise<T>
+): Promise<T | undefined> {
+  const { currentRepoId } = get();
+  if (!currentRepoId) return undefined;
+  return fn(currentRepoId);
+}
+
+/** Helper to get repo ID or throw if not selected */
+function requireRepoId(get: StoreGet): string {
+  const { currentRepoId } = get();
+  if (!currentRepoId) throw new Error('No repository selected');
+  return currentRepoId;
+}
+
+/** Helper for refresh actions: handles error deduplication pattern */
+function setErrorIfChanged(
+  get: StoreGet,
+  set: StoreSet,
+  errorKey:
+    | 'serverError'
+    | 'repositoryError'
+    | 'snapshotsError'
+    | 'policiesError'
+    | 'tasksError'
+    | 'mountsError',
+  message: string
+) {
+  const currentError = get()[errorKey];
+  if (currentError !== message) {
+    set({ [errorKey]: message } as Partial<KopiaStore>);
+  }
+}
+
 interface KopiaStore {
   // Multi-repository state
   repositories: RepositoryEntry[];
@@ -410,60 +453,53 @@ export const useKopiaStore = create<KopiaStore>()(
     // ========================================================================
 
     refreshServerStatus: async () => {
-      const { currentRepoId } = get();
-      if (!currentRepoId) return;
-
-      try {
-        const status = await getKopiaServerStatus(currentRepoId);
-        set({ serverStatus: status });
-      } catch (error) {
-        const message = getErrorMessage(error);
-        const currentError = get().serverError;
-
-        if (currentError !== message) {
-          set({
-            serverError: message,
-            serverStatus: {
-              running: false,
-              serverUrl: undefined,
-              port: undefined,
-              uptime: undefined,
-            },
-          });
+      await withRepoId(get, async (repoId) => {
+        try {
+          const status = await getKopiaServerStatus(repoId);
+          set({ serverStatus: status });
+        } catch (error) {
+          const message = getErrorMessage(error);
+          if (get().serverError !== message) {
+            set({
+              serverError: message,
+              serverStatus: {
+                running: false,
+                serverUrl: undefined,
+                port: undefined,
+                uptime: undefined,
+              },
+            });
+          }
         }
-      }
+      });
     },
 
     startServer: async () => {
-      const { currentRepoId } = get();
-      if (!currentRepoId) return null;
-
-      set({ isServerLoading: true, serverError: null });
-      try {
-        const info = await startKopiaServer(currentRepoId);
-        await get().refreshServerStatus();
-        set({ isServerLoading: false, serverInfo: info });
-        return info;
-      } catch (error) {
-        const message = getErrorMessage(error);
-        set({ serverError: message, isServerLoading: false });
-        return null;
-      }
+      return withRepoId(get, async (repoId) => {
+        set({ isServerLoading: true, serverError: null });
+        try {
+          const info = await startKopiaServer(repoId);
+          await get().refreshServerStatus();
+          set({ isServerLoading: false, serverInfo: info });
+          return info;
+        } catch (error) {
+          set({ serverError: getErrorMessage(error), isServerLoading: false });
+          return null;
+        }
+      }) as Promise<KopiaServerInfo | null>;
     },
 
     stopServer: async () => {
-      const { currentRepoId } = get();
-      if (!currentRepoId) return;
-
-      set({ isServerLoading: true, serverError: null });
-      try {
-        await stopKopiaServer(currentRepoId);
-        await get().refreshServerStatus();
-        set({ isServerLoading: false });
-      } catch (error) {
-        const message = getErrorMessage(error);
-        set({ serverError: message, isServerLoading: false });
-      }
+      await withRepoId(get, async (repoId) => {
+        set({ isServerLoading: true, serverError: null });
+        try {
+          await stopKopiaServer(repoId);
+          await get().refreshServerStatus();
+          set({ isServerLoading: false });
+        } catch (error) {
+          set({ serverError: getErrorMessage(error), isServerLoading: false });
+        }
+      });
     },
 
     // ========================================================================
@@ -471,68 +507,64 @@ export const useKopiaStore = create<KopiaStore>()(
     // ========================================================================
 
     refreshRepositoryStatus: async () => {
-      const { currentRepoId } = get();
-      if (!currentRepoId) return;
+      await withRepoId(get, async (repoId) => {
+        try {
+          const status = await getRepositoryStatus(repoId);
+          set({ repositoryStatus: status });
+        } catch (error) {
+          const message = getErrorMessage(error);
+          const currentError = get().repositoryError;
+          const currentStatus = get().repositoryStatus;
 
-      try {
-        const status = await getRepositoryStatus(currentRepoId);
-        set({ repositoryStatus: status });
-      } catch (error) {
-        const message = getErrorMessage(error);
-        const currentError = get().repositoryError;
-        const currentStatus = get().repositoryStatus;
+          // Only update if something changed
+          const shouldUpdateError =
+            !message.includes('not running') &&
+            !message.includes('not connected') &&
+            currentError !== message;
+          const shouldUpdateStatus = currentStatus?.connected !== false;
 
-        // Only update if something changed
-        const shouldUpdateError =
-          !message.includes('not running') &&
-          !message.includes('not connected') &&
-          currentError !== message;
-        const shouldUpdateStatus = currentStatus?.connected !== false;
-
-        if (shouldUpdateError || shouldUpdateStatus) {
-          set({
-            ...(shouldUpdateError && { repositoryError: message }),
-            repositoryStatus: {
-              connected: false,
-              configFile: undefined,
-              storage: undefined,
-              hash: undefined,
-              encryption: undefined,
-            },
-          });
+          if (shouldUpdateError || shouldUpdateStatus) {
+            set({
+              ...(shouldUpdateError && { repositoryError: message }),
+              repositoryStatus: {
+                connected: false,
+                configFile: undefined,
+                storage: undefined,
+                hash: undefined,
+                encryption: undefined,
+              },
+            });
+          }
         }
-      }
+      });
     },
 
     connectRepo: async (config: RepositoryConnectRequest) => {
-      const { currentRepoId } = get();
-      if (!currentRepoId) return false;
-
-      set({ isRepositoryLoading: true, repositoryError: null });
-      try {
-        const status = await connectRepository(currentRepoId, config);
-        set({ repositoryStatus: status, isRepositoryLoading: false });
-        return status.connected;
-      } catch (error) {
-        const message = getErrorMessage(error);
-        set({ repositoryError: message, isRepositoryLoading: false });
-        return false;
-      }
+      const result = await withRepoId(get, async (repoId) => {
+        set({ isRepositoryLoading: true, repositoryError: null });
+        try {
+          const status = await connectRepository(repoId, config);
+          set({ repositoryStatus: status, isRepositoryLoading: false });
+          return status.connected;
+        } catch (error) {
+          set({ repositoryError: getErrorMessage(error), isRepositoryLoading: false });
+          return false;
+        }
+      });
+      return result ?? false;
     },
 
     disconnectRepo: async () => {
-      const { currentRepoId } = get();
-      if (!currentRepoId) return;
-
-      set({ isRepositoryLoading: true, repositoryError: null });
-      try {
-        await disconnectRepository(currentRepoId);
-        await get().refreshRepositoryStatus();
-        set({ isRepositoryLoading: false });
-      } catch (error) {
-        const message = getErrorMessage(error);
-        set({ repositoryError: message, isRepositoryLoading: false });
-      }
+      await withRepoId(get, async (repoId) => {
+        set({ isRepositoryLoading: true, repositoryError: null });
+        try {
+          await disconnectRepository(repoId);
+          await get().refreshRepositoryStatus();
+          set({ isRepositoryLoading: false });
+        } catch (error) {
+          set({ repositoryError: getErrorMessage(error), isRepositoryLoading: false });
+        }
+      });
     },
 
     // ========================================================================
@@ -540,83 +572,67 @@ export const useKopiaStore = create<KopiaStore>()(
     // ========================================================================
 
     refreshSnapshots: async () => {
-      const { currentRepoId } = get();
-      if (!currentRepoId) return;
+      await withRepoId(get, async (repoId) => {
+        try {
+          // First, get all sources
+          const sourcesResponse = await listSources(repoId);
+          const sources = sourcesResponse.sources || [];
 
-      try {
-        // First, get all sources
-        const sourcesResponse = await listSources(currentRepoId);
-        const sources = sourcesResponse.sources || [];
-
-        // Then fetch snapshots for each source
-        const allSnapshots: Snapshot[] = [];
-        for (const source of sources) {
-          try {
-            const response = await listSnapshots(
-              currentRepoId,
-              source.source.userName,
-              source.source.host,
-              source.source.path,
-              true // all=true to include hidden snapshots
-            );
-            // Add source info to each snapshot (snapshots from /api/v1/snapshots don't have source field)
-            const snapshotsWithSource = (response.snapshots || []).map((snapshot) => ({
-              ...snapshot,
-              source: source.source,
-            }));
-            allSnapshots.push(...snapshotsWithSource);
-          } catch (error) {
-            // Continue with other sources even if one fails
-            if (import.meta.env.DEV) {
-              console.warn(
-                `Failed to fetch snapshots for ${source.source.userName}@${source.source.host}:${source.source.path}`,
-                error
+          // Then fetch snapshots for each source
+          const allSnapshots: Snapshot[] = [];
+          for (const source of sources) {
+            try {
+              const response = await listSnapshots(
+                repoId,
+                source.source.userName,
+                source.source.host,
+                source.source.path,
+                true // all=true to include hidden snapshots
               );
+              // Add source info to each snapshot (snapshots from /api/v1/snapshots don't have source field)
+              const snapshotsWithSource = (response.snapshots || []).map((snapshot) => ({
+                ...snapshot,
+                source: source.source,
+              }));
+              allSnapshots.push(...snapshotsWithSource);
+            } catch (error) {
+              // Continue with other sources even if one fails
+              if (import.meta.env.DEV) {
+                console.warn(
+                  `Failed to fetch snapshots for ${source.source.userName}@${source.source.host}:${source.source.path}`,
+                  error
+                );
+              }
             }
           }
-        }
 
-        set({ snapshots: allSnapshots });
-      } catch (error) {
-        const message = getErrorMessage(error);
-        const currentError = get().snapshotsError;
-
-        if (currentError !== message) {
-          set({ snapshotsError: message });
+          set({ snapshots: allSnapshots });
+        } catch (error) {
+          setErrorIfChanged(get, set, 'snapshotsError', getErrorMessage(error));
         }
-      }
+      });
     },
 
     refreshSources: async () => {
-      const { currentRepoId } = get();
-      if (!currentRepoId) return;
-
-      try {
-        const response = await listSources(currentRepoId);
-        set({ sourcesResponse: response });
-      } catch (error) {
-        const message = getErrorMessage(error);
-        const currentError = get().snapshotsError;
-
-        if (currentError !== message) {
-          set({ snapshotsError: message });
+      await withRepoId(get, async (repoId) => {
+        try {
+          const response = await listSources(repoId);
+          set({ sourcesResponse: response });
+        } catch (error) {
+          setErrorIfChanged(get, set, 'snapshotsError', getErrorMessage(error));
         }
-      }
+      });
     },
 
     createSnapshot: async (path: string, createSnapshot?: boolean, policy?: PolicyDefinition) => {
-      const { currentRepoId } = get();
-      if (!currentRepoId) throw new Error('No repository selected');
-
+      const repoId = requireRepoId(get);
       set({ isSnapshotsLoading: true, snapshotsError: null });
       try {
-        await apiCreateSnapshot(currentRepoId, path, undefined, undefined, createSnapshot, policy);
-        // Refresh both snapshots and sources to update UI
+        await apiCreateSnapshot(repoId, path, undefined, undefined, createSnapshot, policy);
         await Promise.all([get().refreshSnapshots(), get().refreshSources()]);
         set({ isSnapshotsLoading: false });
       } catch (error) {
-        const message = getErrorMessage(error);
-        set({ snapshotsError: message, isSnapshotsLoading: false });
+        set({ snapshotsError: getErrorMessage(error), isSnapshotsLoading: false });
         throw error;
       }
     },
@@ -627,18 +643,14 @@ export const useKopiaStore = create<KopiaStore>()(
       path: string,
       manifestIDs: string[]
     ) => {
-      const { currentRepoId } = get();
-      if (!currentRepoId) throw new Error('No repository selected');
-
+      const repoId = requireRepoId(get);
       set({ isSnapshotsLoading: true, snapshotsError: null });
       try {
-        await apiDeleteSnapshots(currentRepoId, userName, host, path, manifestIDs);
-        // Refresh both snapshots and sources to update UI
+        await apiDeleteSnapshots(repoId, userName, host, path, manifestIDs);
         await Promise.all([get().refreshSnapshots(), get().refreshSources()]);
         set({ isSnapshotsLoading: false });
       } catch (error) {
-        const message = getErrorMessage(error);
-        set({ snapshotsError: message, isSnapshotsLoading: false });
+        set({ snapshotsError: getErrorMessage(error), isSnapshotsLoading: false });
         throw error;
       }
     },
@@ -657,17 +669,14 @@ export const useKopiaStore = create<KopiaStore>()(
       path: string,
       all = false
     ): Promise<Snapshot[]> => {
-      const { currentRepoId } = get();
-      if (!currentRepoId) throw new Error('No repository selected');
-
+      const repoId = requireRepoId(get);
       set({ isSnapshotsLoading: true, snapshotsError: null });
       try {
-        const response = await listSnapshots(currentRepoId, userName, host, path, all);
+        const response = await listSnapshots(repoId, userName, host, path, all);
         set({ isSnapshotsLoading: false });
         return response.snapshots || [];
       } catch (error) {
-        const message = getErrorMessage(error);
-        set({ snapshotsError: message, isSnapshotsLoading: false });
+        set({ snapshotsError: getErrorMessage(error), isSnapshotsLoading: false });
         throw error;
       }
     },
@@ -677,38 +686,29 @@ export const useKopiaStore = create<KopiaStore>()(
     // ========================================================================
 
     refreshPolicies: async () => {
-      const { currentRepoId } = get();
-      if (!currentRepoId) return;
-
-      try {
-        const response = await listPolicies(currentRepoId);
-        const newPolicies = response.policies || [];
-        set({ policies: newPolicies });
-      } catch (error) {
-        const message = getErrorMessage(error);
-        const currentError = get().policiesError;
-
-        if (currentError !== message) {
-          set({ policiesError: message });
+      await withRepoId(get, async (repoId) => {
+        try {
+          const response = await listPolicies(repoId);
+          set({ policies: response.policies || [] });
+        } catch (error) {
+          setErrorIfChanged(get, set, 'policiesError', getErrorMessage(error));
         }
-      }
+      });
     },
 
     getPolicy: async (userName?: string, host?: string, path?: string) => {
-      const { currentRepoId } = get();
-      if (!currentRepoId) return null;
-
-      set({ isPoliciesLoading: true, policiesError: null });
-      try {
-        const response = await apiGetPolicy(currentRepoId, userName, host, path);
-        set({ isPoliciesLoading: false });
-        // Extract just the policy definition from the response
-        return response.policy;
-      } catch (error) {
-        const message = getErrorMessage(error);
-        set({ policiesError: message, isPoliciesLoading: false });
-        return null;
-      }
+      const result = await withRepoId(get, async (repoId) => {
+        set({ isPoliciesLoading: true, policiesError: null });
+        try {
+          const response = await apiGetPolicy(repoId, userName, host, path);
+          set({ isPoliciesLoading: false });
+          return response.policy;
+        } catch (error) {
+          set({ policiesError: getErrorMessage(error), isPoliciesLoading: false });
+          return null;
+        }
+      });
+      return result ?? null;
     },
 
     setPolicy: async (
@@ -717,33 +717,27 @@ export const useKopiaStore = create<KopiaStore>()(
       host?: string,
       path?: string
     ) => {
-      const { currentRepoId } = get();
-      if (!currentRepoId) throw new Error('No repository selected');
-
+      const repoId = requireRepoId(get);
       set({ isPoliciesLoading: true, policiesError: null });
       try {
-        await apiSetPolicy(currentRepoId, policy, userName, host, path);
+        await apiSetPolicy(repoId, policy, userName, host, path);
         await get().refreshPolicies();
         set({ isPoliciesLoading: false });
       } catch (error) {
-        const message = getErrorMessage(error);
-        set({ policiesError: message, isPoliciesLoading: false });
+        set({ policiesError: getErrorMessage(error), isPoliciesLoading: false });
         throw error;
       }
     },
 
     deletePolicy: async (userName?: string, host?: string, path?: string) => {
-      const { currentRepoId } = get();
-      if (!currentRepoId) throw new Error('No repository selected');
-
+      const repoId = requireRepoId(get);
       set({ isPoliciesLoading: true, policiesError: null });
       try {
-        await apiDeletePolicy(currentRepoId, userName, host, path);
+        await apiDeletePolicy(repoId, userName, host, path);
         await get().refreshPolicies();
         set({ isPoliciesLoading: false });
       } catch (error) {
-        const message = getErrorMessage(error);
-        set({ policiesError: message, isPoliciesLoading: false });
+        set({ policiesError: getErrorMessage(error), isPoliciesLoading: false });
         throw error;
       }
     },
@@ -753,88 +747,73 @@ export const useKopiaStore = create<KopiaStore>()(
     // ========================================================================
 
     refreshTasks: async () => {
-      const { currentRepoId } = get();
-      if (!currentRepoId) return;
+      await withRepoId(get, async (repoId) => {
+        try {
+          const response = await listTasks(repoId);
+          const newTasks = response.tasks || [];
+          const currentTasks = get().tasks;
 
-      try {
-        const response = await listTasks(currentRepoId);
-        const newTasks = response.tasks || [];
-        const currentTasks = get().tasks;
-
-        // Detect task completions for notifications
-        if (currentTasks.length > 0) {
-          for (const currentTask of currentTasks) {
-            // Find if this task has changed status
-            const newTask = newTasks.find((t) => t.id === currentTask.id);
-
-            // If task was RUNNING and is now completed (SUCCESS, FAILED, or CANCELED)
-            if (
-              currentTask.status === 'RUNNING' &&
-              newTask &&
-              (newTask.status === 'SUCCESS' ||
-                newTask.status === 'FAILED' ||
-                newTask.status === 'CANCELED')
-            ) {
-              // Send desktop notification (fire and forget, don't await)
-              void notifyTaskComplete(
-                currentTask.description || currentTask.kind,
-                newTask.status === 'SUCCESS'
-              );
+          // Detect task completions for notifications
+          if (currentTasks.length > 0) {
+            for (const currentTask of currentTasks) {
+              const newTask = newTasks.find((t) => t.id === currentTask.id);
+              if (
+                currentTask.status === 'RUNNING' &&
+                newTask &&
+                (newTask.status === 'SUCCESS' ||
+                  newTask.status === 'FAILED' ||
+                  newTask.status === 'CANCELED')
+              ) {
+                void notifyTaskComplete(
+                  currentTask.description || currentTask.kind,
+                  newTask.status === 'SUCCESS'
+                );
+              }
             }
           }
-        }
 
-        set({ tasks: newTasks, tasksError: null });
-      } catch (error) {
-        const message = getErrorMessage(error);
-        const currentError = get().tasksError;
-
-        if (currentError !== message) {
-          set({ tasksError: message });
+          set({ tasks: newTasks, tasksError: null });
+        } catch (error) {
+          setErrorIfChanged(get, set, 'tasksError', getErrorMessage(error));
         }
-      }
+      });
     },
 
     refreshTasksSummary: async () => {
-      const { currentRepoId } = get();
-      if (!currentRepoId) return;
-
-      try {
-        const summary = await getTasksSummary(currentRepoId);
-        set({ tasksSummary: summary });
-      } catch {
-        // Silently fail for summary - not critical
-      }
+      await withRepoId(get, async (repoId) => {
+        try {
+          const summary = await getTasksSummary(repoId);
+          set({ tasksSummary: summary });
+        } catch {
+          // Silently fail for summary - not critical
+        }
+      });
     },
 
     getTask: async (taskId: string) => {
-      const { currentRepoId } = get();
-      if (!currentRepoId) return null;
-
-      set({ isTasksLoading: true, tasksError: null });
-      try {
-        const task = await apiGetTask(currentRepoId, taskId);
-        set({ isTasksLoading: false });
-        return task;
-      } catch (error) {
-        const message = getErrorMessage(error);
-        set({ tasksError: message, isTasksLoading: false });
-        return null;
-      }
+      const result = await withRepoId(get, async (repoId) => {
+        set({ isTasksLoading: true, tasksError: null });
+        try {
+          const task = await apiGetTask(repoId, taskId);
+          set({ isTasksLoading: false });
+          return task;
+        } catch (error) {
+          set({ tasksError: getErrorMessage(error), isTasksLoading: false });
+          return null;
+        }
+      });
+      return result ?? null;
     },
 
     cancelTask: async (taskId: string) => {
-      const { currentRepoId } = get();
-      if (!currentRepoId) throw new Error('No repository selected');
-
+      const repoId = requireRepoId(get);
       set({ isTasksLoading: true, tasksError: null });
       try {
-        await apiCancelTask(currentRepoId, taskId);
+        await apiCancelTask(repoId, taskId);
         await get().refreshTasks();
         set({ isTasksLoading: false });
       } catch (error) {
-        const message = getErrorMessage(error);
-        set({ tasksError: message, isTasksLoading: false });
+        set({ tasksError: getErrorMessage(error), isTasksLoading: false });
         throw error;
       }
     },
@@ -844,63 +823,47 @@ export const useKopiaStore = create<KopiaStore>()(
     // ========================================================================
 
     refreshMounts: async () => {
-      const { currentRepoId, isRepoConnected } = get();
-      if (!currentRepoId) return;
+      await withRepoId(get, async (repoId) => {
+        // Only fetch mounts if repository is connected
+        if (!get().isRepoConnected()) return;
 
-      // Only fetch mounts if repository is connected
-      if (!isRepoConnected()) {
-        return;
-      }
-
-      set({ isMountsLoading: true });
-      try {
-        const mounts = await listMounts(currentRepoId);
-        set({ mounts, mountsError: null, isMountsLoading: false });
-      } catch (error) {
-        const message = getErrorMessage(error);
-        set({ mountsError: message, isMountsLoading: false });
-      }
+        set({ isMountsLoading: true });
+        try {
+          const mounts = await listMounts(repoId);
+          set({ mounts, mountsError: null, isMountsLoading: false });
+        } catch (error) {
+          set({ mountsError: getErrorMessage(error), isMountsLoading: false });
+        }
+      });
     },
 
     mountSnapshot: async (root: string) => {
-      const { currentRepoId, isRepoConnected } = get();
-      if (!currentRepoId) throw new Error('No repository selected');
-
-      if (!isRepoConnected()) {
-        throw new Error('Repository not connected');
-      }
+      const repoId = requireRepoId(get);
+      if (!get().isRepoConnected()) throw new Error('Repository not connected');
 
       set({ isMountsLoading: true });
       try {
-        const path = await apiMountSnapshot(currentRepoId, root);
-        // Refresh mounts list
+        const path = await apiMountSnapshot(repoId, root);
         await get().refreshMounts();
         set({ isMountsLoading: false });
         return path;
       } catch (error) {
-        const message = getErrorMessage(error);
-        set({ mountsError: message, isMountsLoading: false });
+        set({ mountsError: getErrorMessage(error), isMountsLoading: false });
         throw error;
       }
     },
 
     unmountSnapshot: async (objectId: string) => {
-      const { currentRepoId, isRepoConnected } = get();
-      if (!currentRepoId) throw new Error('No repository selected');
-
-      if (!isRepoConnected()) {
-        throw new Error('Repository not connected');
-      }
+      const repoId = requireRepoId(get);
+      if (!get().isRepoConnected()) throw new Error('Repository not connected');
 
       set({ isMountsLoading: true });
       try {
-        await apiUnmountSnapshot(currentRepoId, objectId);
-        // Refresh mounts list
+        await apiUnmountSnapshot(repoId, objectId);
         await get().refreshMounts();
         set({ isMountsLoading: false });
       } catch (error) {
-        const message = getErrorMessage(error);
-        set({ mountsError: message, isMountsLoading: false });
+        set({ mountsError: getErrorMessage(error), isMountsLoading: false });
         throw error;
       }
     },

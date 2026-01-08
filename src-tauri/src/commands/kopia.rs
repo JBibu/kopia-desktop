@@ -7,21 +7,11 @@
 
 use crate::error::{HttpResultExt, IoResultExt, JsonResultExt, KopiaError, Result};
 use crate::kopia_server::{KopiaServerInfo, KopiaServerStatus};
-use crate::server_manager::{RepositoryEntry, ServerManagerState};
+use crate::server_manager::{MutexRecoveryExt, RepositoryEntry, ServerManagerState};
 use crate::types::{RepositoryConnectRequest, RepositoryStatus, StorageConfig};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use tauri::State;
-
-/// Helper macro for locking the server manager with poison recovery
-macro_rules! lock_manager {
-    ($manager:expr) => {
-        $manager.lock().unwrap_or_else(|poisoned| {
-            log::warn!("ServerManager mutex poisoned, recovering...");
-            poisoned.into_inner()
-        })
-    };
-}
 
 // ============================================================================
 // Repository Management Commands (Multi-repo)
@@ -35,7 +25,7 @@ macro_rules! lock_manager {
 pub async fn list_repositories(
     manager: State<'_, ServerManagerState>,
 ) -> Result<Vec<RepositoryEntry>> {
-    lock_manager!(manager).list_repositories()
+    manager.lock_or_recover().list_repositories()
 }
 
 /// Add a new repository configuration
@@ -47,7 +37,7 @@ pub async fn add_repository(
     manager: State<'_, ServerManagerState>,
     repo_id: Option<String>,
 ) -> Result<String> {
-    lock_manager!(manager).add_repository(repo_id)
+    manager.lock_or_recover().add_repository(repo_id)
 }
 
 /// Remove a repository configuration
@@ -59,7 +49,7 @@ pub async fn remove_repository(
     manager: State<'_, ServerManagerState>,
     repo_id: String,
 ) -> Result<()> {
-    lock_manager!(manager).remove_repository(&repo_id)
+    manager.lock_or_recover().remove_repository(&repo_id)
 }
 
 // ============================================================================
@@ -79,7 +69,7 @@ pub async fn kopia_server_start(
     repo_id: String,
 ) -> Result<KopiaServerInfo> {
     let (info, ready_waiter) = {
-        let mut manager_guard = lock_manager!(manager);
+        let mut manager_guard = manager.lock_or_recover();
         let info = manager_guard.start_server(&repo_id)?;
         let waiter = manager_guard.get_ready_waiter(&repo_id)?;
         (info, waiter)
@@ -97,7 +87,7 @@ pub async fn kopia_server_stop(
     manager: State<'_, ServerManagerState>,
     repo_id: String,
 ) -> Result<()> {
-    lock_manager!(manager).stop_server(&repo_id)
+    manager.lock_or_recover().stop_server(&repo_id)
 }
 
 /// Get Kopia server status for a repository
@@ -109,7 +99,7 @@ pub async fn kopia_server_status(
     manager: State<'_, ServerManagerState>,
     repo_id: String,
 ) -> Result<KopiaServerStatus> {
-    lock_manager!(manager).get_server_status(&repo_id)
+    manager.lock_or_recover().get_server_status(&repo_id)
 }
 
 /// Get the default Kopia configuration directory
@@ -1318,7 +1308,7 @@ fn get_server_client(
     manager: &State<'_, ServerManagerState>,
     repo_id: &str,
 ) -> Result<(String, reqwest::Client)> {
-    let manager_guard = lock_manager!(manager);
+    let manager_guard = manager.lock_or_recover();
 
     let server_url =
         manager_guard

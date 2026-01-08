@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router';
 import { usePreferencesStore } from './stores/preferences';
 import { useKopiaStore } from './stores/kopia';
 import { AppLayout } from './components/layout/AppLayout';
@@ -25,25 +25,20 @@ import { NotFound } from './pages/NotFound';
 import './lib/i18n/config';
 import './styles/globals.css';
 
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-}
-
-function ProtectedRoute({ children }: ProtectedRouteProps) {
+/** Layout component that protects child routes - redirects to setup if not connected */
+function ProtectedLayout() {
   const isConnected = useKopiaStore((state) => state.isRepoConnected());
   const isLoading = useKopiaStore((state) => state.isRepositoryLoading);
 
-  // While checking connection status, show nothing (AppLayout will handle loading state)
   if (isLoading) {
     return null;
   }
 
-  // If not connected, redirect to setup
   if (!isConnected) {
     return <Navigate to="/setup" replace />;
   }
 
-  return <>{children}</>;
+  return <Outlet />;
 }
 
 function App(): React.JSX.Element {
@@ -84,108 +79,29 @@ function App(): React.JSX.Element {
       <WindowCloseHandler />
       <BrowserRouter>
         <Routes>
-          {/* All app routes (with layout) */}
           <Route path="/" element={<AppLayout />}>
-            <Route
-              index
-              element={
-                <ProtectedRoute>
-                  <Overview />
-                </ProtectedRoute>
-              }
-            />
+            {/* Public routes (no auth required) */}
             <Route path="setup" element={<Setup />} />
             <Route path="repository" element={<Repository />} />
-            <Route
-              path="snapshots"
-              element={
-                <ProtectedRoute>
-                  <Snapshots />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="snapshots/:profileId/history"
-              element={
-                <ProtectedRoute>
-                  <ProfileHistory />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="snapshots/create"
-              element={
-                <ProtectedRoute>
-                  <SnapshotCreate />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="snapshots/history"
-              element={
-                <ProtectedRoute>
-                  <SnapshotHistory />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="snapshots/browse"
-              element={
-                <ProtectedRoute>
-                  <SnapshotBrowse />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="snapshots/restore"
-              element={
-                <ProtectedRoute>
-                  <SnapshotRestore />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="policies"
-              element={
-                <ProtectedRoute>
-                  <Policies />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="policies/edit"
-              element={
-                <ProtectedRoute>
-                  <PolicyEdit />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="tasks"
-              element={
-                <ProtectedRoute>
-                  <Tasks />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="tasks/:taskId"
-              element={
-                <ProtectedRoute>
-                  <TaskDetail />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="mounts"
-              element={
-                <ProtectedRoute>
-                  <Mounts />
-                </ProtectedRoute>
-              }
-            />
             <Route path="preferences" element={<Preferences />} />
             <Route path="repositories" element={<Repositories />} />
+
+            {/* Protected routes (require connected repository) */}
+            <Route element={<ProtectedLayout />}>
+              <Route index element={<Overview />} />
+              <Route path="snapshots" element={<Snapshots />} />
+              <Route path="snapshots/:profileId/history" element={<ProfileHistory />} />
+              <Route path="snapshots/create" element={<SnapshotCreate />} />
+              <Route path="snapshots/history" element={<SnapshotHistory />} />
+              <Route path="snapshots/browse" element={<SnapshotBrowse />} />
+              <Route path="snapshots/restore" element={<SnapshotRestore />} />
+              <Route path="policies" element={<Policies />} />
+              <Route path="policies/edit" element={<PolicyEdit />} />
+              <Route path="tasks" element={<Tasks />} />
+              <Route path="tasks/:taskId" element={<TaskDetail />} />
+              <Route path="mounts" element={<Mounts />} />
+            </Route>
+
             {/* 404 Catch-all route */}
             <Route path="*" element={<NotFound />} />
           </Route>

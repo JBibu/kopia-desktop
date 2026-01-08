@@ -65,11 +65,8 @@ export function SnapshotHistory() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const language = usePreferencesStore((state) => state.language);
+  const locale = usePreferencesStore((state) => state.getLocale());
   const byteFormat = usePreferencesStore((state) => state.byteFormat);
-
-  // Map language code to locale
-  const locale = language === 'es' ? 'es-ES' : 'en-US';
 
   const userName = searchParams.get('userName') || '';
   const host = searchParams.get('host') || '';

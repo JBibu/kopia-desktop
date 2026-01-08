@@ -46,8 +46,7 @@ export function ProfileHistory() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { profileId } = useParams<{ profileId: string }>();
-  const language = usePreferencesStore((state) => state.language);
-  const locale = language === 'es' ? 'es-ES' : 'en-US';
+  const locale = usePreferencesStore((state) => state.getLocale());
   const byteFormat = usePreferencesStore((state) => state.byteFormat);
 
   const profile = useProfilesStore((state) => state.profiles.find((p) => p.id === profileId));

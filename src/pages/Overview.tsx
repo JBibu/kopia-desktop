@@ -62,7 +62,7 @@ const CHART_COLORS = {
 export function Overview() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const language = usePreferencesStore((state) => state.language);
+  const locale = usePreferencesStore((state) => state.getLocale());
   const byteFormat = usePreferencesStore((state) => state.byteFormat);
   const serverStatus = useKopiaStore((state) => state.serverStatus);
   const serverLoading = useKopiaStore((state) => state.isServerLoading);
@@ -75,9 +75,6 @@ export function Overview() {
   const tasksSummary = useKopiaStore((state) => state.tasksSummary);
   const hasTriedToStart = useRef(false);
   const [timeRange, setTimeRange] = useState<7 | 14 | 30 | 60>(7);
-
-  // Map language code to locale (memoized to prevent unnecessary re-renders)
-  const locale = useMemo(() => (language === 'es' ? 'es-ES' : 'en-US'), [language]);
 
   const isServerRunning = serverStatus?.running ?? false;
   const isRepoConnected = repoStatus?.connected ?? false;
