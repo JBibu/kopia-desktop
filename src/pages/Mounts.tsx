@@ -7,7 +7,7 @@
 
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
-import { useKopiaStore } from '@/stores/kopia';
+import { useKopiaStore } from '@/stores';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -24,7 +24,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { HardDrive, AlertCircle, Copy, HardDriveDownload, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { EmptyState } from '@/components/ui/empty-state';
-import { getErrorMessage } from '@/lib/kopia/errors';
+import { getErrorMessage } from '@/lib/kopia';
 
 export function Mounts() {
   const { t } = useTranslation();

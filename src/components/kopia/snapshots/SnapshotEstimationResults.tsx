@@ -20,13 +20,13 @@ import {
   XCircle,
   AlertCircle,
 } from 'lucide-react';
-import { getTask, cancelTask } from '@/lib/kopia/client';
-import type { TaskDetail } from '@/lib/kopia/types';
+import { getTask, cancelTask } from '@/lib/kopia';
+import type { TaskDetail } from '@/lib/kopia';
 import { formatBytes } from '@/lib/utils';
-import { usePreferencesStore } from '@/stores/preferences';
+import { usePreferencesStore } from '@/stores';
 import { toast } from 'sonner';
-import { getErrorMessage } from '@/lib/kopia/errors';
-import { useCurrentRepoId } from '@/hooks/useCurrentRepo';
+import { getErrorMessage } from '@/lib/kopia';
+import { useCurrentRepoId } from '@/hooks';
 
 interface SnapshotEstimationResultsProps {
   taskId: string;

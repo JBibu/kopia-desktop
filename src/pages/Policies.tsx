@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
-import { useKopiaStore } from '@/stores/kopia';
+import { useKopiaStore } from '@/stores';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -35,7 +35,7 @@ import {
   Plus,
   Edit,
 } from 'lucide-react';
-import type { PolicyResponse } from '@/lib/kopia/types';
+import type { PolicyResponse } from '@/lib/kopia';
 
 export function Policies() {
   const { t } = useTranslation();

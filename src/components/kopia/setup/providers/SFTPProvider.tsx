@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { FormField } from '@/components/kopia/setup/fields/FormField';
-import { PathPickerField } from '@/components/kopia/setup/fields/PathPickerField';
+import { FormField, PathPickerField } from '../fields';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import type { ProviderFormProps } from '@/components/kopia/setup/types';
-import type { SFTPStorageConfig } from '@/lib/kopia/types';
-import { useProviderConfig } from '@/hooks/useProviderConfig';
+import type { ProviderFormProps } from '../types';
+import type { SFTPStorageConfig } from '@/lib/kopia';
+import { useProviderConfig } from '@/hooks';
 import { useTranslation } from 'react-i18next';
 
 export function SFTPProvider({ config, onChange }: ProviderFormProps) {

@@ -22,9 +22,9 @@ import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import { Pin, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { editSnapshot } from '@/lib/kopia/client';
-import { getErrorMessage } from '@/lib/kopia/errors';
-import { useCurrentRepoId } from '@/hooks/useCurrentRepo';
+import { editSnapshot } from '@/lib/kopia';
+import { getErrorMessage } from '@/lib/kopia';
+import { useCurrentRepoId } from '@/hooks';
 
 interface PinDialogProps {
   open: boolean;

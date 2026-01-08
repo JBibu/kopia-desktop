@@ -7,8 +7,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { PushoverConfig } from '@/lib/kopia/types';
-import { useProviderConfig } from '@/hooks/useProviderConfig';
+import type { PushoverConfig } from '@/lib/kopia';
+import { useProviderConfig } from '@/hooks';
 import { useTranslation } from 'react-i18next';
 
 interface PushoverNotificationFormProps {

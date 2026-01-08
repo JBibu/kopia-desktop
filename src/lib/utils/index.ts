@@ -1,6 +1,6 @@
 export { cn } from './cn';
 
-import type { ByteFormat } from '@/stores/preferences';
+import type { ByteFormat } from '@/stores';
 
 /**
  * Format bytes to human-readable string

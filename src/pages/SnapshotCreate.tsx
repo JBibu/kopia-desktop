@@ -11,7 +11,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { useKopiaStore } from '@/stores/kopia';
+import { useKopiaStore } from '@/stores';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,11 +28,11 @@ import {
 } from '@/components/ui/accordion';
 import { FolderOpen, Camera, Info, Settings, Sliders, Calculator } from 'lucide-react';
 import { toast } from 'sonner';
-import { getErrorMessage } from '@/lib/kopia/errors';
-import { selectFolder, estimateSnapshot } from '@/lib/kopia/client';
-import type { PolicyDefinition } from '@/lib/kopia/types';
-import { SnapshotEstimationResults } from '@/components/kopia/snapshots/SnapshotEstimationResults';
-import { useCurrentRepoId } from '@/hooks/useCurrentRepo';
+import { getErrorMessage } from '@/lib/kopia';
+import { selectFolder, estimateSnapshot } from '@/lib/kopia';
+import type { PolicyDefinition } from '@/lib/kopia';
+import { SnapshotEstimationResults } from '@/components/kopia/snapshots';
+import { useCurrentRepoId } from '@/hooks';
 
 export function SnapshotCreate() {
   const { t } = useTranslation();

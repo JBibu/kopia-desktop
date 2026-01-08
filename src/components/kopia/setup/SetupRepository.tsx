@@ -3,20 +3,17 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { useKopiaStore } from '@/stores/kopia';
+import { useKopiaStore } from '@/stores';
 import {
   createRepository,
   connectRepository,
   disconnectRepository,
   getRepositoryStatus,
-} from '@/lib/kopia/client';
-import { getErrorMessage, parseKopiaError, KopiaErrorCode } from '@/lib/kopia/errors';
-import type { StorageType, StorageConfig } from '@/lib/kopia/types';
+} from '@/lib/kopia';
+import { getErrorMessage, parseKopiaError, KopiaErrorCode } from '@/lib/kopia';
+import type { StorageType, StorageConfig } from '@/lib/kopia';
 import type { SetupWizardState } from './types';
-import { ProviderSelection } from './steps/ProviderSelection';
-import { ProviderConfig } from './steps/ProviderConfig';
-import { StorageVerification } from './steps/StorageVerification';
-import { PasswordSetup } from './steps/PasswordSetup';
+import { ProviderSelection, ProviderConfig, StorageVerification, PasswordSetup } from './steps';
 
 export function SetupRepository() {
   const { t } = useTranslation();

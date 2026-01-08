@@ -25,15 +25,15 @@ import {
   Settings,
   CheckCircle2,
 } from 'lucide-react';
-import { restoreStart, browseObject, selectFolder } from '@/lib/kopia/client';
-import type { RestoreRequest } from '@/lib/kopia/types';
+import { restoreStart, browseObject, selectFolder } from '@/lib/kopia';
+import type { RestoreRequest } from '@/lib/kopia';
 import { toast } from 'sonner';
-import { getErrorMessage } from '@/lib/kopia/errors';
+import { getErrorMessage } from '@/lib/kopia';
 import { formatBytes } from '@/lib/utils';
-import { useKopiaStore } from '@/stores/kopia';
-import { usePreferencesStore } from '@/stores/preferences';
+import { useKopiaStore } from '@/stores';
+import { usePreferencesStore } from '@/stores';
 import { navigateBack } from '@/lib/utils/navigation';
-import { useCurrentRepoId } from '@/hooks/useCurrentRepo';
+import { useCurrentRepoId } from '@/hooks';
 
 type RestoreMode = 'filesystem' | 'zip' | 'tar';
 

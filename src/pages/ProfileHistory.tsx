@@ -34,13 +34,12 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatBytes, formatDateTime } from '@/lib/utils';
-import { useKopiaStore } from '@/stores/kopia';
-import { useProfilesStore } from '@/stores/profiles';
-import { usePreferencesStore } from '@/stores/preferences';
+import { useKopiaStore } from '@/stores';
+import { useProfilesStore } from '@/stores';
+import { usePreferencesStore } from '@/stores';
 import { navigateToSnapshotBrowse, navigateToSnapshotRestore } from '@/lib/utils/navigation';
 import { EmptyState } from '@/components/ui/empty-state';
-import { PinDialog } from '@/components/kopia/snapshots/PinDialog';
-import { RetentionTags } from '@/components/kopia/snapshots/RetentionTags';
+import { PinDialog, RetentionTags } from '@/components/kopia/snapshots';
 
 export function ProfileHistory() {
   const { t } = useTranslation();

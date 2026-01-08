@@ -17,9 +17,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Database, ChevronDown, Plus, Check, AlertCircle, Loader2 } from 'lucide-react';
-import { useRepositories, useCurrentRepository } from '@/hooks/useCurrentRepo';
+import { useRepositories, useCurrentRepository } from '@/hooks';
 import { cn } from '@/lib/utils/cn';
-import type { RepositoryEntry } from '@/lib/kopia/types';
+import type { RepositoryEntry } from '@/lib/kopia';
 
 interface RepositorySelectorProps {
   className?: string;

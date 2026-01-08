@@ -19,11 +19,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { createNotificationProfile, testNotificationProfile } from '@/lib/kopia/client';
-import { getErrorMessage } from '@/lib/kopia/errors';
-import type { NotificationProfile, NotificationSeverity } from '@/lib/kopia/types';
-import { useCurrentRepoId } from '@/hooks/useCurrentRepo';
-import { getSeverityLabel, NotificationSeverities } from '@/lib/kopia/types';
+import { createNotificationProfile, testNotificationProfile } from '@/lib/kopia';
+import { getErrorMessage } from '@/lib/kopia';
+import type { NotificationProfile, NotificationSeverity } from '@/lib/kopia';
+import { useCurrentRepoId } from '@/hooks';
+import { getSeverityLabel, NotificationSeverities } from '@/lib/kopia';
 import { EmailNotificationForm } from './EmailNotificationForm';
 import { PushoverNotificationForm } from './PushoverNotificationForm';
 import { WebhookNotificationForm } from './WebhookNotificationForm';

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { usePreferencesStore } from '@/stores/preferences';
+import { usePreferencesStore } from '@/stores';
 
 export function WindowCloseHandler() {
   const minimizeToTray = usePreferencesStore((state) => state.minimizeToTray);

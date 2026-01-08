@@ -5,8 +5,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { useKopiaStore } from '@/stores/kopia';
-import { useProfilesStore } from '@/stores/profiles';
+import { useKopiaStore } from '@/stores';
+import { useProfilesStore } from '@/stores';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,9 +31,9 @@ import {
 } from 'lucide-react';
 import { formatBytes, formatDistanceToNow } from '@/lib/utils';
 import { toast } from 'sonner';
-import { getErrorMessage } from '@/lib/kopia/errors';
-import { usePreferencesStore } from '@/stores/preferences';
-import { ProfileFormDialog } from '@/components/kopia/profiles/ProfileFormDialog';
+import { getErrorMessage } from '@/lib/kopia';
+import { usePreferencesStore } from '@/stores';
+import { ProfileFormDialog } from '@/components/kopia/profiles';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,8 +59,8 @@ import {
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { BackupProfile } from '@/lib/kopia/types';
-import { CardStatItem } from '@/components/kopia/snapshots/CardStatItem';
+import type { BackupProfile } from '@/lib/kopia';
+import { CardStatItem } from '@/components/kopia/snapshots';
 
 export function Snapshots() {
   const { t } = useTranslation();

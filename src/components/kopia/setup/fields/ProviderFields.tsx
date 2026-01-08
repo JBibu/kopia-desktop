@@ -1,6 +1,6 @@
 import { FormField } from './FormField';
 import type { PartialStorageConfig } from '../types';
-import { useProviderConfig } from '@/hooks/useProviderConfig';
+import { useProviderConfig } from '@/hooks';
 import { useTranslation } from 'react-i18next';
 
 /**

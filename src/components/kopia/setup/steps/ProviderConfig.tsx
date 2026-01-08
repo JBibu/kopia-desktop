@@ -2,16 +2,18 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import type { ComponentType } from 'react';
-import type { StorageType } from '@/lib/kopia/types';
+import type { StorageType } from '@/lib/kopia';
 import type { ProviderFormProps } from '../types';
-import { FilesystemProvider } from '../providers/FilesystemProvider';
-import { S3Provider } from '../providers/S3Provider';
-import { B2Provider } from '../providers/B2Provider';
-import { AzureProvider } from '../providers/AzureProvider';
-import { GCSProvider } from '../providers/GCSProvider';
-import { SFTPProvider } from '../providers/SFTPProvider';
-import { WebDAVProvider } from '../providers/WebDAVProvider';
-import { RcloneProvider } from '../providers/RcloneProvider';
+import {
+  FilesystemProvider,
+  S3Provider,
+  B2Provider,
+  AzureProvider,
+  GCSProvider,
+  SFTPProvider,
+  WebDAVProvider,
+  RcloneProvider,
+} from '../providers';
 
 interface ProviderConfigProps extends ProviderFormProps {
   provider: StorageType;

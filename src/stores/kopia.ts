@@ -47,7 +47,7 @@ import {
   type RepositoryStatus,
   type RepositoryConnectRequest,
   type RepositoryEntry,
-} from '@/lib/kopia/client';
+} from '@/lib/kopia';
 import type {
   Snapshot,
   SourcesResponse,
@@ -57,8 +57,8 @@ import type {
   TasksSummary,
   WebSocketEvent,
   MountsResponse,
-} from '@/lib/kopia/types';
-import { getErrorMessage } from '@/lib/kopia/errors';
+} from '@/lib/kopia';
+import { getErrorMessage } from '@/lib/kopia';
 import { notifyTaskComplete } from '@/lib/notifications';
 
 /** Default repository ID (matches Kopia CLI default) */

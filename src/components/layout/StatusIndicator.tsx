@@ -4,7 +4,7 @@
  */
 
 import { useTranslation } from 'react-i18next';
-import { useKopiaStore } from '@/stores/kopia';
+import { useKopiaStore } from '@/stores';
 import { Activity, CheckCircle2, AlertCircle, Pause, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 

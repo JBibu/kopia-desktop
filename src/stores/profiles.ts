@@ -7,7 +7,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { BackupProfile } from '@/lib/kopia/types';
+import type { BackupProfile } from '@/lib/kopia';
 import { v4 as uuidv4 } from 'uuid';
 
 interface ProfilesStore {

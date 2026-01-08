@@ -34,11 +34,11 @@ import {
   Settings,
   ArrowRightLeft,
 } from 'lucide-react';
-import { useRepositories, useCurrentRepository } from '@/hooks/useCurrentRepo';
+import { useRepositories, useCurrentRepository } from '@/hooks';
 import { toast } from 'sonner';
-import { getErrorMessage } from '@/lib/kopia/errors';
+import { getErrorMessage } from '@/lib/kopia';
 import { useState } from 'react';
-import type { RepositoryEntry } from '@/lib/kopia/types';
+import type { RepositoryEntry } from '@/lib/kopia';
 import { cn } from '@/lib/utils/cn';
 
 function getStatusBadge(repo: RepositoryEntry, t: (key: string) => string) {

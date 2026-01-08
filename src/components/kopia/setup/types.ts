@@ -1,4 +1,4 @@
-import type { StorageType } from '@/lib/kopia/types';
+import type { StorageType } from '@/lib/kopia';
 
 /**
  * Partial storage config used during the wizard steps

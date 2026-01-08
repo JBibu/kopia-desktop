@@ -4,8 +4,8 @@
 
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { SetupRepository } from '@/components/kopia/setup/SetupRepository';
-import { useKopiaStore } from '@/stores/kopia';
+import { SetupRepository } from '@/components/kopia/setup';
+import { useKopiaStore } from '@/stores';
 
 export function Setup() {
   const navigate = useNavigate();

@@ -8,8 +8,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { WebhookConfig } from '@/lib/kopia/types';
-import { useProviderConfig } from '@/hooks/useProviderConfig';
+import type { WebhookConfig } from '@/lib/kopia';
+import { useProviderConfig } from '@/hooks';
 import { useTranslation } from 'react-i18next';
 
 interface WebhookNotificationFormProps {

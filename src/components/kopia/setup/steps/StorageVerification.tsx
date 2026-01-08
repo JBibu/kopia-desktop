@@ -3,10 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, CheckCircle2, AlertCircle, ArrowLeft } from 'lucide-react';
-import { repositoryExists, addRepository, startKopiaServer } from '@/lib/kopia/client';
-import { getErrorMessage } from '@/lib/kopia/errors';
-import type { StorageConfig } from '@/lib/kopia/types';
-import { useCurrentRepoId } from '@/hooks/useCurrentRepo';
+import { repositoryExists, addRepository, startKopiaServer } from '@/lib/kopia';
+import { getErrorMessage } from '@/lib/kopia';
+import type { StorageConfig } from '@/lib/kopia';
+import { useCurrentRepoId } from '@/hooks';
 
 interface StorageVerificationProps {
   storageConfig: StorageConfig;

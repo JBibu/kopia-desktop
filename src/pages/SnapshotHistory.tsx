@@ -48,18 +48,16 @@ import {
   Pin,
   FileText,
 } from 'lucide-react';
-import type { Snapshot } from '@/lib/kopia/types';
+import type { Snapshot } from '@/lib/kopia';
 import { toast } from 'sonner';
-import { getErrorMessage } from '@/lib/kopia/errors';
+import { getErrorMessage } from '@/lib/kopia';
 import { formatBytes, formatDateTime } from '@/lib/utils';
 import { logger } from '@/lib/utils/logger';
-import { usePreferencesStore } from '@/stores/preferences';
-import { useKopiaStore } from '@/stores/kopia';
+import { usePreferencesStore } from '@/stores';
+import { useKopiaStore } from '@/stores';
 import { navigateToSnapshotBrowse, navigateToSnapshotRestore } from '@/lib/utils/navigation';
 import { EmptyState } from '@/components/ui/empty-state';
-import { PinDialog } from '@/components/kopia/snapshots/PinDialog';
-import { RetentionTags } from '@/components/kopia/snapshots/RetentionTags';
-import { DescriptionDialog } from '@/components/kopia/snapshots/DescriptionDialog';
+import { PinDialog, RetentionTags, DescriptionDialog } from '@/components/kopia/snapshots';
 
 export function SnapshotHistory() {
   const { t } = useTranslation();

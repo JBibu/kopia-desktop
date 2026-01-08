@@ -21,9 +21,9 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { FileText } from 'lucide-react';
 import { toast } from 'sonner';
-import { editSnapshot } from '@/lib/kopia/client';
-import { getErrorMessage } from '@/lib/kopia/errors';
-import { useCurrentRepoId } from '@/hooks/useCurrentRepo';
+import { editSnapshot } from '@/lib/kopia';
+import { getErrorMessage } from '@/lib/kopia';
+import { useCurrentRepoId } from '@/hooks';
 
 interface DescriptionDialogProps {
   open: boolean;

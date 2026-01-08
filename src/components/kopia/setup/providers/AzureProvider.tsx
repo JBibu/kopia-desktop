@@ -1,4 +1,4 @@
-import { ProviderFields, type FieldDef } from '../fields/ProviderFields';
+import { ProviderFields, type FieldDef } from '../fields';
 import type { ProviderFormProps } from '../types';
 
 const fields: FieldDef[] = [

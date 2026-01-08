@@ -6,8 +6,8 @@
  */
 
 import { useNavigate, useSearchParams } from 'react-router';
-import { PolicyEditor } from '@/components/kopia/policy/PolicyEditor';
-import type { PolicyTarget } from '@/lib/kopia/types';
+import { PolicyEditor } from '@/components/kopia/policy';
+import type { PolicyTarget } from '@/lib/kopia';
 
 export function PolicyEdit() {
   const navigate = useNavigate();

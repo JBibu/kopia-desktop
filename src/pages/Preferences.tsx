@@ -10,7 +10,7 @@
  */
 
 import { useTranslation } from 'react-i18next';
-import { usePreferencesStore, type ByteFormat, type FontSize } from '@/stores/preferences';
+import { usePreferencesStore, type ByteFormat, type FontSize } from '@/stores';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -44,14 +44,14 @@ import {
   HardDrive,
   AlertTriangle,
 } from 'lucide-react';
-import { NotificationProfiles } from '@/components/kopia/notifications/NotificationProfiles';
-import { WindowsServiceManager } from '@/components/kopia/WindowsServiceManager';
+import { NotificationProfiles } from '@/components/kopia/notifications';
+import { WindowsServiceManager } from '@/components/kopia';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import packageJson from '../../package.json';
-import { disconnectRepository } from '@/lib/kopia/client';
-import { getErrorMessage } from '@/lib/kopia/errors';
-import { useCurrentRepoId } from '@/hooks/useCurrentRepo';
+import { disconnectRepository } from '@/lib/kopia';
+import { getErrorMessage } from '@/lib/kopia';
+import { useCurrentRepoId } from '@/hooks';
 
 export function Preferences() {
   const { t } = useTranslation();

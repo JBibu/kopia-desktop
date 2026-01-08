@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { FolderOpen } from 'lucide-react';
-import { selectFolder } from '@/lib/kopia/client';
+import { selectFolder } from '@/lib/kopia';
 
 interface PathPickerFieldProps {
   label: string;

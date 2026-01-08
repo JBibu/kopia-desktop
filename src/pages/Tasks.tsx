@@ -5,7 +5,7 @@
 import { Fragment, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { useKopiaStore } from '@/stores/kopia';
+import { useKopiaStore } from '@/stores';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -46,9 +46,9 @@ import {
   ChevronRight,
   Calendar,
 } from 'lucide-react';
-import type { Task, TaskDetail } from '@/lib/kopia/types';
+import type { Task, TaskDetail } from '@/lib/kopia';
 import { formatDateTime } from '@/lib/utils';
-import { usePreferencesStore } from '@/stores/preferences';
+import { usePreferencesStore } from '@/stores';
 
 export function Tasks() {
   const navigate = useNavigate();

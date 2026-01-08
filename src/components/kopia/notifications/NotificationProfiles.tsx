@@ -16,12 +16,12 @@ import {
   listNotificationProfiles,
   deleteNotificationProfile,
   testNotificationProfile,
-} from '@/lib/kopia/client';
-import { getErrorMessage } from '@/lib/kopia/errors';
-import type { NotificationProfile } from '@/lib/kopia/types';
-import { getSeverityLabel } from '@/lib/kopia/types';
+} from '@/lib/kopia';
+import { getErrorMessage } from '@/lib/kopia';
+import type { NotificationProfile } from '@/lib/kopia';
+import { getSeverityLabel } from '@/lib/kopia';
 import { NotificationProfileDialog } from './NotificationProfileDialog';
-import { useCurrentRepoId } from '@/hooks/useCurrentRepo';
+import { useCurrentRepoId } from '@/hooks';
 
 export function NotificationProfiles() {
   const { t } = useTranslation();

@@ -15,10 +15,10 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { StatusIndicator } from './StatusIndicator';
-import { useKopiaStore } from '@/stores/kopia';
+import { useKopiaStore } from '@/stores';
 import { Progress } from '@/components/ui/progress';
-import { RepositorySelector } from '@/components/kopia/RepositorySelector';
-import type { Task } from '@/lib/kopia/types';
+import { RepositorySelector } from '@/components/kopia';
+import type { Task } from '@/lib/kopia';
 
 interface NavItem {
   nameKey: string;

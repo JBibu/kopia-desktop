@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
-import { getErrorMessage } from '@/lib/kopia/errors';
+import { getErrorMessage } from '@/lib/kopia';
 
 type ServiceStatus = 'Running' | 'Stopped' | 'Starting' | 'Stopping' | 'Unknown' | 'NotInstalled';
 

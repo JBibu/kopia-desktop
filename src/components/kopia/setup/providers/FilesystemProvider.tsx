@@ -1,6 +1,6 @@
-import { PathPickerField } from '@/components/kopia/setup/fields/PathPickerField';
-import type { ProviderFormProps } from '@/components/kopia/setup/types';
-import type { FilesystemStorageConfig } from '@/lib/kopia/types';
+import { PathPickerField } from '../fields';
+import type { ProviderFormProps } from '../types';
+import type { FilesystemStorageConfig } from '@/lib/kopia';
 import { useTranslation } from 'react-i18next';
 
 export function FilesystemProvider({ config, onChange }: ProviderFormProps) {

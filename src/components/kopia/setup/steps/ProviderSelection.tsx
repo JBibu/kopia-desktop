@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { HardDrive, Cloud, Database, Server, FolderTree, Globe } from 'lucide-react';
-import type { StorageType } from '@/lib/kopia/types';
+import type { StorageType } from '@/lib/kopia';
 
 interface ProviderSelectionProps {
   onSelect: (provider: StorageType) => void;

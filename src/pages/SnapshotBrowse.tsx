@@ -55,20 +55,14 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
-import type { DirectoryEntry } from '@/lib/kopia/types';
-import {
-  browseObject,
-  downloadObject,
-  saveFile,
-  selectFolder,
-  restoreStart,
-} from '@/lib/kopia/client';
+import type { DirectoryEntry } from '@/lib/kopia';
+import { browseObject, downloadObject, saveFile, selectFolder, restoreStart } from '@/lib/kopia';
 import { toast } from 'sonner';
-import { getErrorMessage } from '@/lib/kopia/errors';
+import { getErrorMessage } from '@/lib/kopia';
 import { formatBytes, formatDateTime } from '@/lib/utils';
-import { usePreferencesStore } from '@/stores/preferences';
-import { useKopiaStore } from '@/stores/kopia';
-import { useCurrentRepoId } from '@/hooks/useCurrentRepo';
+import { usePreferencesStore } from '@/stores';
+import { useKopiaStore } from '@/stores';
+import { useCurrentRepoId } from '@/hooks';
 
 export function SnapshotBrowse() {
   const { t } = useTranslation();

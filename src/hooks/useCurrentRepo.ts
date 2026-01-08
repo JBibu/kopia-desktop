@@ -6,7 +6,7 @@
  * that require a repository to be selected).
  */
 
-import { useKopiaStore } from '@/stores/kopia';
+import { useKopiaStore } from '@/stores';
 
 /**
  * Get the current repository ID from the store

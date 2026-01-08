@@ -26,12 +26,12 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
-import type { TaskDetail as TaskDetailType } from '@/lib/kopia/types';
+import type { TaskDetail as TaskDetailType } from '@/lib/kopia';
 import { toast } from 'sonner';
-import { getErrorMessage } from '@/lib/kopia/errors';
+import { getErrorMessage } from '@/lib/kopia';
 import { formatDateTime, formatBytes } from '@/lib/utils';
-import { usePreferencesStore } from '@/stores/preferences';
-import { useKopiaStore } from '@/stores/kopia';
+import { usePreferencesStore } from '@/stores';
+import { useKopiaStore } from '@/stores';
 
 export function TaskDetail() {
   const { taskId } = useParams<{ taskId: string }>();

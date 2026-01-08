@@ -5,8 +5,8 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { listen } from '@tauri-apps/api/event';
-import { useProfilesStore } from '@/stores/profiles';
-import { selectFolder, getCurrentUser } from '@/lib/kopia/client';
+import { useProfilesStore } from '@/stores';
+import { selectFolder, getCurrentUser } from '@/lib/kopia';
 import {
   Dialog,
   DialogContent,
@@ -21,8 +21,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { FolderOpen, Trash2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { PolicyEditor } from '@/components/kopia/policy/PolicyEditor';
-import type { BackupProfile } from '@/lib/kopia/types';
+import { PolicyEditor } from '@/components/kopia/policy';
+import type { BackupProfile } from '@/lib/kopia';
 
 interface ProfileFormDialogProps {
   open: boolean;

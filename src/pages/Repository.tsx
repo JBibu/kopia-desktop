@@ -5,8 +5,8 @@
 import { useEffect, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { useKopiaStore } from '@/stores/kopia';
-import { updateRepositoryDescription } from '@/lib/kopia/client';
+import { useKopiaStore } from '@/stores';
+import { updateRepositoryDescription } from '@/lib/kopia';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,7 +15,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { CheckCircle, XCircle, Settings, Loader2, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
-import { getErrorMessage } from '@/lib/kopia/errors';
+import { getErrorMessage } from '@/lib/kopia';
 
 export function Repository() {
   const { t } = useTranslation();
