@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { WebhookConfig } from '@/lib/kopia/types';
+import { useProviderConfig } from '@/hooks/useProviderConfig';
 import { useTranslation } from 'react-i18next';
 
 interface WebhookNotificationFormProps {
@@ -19,10 +20,7 @@ interface WebhookNotificationFormProps {
 export function WebhookNotificationForm({ config, onChange }: WebhookNotificationFormProps) {
   const { t } = useTranslation();
   const webhookConfig = config as Partial<WebhookConfig>;
-
-  const updateField = <K extends keyof WebhookConfig>(field: K, value: WebhookConfig[K]) => {
-    onChange({ ...webhookConfig, [field]: value });
-  };
+  const { handleChange: updateField } = useProviderConfig<WebhookConfig>(webhookConfig, onChange);
 
   return (
     <div className="space-y-4">

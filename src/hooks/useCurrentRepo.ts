@@ -17,20 +17,6 @@ export function useCurrentRepoId(): string | null {
 }
 
 /**
- * Get the current repository ID, throwing if none is selected
- * Use this in components that require a repository to be selected
- * @returns The current repository ID
- * @throws Error if no repository is selected
- */
-export function useRequiredRepoId(): string {
-  const repoId = useKopiaStore((state) => state.currentRepoId);
-  if (!repoId) {
-    throw new Error('No repository selected');
-  }
-  return repoId;
-}
-
-/**
  * Get the current repository entry from the store
  * @returns The current repository entry or null if no repository is selected
  */

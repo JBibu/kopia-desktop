@@ -45,47 +45,25 @@ export function DescriptionDialog({
   const [description, setDescription] = useState(currentDescription);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSave = async () => {
+  const handleSave = async (overrideDescription?: string) => {
     if (!currentRepoId) {
       toast.error(t('common.noRepositorySelected'));
       return;
     }
 
+    const newDescription = (overrideDescription ?? description).trim();
     setIsSubmitting(true);
     try {
       await editSnapshot(currentRepoId, {
         snapshots: [snapshotId],
-        description: description.trim() || '', // Empty string removes description
+        description: newDescription,
       });
 
       toast.success(
-        description.trim()
+        newDescription
           ? t('snapshots.description.updateSuccess')
           : t('snapshots.description.removeSuccess')
       );
-      onDescriptionUpdated();
-      onOpenChange(false);
-    } catch (err) {
-      toast.error(getErrorMessage(err));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleRemove = async () => {
-    if (!currentRepoId) {
-      toast.error(t('common.noRepositorySelected'));
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      await editSnapshot(currentRepoId, {
-        snapshots: [snapshotId],
-        description: '', // Empty string removes description
-      });
-
-      toast.success(t('snapshots.description.removeSuccess'));
       onDescriptionUpdated();
       onOpenChange(false);
     } catch (err) {
@@ -129,7 +107,7 @@ export function DescriptionDialog({
           {hasDescription && (
             <Button
               variant="destructive"
-              onClick={() => void handleRemove()}
+              onClick={() => void handleSave('')}
               disabled={isSubmitting}
             >
               {t('snapshots.description.remove')}

@@ -10,7 +10,6 @@ import {
   parseKopiaError,
   getErrorMessage,
   isNotConnectedError,
-  isAuthenticationError,
 } from '@/lib/kopia/errors';
 
 // Mock i18n for testing
@@ -400,22 +399,5 @@ describe('Helper Functions', () => {
       OfficialKopiaAPIErrorCode.NOT_CONNECTED
     );
     expect(isNotConnectedError(error2)).toBe(true);
-  });
-
-  it('isAuthenticationError checks both code types', () => {
-    const error1 = {
-      type: 'AUTHENTICATION_FAILED',
-      data: { message: 'Auth failed' },
-    };
-    expect(isAuthenticationError(error1)).toBe(true);
-
-    const error2 = new KopiaError(
-      'Invalid password',
-      undefined,
-      undefined,
-      undefined,
-      OfficialKopiaAPIErrorCode.INVALID_PASSWORD
-    );
-    expect(isAuthenticationError(error2)).toBe(true);
   });
 });

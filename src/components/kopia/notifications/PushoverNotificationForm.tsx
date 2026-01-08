@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { PushoverConfig } from '@/lib/kopia/types';
+import { useProviderConfig } from '@/hooks/useProviderConfig';
 import { useTranslation } from 'react-i18next';
 
 interface PushoverNotificationFormProps {
@@ -18,10 +19,7 @@ interface PushoverNotificationFormProps {
 export function PushoverNotificationForm({ config, onChange }: PushoverNotificationFormProps) {
   const { t } = useTranslation();
   const pushoverConfig = config as Partial<PushoverConfig>;
-
-  const updateField = <K extends keyof PushoverConfig>(field: K, value: PushoverConfig[K]) => {
-    onChange({ ...pushoverConfig, [field]: value });
-  };
+  const { handleChange: updateField } = useProviderConfig<PushoverConfig>(pushoverConfig, onChange);
 
   return (
     <div className="space-y-4">

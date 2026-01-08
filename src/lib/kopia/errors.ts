@@ -336,13 +336,6 @@ export const API_ERROR_CODE_MAPPING: Record<OfficialKopiaAPIErrorCode, KopiaErro
 };
 
 /**
- * Helper constant: All official API error codes as an array
- */
-export const OFFICIAL_API_ERROR_CODES = Object.values(
-  OfficialKopiaAPIErrorCode
-) as readonly OfficialKopiaAPIErrorCode[];
-
-/**
  * Extract user-friendly error message
  *
  * Pattern from official HTMLui: errorAlert()
@@ -363,13 +356,4 @@ export function isNotConnectedError(error: unknown): boolean {
     kopiaError.is(KopiaErrorCode.REPOSITORY_NOT_CONNECTED) ||
     kopiaError.is(OfficialKopiaAPIErrorCode.NOT_CONNECTED)
   );
-}
-
-/**
- * Helper to check if error is an authentication error
- * Supports both custom and official API error codes
- */
-export function isAuthenticationError(error: unknown): boolean {
-  const kopiaError = parseKopiaError(error);
-  return kopiaError.isAuthError();
 }

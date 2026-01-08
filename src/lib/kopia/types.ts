@@ -267,43 +267,6 @@ export interface SourcesResponse {
 }
 
 /**
- * Source action response (per-source)
- * See: internal/serverapi/serverapi.go (SourceActionResponse)
- */
-export interface SourceActionResponse {
-  success: boolean;
-}
-
-/**
- * Multiple source action response
- * See: internal/serverapi/serverapi.go (MultipleSourceActionResponse)
- */
-export interface MultipleSourceActionResponse {
-  sources: Record<string, SourceActionResponse>;
-}
-
-/**
- * Throttling limits for repository operations
- * See: repo/blob/throttling/throttler.go (Limits)
- */
-export interface ThrottleLimits {
-  /** Read operations per second limit */
-  readsPerSecond?: number;
-  /** Write operations per second limit */
-  writesPerSecond?: number;
-  /** List operations per second limit */
-  listsPerSecond?: number;
-  /** Maximum upload speed in bytes per second */
-  maxUploadSpeedBytesPerSecond?: number;
-  /** Maximum download speed in bytes per second */
-  maxDownloadSpeedBytesPerSecond?: number;
-  /** Maximum concurrent read operations */
-  concurrentReads?: number;
-  /** Maximum concurrent write operations */
-  concurrentWrites?: number;
-}
-
-/**
  * Snapshots list response
  */
 export interface SnapshotsResponse {
@@ -970,38 +933,4 @@ export interface RepositoryConnectRequest {
   };
   /** Time in seconds to wait for repository sync after connection */
   syncWaitTime?: number;
-}
-
-// ============================================================================
-// System Types
-// ============================================================================
-
-export interface SystemInfo {
-  os: string;
-  arch: string;
-  version: string;
-}
-
-// ============================================================================
-// Utility Types
-// ============================================================================
-
-/**
- * Estimate request for snapshot size estimation
- * See: internal/serverapi/serverapi.go (EstimateRequest)
- */
-export interface EstimateRequest {
-  root: string;
-  maxExamplesPerBucket?: number;
-  /** Optional policy override for estimation */
-  policyOverride?: PolicyDefinition;
-}
-
-/**
- * Estimate response (returns task ID to poll)
- * See: internal/serverapi/serverapi.go (EstimateResponse)
- */
-export interface EstimateResponse {
-  /** Task ID to poll for estimate results */
-  id: string;
 }

@@ -3,34 +3,8 @@
  * All log statements are stripped in production builds
  */
 
-export const logger = {
-  log: (...args: unknown[]) => {
-    if (import.meta.env.DEV) {
-      console.log(...args);
-    }
-  },
+const noop = () => {};
 
-  error: (...args: unknown[]) => {
-    if (import.meta.env.DEV) {
-      console.error(...args);
-    }
-  },
-
-  warn: (...args: unknown[]) => {
-    if (import.meta.env.DEV) {
-      console.warn(...args);
-    }
-  },
-
-  info: (...args: unknown[]) => {
-    if (import.meta.env.DEV) {
-      console.info(...args);
-    }
-  },
-
-  debug: (...args: unknown[]) => {
-    if (import.meta.env.DEV) {
-      console.debug(...args);
-    }
-  },
-};
+export const logger = import.meta.env.DEV
+  ? console
+  : { log: noop, error: noop, warn: noop, info: noop, debug: noop };

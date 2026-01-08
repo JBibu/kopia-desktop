@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { EmailConfig } from '@/lib/kopia/types';
+import { useProviderConfig } from '@/hooks/useProviderConfig';
 import { useTranslation } from 'react-i18next';
 
 interface EmailNotificationFormProps {
@@ -18,10 +19,7 @@ interface EmailNotificationFormProps {
 export function EmailNotificationForm({ config, onChange }: EmailNotificationFormProps) {
   const { t } = useTranslation();
   const emailConfig = config as Partial<EmailConfig>;
-
-  const updateField = <K extends keyof EmailConfig>(field: K, value: EmailConfig[K]) => {
-    onChange({ ...emailConfig, [field]: value });
-  };
+  const { handleChange: updateField } = useProviderConfig<EmailConfig>(emailConfig, onChange);
 
   return (
     <div className="space-y-4">

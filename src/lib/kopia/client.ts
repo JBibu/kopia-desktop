@@ -21,8 +21,6 @@ export type {
   RepositoryConnectRequest,
   KopiaServerInfo,
   KopiaServerStatus,
-  StorageType,
-  StorageConfig,
   RepositoryEntry,
 } from './types';
 
@@ -34,7 +32,6 @@ export {
   parseKopiaError,
   getErrorMessage,
   isNotConnectedError,
-  isAuthenticationError,
   API_ERROR_CODE_MAPPING,
 } from './errors';
 
