@@ -60,6 +60,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { BackupProfile } from '@/lib/kopia/types';
+import { CardStatItem } from '@/components/kopia/snapshots/CardStatItem';
 
 export function Snapshots() {
   const { t } = useTranslation();
@@ -294,24 +295,16 @@ export function Snapshots() {
         </CardHeader>
         <CardContent className="pt-0 space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            <div className="flex items-center gap-2 text-sm">
-              <div className="p-1 rounded bg-muted/30">
-                <Folder className="h-3.5 w-3.5 text-muted-foreground" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs text-muted-foreground">{t('snapshots.directories')}</span>
-                <span className="font-medium">{profile.directories.length}</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <div className="p-1 rounded bg-muted/30">
-                <FolderArchive className="h-3.5 w-3.5 text-muted-foreground" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs text-muted-foreground">{t('snapshots.backups')}</span>
-                <span className="font-medium">{totalSnapshots}</span>
-              </div>
-            </div>
+            <CardStatItem
+              icon={Folder}
+              label={t('snapshots.directories')}
+              value={profile.directories.length}
+            />
+            <CardStatItem
+              icon={FolderArchive}
+              label={t('snapshots.backups')}
+              value={totalSnapshots}
+            />
           </div>
           {lastSnapshot && (
             <div className="flex items-center gap-2 pt-2 border-t text-xs text-muted-foreground">
@@ -348,27 +341,17 @@ export function Snapshots() {
         </CardHeader>
         <CardContent className="pt-0 space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            <div className="flex items-center gap-2 text-sm">
-              <div className="p-1 rounded bg-muted/30">
-                <FolderArchive className="h-3.5 w-3.5 text-muted-foreground" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs text-muted-foreground">{t('snapshots.backups')}</span>
-                <span className="font-medium">{snapshotCount}</span>
-              </div>
-            </div>
+            <CardStatItem
+              icon={FolderArchive}
+              label={t('snapshots.backups')}
+              value={snapshotCount}
+            />
             {source.lastSnapshot && (
-              <div className="flex items-center gap-2 text-sm">
-                <div className="p-1 rounded bg-muted/30">
-                  <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-xs text-muted-foreground">{t('snapshots.size')}</span>
-                  <span className="font-medium truncate">
-                    {formatBytes(source.lastSnapshot.stats?.totalSize || 0, 1, byteFormat)}
-                  </span>
-                </div>
-              </div>
+              <CardStatItem
+                icon={HardDrive}
+                label={t('snapshots.size')}
+                value={formatBytes(source.lastSnapshot.stats?.totalSize || 0, 1, byteFormat)}
+              />
             )}
           </div>
           {source.lastSnapshot && (
@@ -448,26 +431,16 @@ export function Snapshots() {
           </CardHeader>
           <CardContent className="pt-0 space-y-3 flex-1">
             <div className="grid grid-cols-2 gap-3">
-              <div className="flex items-center gap-2 text-sm">
-                <div className="p-1 rounded bg-muted/30">
-                  <Folder className="h-3.5 w-3.5 text-muted-foreground" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-xs text-muted-foreground">
-                    {t('snapshots.directories')}
-                  </span>
-                  <span className="font-medium">{profile.directories.length}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <div className="p-1 rounded bg-muted/30">
-                  <FolderArchive className="h-3.5 w-3.5 text-muted-foreground" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-xs text-muted-foreground">{t('snapshots.backups')}</span>
-                  <span className="font-medium">{totalSnapshots}</span>
-                </div>
-              </div>
+              <CardStatItem
+                icon={Folder}
+                label={t('snapshots.directories')}
+                value={profile.directories.length}
+              />
+              <CardStatItem
+                icon={FolderArchive}
+                label={t('snapshots.backups')}
+                value={totalSnapshots}
+              />
             </div>
             {lastSnapshot && (
               <div className="flex items-center gap-2 pt-2 border-t text-xs text-muted-foreground">
@@ -559,27 +532,17 @@ export function Snapshots() {
           </CardHeader>
           <CardContent className="pt-0 space-y-3 flex-1">
             <div className="grid grid-cols-2 gap-3">
-              <div className="flex items-center gap-2 text-sm">
-                <div className="p-1 rounded bg-muted/30">
-                  <FolderArchive className="h-3.5 w-3.5 text-muted-foreground" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-xs text-muted-foreground">{t('snapshots.backups')}</span>
-                  <span className="font-medium">{snapshotCount}</span>
-                </div>
-              </div>
+              <CardStatItem
+                icon={FolderArchive}
+                label={t('snapshots.backups')}
+                value={snapshotCount}
+              />
               {source.lastSnapshot && (
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="p-1 rounded bg-muted/30">
-                    <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-xs text-muted-foreground">{t('snapshots.size')}</span>
-                    <span className="font-medium truncate">
-                      {formatBytes(source.lastSnapshot.stats?.totalSize || 0, 1, byteFormat)}
-                    </span>
-                  </div>
-                </div>
+                <CardStatItem
+                  icon={HardDrive}
+                  label={t('snapshots.size')}
+                  value={formatBytes(source.lastSnapshot.stats?.totalSize || 0, 1, byteFormat)}
+                />
               )}
             </div>
             {source.lastSnapshot && (

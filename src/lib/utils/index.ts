@@ -9,7 +9,7 @@ import type { ByteFormat } from '@/stores/preferences';
  * @param format 'base2' (KiB, MiB, GiB with 1024) or 'base10' (KB, MB, GB with 1000)
  */
 export function formatBytes(bytes: number, decimals = 2, format: ByteFormat = 'base2'): string {
-  if (bytes === 0) return '0 B';
+  if (bytes <= 0) return '0 B';
 
   const k = format === 'base2' ? 1024 : 1000;
   const dm = decimals < 0 ? 0 : decimals;
@@ -18,39 +18,27 @@ export function formatBytes(bytes: number, decimals = 2, format: ByteFormat = 'b
       ? ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB']
       : ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
 
-  // Handle negative bytes
-  const absBytes = Math.abs(bytes);
-  const sign = bytes < 0 ? '-' : '';
+  const i = Math.max(0, Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1));
 
-  // Calculate the appropriate size index
-  const i = Math.floor(Math.log(absBytes) / Math.log(k));
-
-  // Clamp i to valid array bounds (0 to sizes.length - 1)
-  const safeIndex = Math.min(Math.max(0, i), sizes.length - 1);
-
-  return `${sign}${parseFloat((absBytes / Math.pow(k, safeIndex)).toFixed(dm))} ${sizes[safeIndex]}`;
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
 /**
  * Format distance to now (e.g., "2 hours ago", "5 minutes ago")
  */
 export function formatDistanceToNow(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSeconds = Math.floor(diffMs / 1000);
-  const diffMinutes = Math.floor(diffSeconds / 60);
-  const diffHours = Math.floor(diffMinutes / 60);
-  const diffDays = Math.floor(diffHours / 24);
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
 
-  if (diffSeconds < 60) {
-    return 'just now';
-  } else if (diffMinutes < 60) {
-    return `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''} ago`;
-  } else if (diffHours < 24) {
-    return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
-  } else {
-    return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
-  }
+  if (seconds < 60) return 'just now';
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+
+  const days = Math.floor(hours / 24);
+  return `${days} day${days !== 1 ? 's' : ''} ago`;
 }
 
 /**

@@ -249,60 +249,76 @@ let sourcesPollingTimer: ReturnType<typeof setInterval> | null = null;
 let wsEventUnlisten: UnlistenFn | null = null;
 let wsDisconnectUnlisten: UnlistenFn | null = null;
 
+/** Helper to clean up WebSocket listeners */
+function cleanupWSListeners() {
+  if (wsEventUnlisten) {
+    wsEventUnlisten();
+    wsEventUnlisten = null;
+  }
+  if (wsDisconnectUnlisten) {
+    wsDisconnectUnlisten();
+    wsDisconnectUnlisten = null;
+  }
+}
+
+/** Initial state values - used for store initialization and reset */
+const INITIAL_STATE = {
+  // Multi-repository
+  repositories: [] as RepositoryEntry[],
+  currentRepoId: null as string | null,
+  repositoriesError: null as string | null,
+  isRepositoriesLoading: false,
+
+  // Server
+  serverStatus: null as KopiaServerStatus | null,
+  serverInfo: null as KopiaServerInfo | null,
+  serverError: null as string | null,
+  isServerLoading: false,
+
+  // Repository
+  repositoryStatus: null as RepositoryStatus | null,
+  repositoryError: null as string | null,
+  isRepositoryLoading: false,
+
+  // Snapshots
+  snapshots: [] as Snapshot[],
+  sourcesResponse: null as SourcesResponse | null,
+  snapshotsError: null as string | null,
+  isSnapshotsLoading: false,
+
+  // Policies
+  policies: [] as PolicyResponse[],
+  policiesError: null as string | null,
+  isPoliciesLoading: false,
+
+  // Tasks
+  tasks: [] as Task[],
+  tasksSummary: null as TasksSummary | null,
+  tasksError: null as string | null,
+  isTasksLoading: false,
+
+  // Mounts
+  mounts: null as MountsResponse | null,
+  mountsError: null as string | null,
+  isMountsLoading: false,
+
+  // Polling
+  isPolling: false,
+  serverPollingInterval: 30000, // 30 seconds
+  tasksPollingInterval: 5000, // 5 seconds
+  sourcesPollingInterval: 3000, // 3 seconds (matches official KopiaUI)
+
+  // WebSocket
+  isWebSocketConnected: false,
+  useWebSocket: true, // Prefer WebSocket over polling by default
+};
+
 export const useKopiaStore = create<KopiaStore>()(
   subscribeWithSelector((set, get) => ({
     // ========================================================================
     // Initial State
     // ========================================================================
-
-    // Multi-repository
-    repositories: [],
-    currentRepoId: null,
-    repositoriesError: null,
-    isRepositoriesLoading: false,
-
-    // Server
-    serverStatus: null,
-    serverInfo: null,
-    serverError: null,
-    isServerLoading: false,
-
-    // Repository
-    repositoryStatus: null,
-    repositoryError: null,
-    isRepositoryLoading: false,
-
-    // Snapshots
-    snapshots: [],
-    sourcesResponse: null,
-    snapshotsError: null,
-    isSnapshotsLoading: false,
-
-    // Policies
-    policies: [],
-    policiesError: null,
-    isPoliciesLoading: false,
-
-    // Tasks
-    tasks: [],
-    tasksSummary: null,
-    tasksError: null,
-    isTasksLoading: false,
-
-    // Mounts
-    mounts: null,
-    mountsError: null,
-    isMountsLoading: false,
-
-    // Polling
-    isPolling: false,
-    serverPollingInterval: 30000, // 30 seconds
-    tasksPollingInterval: 5000, // 5 seconds
-    sourcesPollingInterval: 3000, // 3 seconds (matches official KopiaUI)
-
-    // WebSocket
-    isWebSocketConnected: false,
-    useWebSocket: true, // Prefer WebSocket over polling by default
+    ...INITIAL_STATE,
 
     // ========================================================================
     // Derived State
@@ -999,14 +1015,7 @@ export const useKopiaStore = create<KopiaStore>()(
 
       try {
         // Clean up any existing listeners first to prevent memory leaks
-        if (wsEventUnlisten) {
-          wsEventUnlisten();
-          wsEventUnlisten = null;
-        }
-        if (wsDisconnectUnlisten) {
-          wsDisconnectUnlisten();
-          wsDisconnectUnlisten = null;
-        }
+        cleanupWSListeners();
 
         // Connect to WebSocket
         await connectWebSocket(
@@ -1081,14 +1090,7 @@ export const useKopiaStore = create<KopiaStore>()(
 
       try {
         // Clean up event listeners
-        if (wsEventUnlisten) {
-          wsEventUnlisten();
-          wsEventUnlisten = null;
-        }
-        if (wsDisconnectUnlisten) {
-          wsDisconnectUnlisten();
-          wsDisconnectUnlisten = null;
-        }
+        cleanupWSListeners();
 
         // Disconnect WebSocket
         if (currentRepoId) {
@@ -1168,34 +1170,7 @@ export const useKopiaStore = create<KopiaStore>()(
     reset: () => {
       get().stopPolling();
       void get().stopWebSocket();
-      set({
-        repositories: [],
-        currentRepoId: null,
-        repositoriesError: null,
-        isRepositoriesLoading: false,
-        serverStatus: null,
-        serverInfo: null,
-        serverError: null,
-        isServerLoading: false,
-        repositoryStatus: null,
-        repositoryError: null,
-        isRepositoryLoading: false,
-        snapshots: [],
-        sourcesResponse: null,
-        snapshotsError: null,
-        isSnapshotsLoading: false,
-        policies: [],
-        policiesError: null,
-        isPoliciesLoading: false,
-        tasks: [],
-        tasksSummary: null,
-        tasksError: null,
-        isTasksLoading: false,
-        mounts: null,
-        mountsError: null,
-        isMountsLoading: false,
-        isWebSocketConnected: false,
-      });
+      set(INITIAL_STATE);
     },
   }))
 );

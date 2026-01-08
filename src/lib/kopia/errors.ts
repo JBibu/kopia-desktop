@@ -8,6 +8,27 @@
 import i18n from '@/lib/i18n/config';
 
 /**
+ * Convert SCREAMING_SNAKE_CASE to camelCase
+ */
+function snakeToCamel(str: string): string {
+  return str
+    .toLowerCase()
+    .split('_')
+    .map((word, index) => (index === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1)))
+    .join('');
+}
+
+/**
+ * Convert SCREAMING_SNAKE_CASE to readable text (e.g., "Server Not Running")
+ */
+function snakeToReadable(str: string): string {
+  return str
+    .split('_')
+    .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+/**
  * Official Kopia API error codes
  * These match the official Kopia server API specification
  * See: https://github.com/kopia/kopia/blob/master/internal/serverapi/serverapi.go#L79-96
@@ -151,7 +172,6 @@ export class KopiaError extends Error {
   ) {
     super(message);
     this.name = 'KopiaError';
-    Object.setPrototypeOf(this, KopiaError.prototype);
   }
 
   /**
@@ -207,11 +227,7 @@ export class KopiaError extends Error {
     }
 
     // Convert error code to camelCase translation key
-    const errorKey = this.code
-      .toLowerCase()
-      .split('_')
-      .map((word, index) => (index === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1)))
-      .join('');
+    const errorKey = snakeToCamel(this.code);
 
     const translationKey = `errors.kopia.${errorKey}`;
     const translated = i18n.t(translationKey);
@@ -292,10 +308,7 @@ export function parseKopiaError(error: unknown): KopiaError {
       message = err.message;
     } else if (code) {
       // Fallback: convert SCREAMING_SNAKE_CASE to readable message
-      message = code
-        .split('_')
-        .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
-        .join(' ');
+      message = snakeToReadable(code);
     } else {
       message = 'Unknown error';
     }

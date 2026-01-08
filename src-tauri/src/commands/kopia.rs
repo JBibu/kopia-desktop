@@ -1330,7 +1330,6 @@ async fn handle_response<T: DeserializeOwned>(
     operation: &str,
 ) -> Result<T> {
     let status = response.status();
-
     if !status.is_success() {
         let error_text = response
             .text()
@@ -1355,7 +1354,6 @@ async fn handle_response<T: DeserializeOwned>(
 /// Handle API response that returns empty/unit result
 async fn handle_empty_response(response: reqwest::Response, operation: &str) -> Result<()> {
     let status = response.status();
-
     if !status.is_success() {
         let error_text = response
             .text()

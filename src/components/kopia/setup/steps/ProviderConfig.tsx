@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
+import type { ComponentType } from 'react';
 import type { StorageType } from '@/lib/kopia/types';
 import type { ProviderFormProps } from '../types';
 import { FilesystemProvider } from '../providers/FilesystemProvider';
@@ -17,6 +18,17 @@ interface ProviderConfigProps extends ProviderFormProps {
   onBack: () => void;
   onNext: () => void;
 }
+
+const providerComponents: Record<StorageType, ComponentType<ProviderFormProps>> = {
+  filesystem: FilesystemProvider,
+  s3: S3Provider,
+  b2: B2Provider,
+  azureBlob: AzureProvider,
+  gcs: GCSProvider,
+  sftp: SFTPProvider,
+  webdav: WebDAVProvider,
+  rclone: RcloneProvider,
+};
 
 const providerNameKeys: Record<StorageType, string> = {
   filesystem: 'setup.providers.filesystem',
@@ -38,30 +50,10 @@ export function ProviderConfig({
 }: ProviderConfigProps) {
   const { t } = useTranslation();
 
-  const renderProvider = () => {
-    const props: ProviderFormProps = { config, onChange };
-
-    switch (provider) {
-      case 'filesystem':
-        return <FilesystemProvider {...props} />;
-      case 's3':
-        return <S3Provider {...props} />;
-      case 'b2':
-        return <B2Provider {...props} />;
-      case 'azureBlob':
-        return <AzureProvider {...props} />;
-      case 'gcs':
-        return <GCSProvider {...props} />;
-      case 'sftp':
-        return <SFTPProvider {...props} />;
-      case 'webdav':
-        return <WebDAVProvider {...props} />;
-      case 'rclone':
-        return <RcloneProvider {...props} />;
-      default:
-        return <div>Unsupported provider: {provider}</div>;
-    }
-  };
+  const ProviderComponent = providerComponents[provider];
+  const providerForm = ProviderComponent ? (
+    <ProviderComponent config={config} onChange={onChange} />
+  ) : null;
 
   return (
     <div className="space-y-6">
@@ -77,7 +69,7 @@ export function ProviderConfig({
         </div>
       </div>
 
-      <div className="space-y-4">{renderProvider()}</div>
+      <div className="space-y-4">{providerForm}</div>
 
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onBack}>
