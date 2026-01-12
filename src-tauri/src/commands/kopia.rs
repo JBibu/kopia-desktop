@@ -7,7 +7,7 @@
 
 use crate::error::{HttpResultExt, IoResultExt, JsonResultExt, KopiaError, Result};
 use crate::kopia_server::{KopiaServerInfo, KopiaServerStatus};
-use crate::server_manager::{MutexRecoveryExt, RepositoryEntry, ServerManagerState};
+use crate::server_manager::{RepositoryEntry, ServerManagerState};
 use crate::types::{RepositoryConnectRequest, RepositoryStatus, StorageConfig};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
@@ -25,7 +25,7 @@ use tauri::State;
 pub async fn list_repositories(
     manager: State<'_, ServerManagerState>,
 ) -> Result<Vec<RepositoryEntry>> {
-    manager.lock_or_recover().list_repositories()
+    manager.lock().unwrap().list_repositories()
 }
 
 /// Add a new repository configuration
@@ -37,7 +37,7 @@ pub async fn add_repository(
     manager: State<'_, ServerManagerState>,
     repo_id: Option<String>,
 ) -> Result<String> {
-    manager.lock_or_recover().add_repository(repo_id)
+    manager.lock().unwrap().add_repository(repo_id)
 }
 
 /// Remove a repository configuration
@@ -49,7 +49,7 @@ pub async fn remove_repository(
     manager: State<'_, ServerManagerState>,
     repo_id: String,
 ) -> Result<()> {
-    manager.lock_or_recover().remove_repository(&repo_id)
+    manager.lock().unwrap().remove_repository(&repo_id)
 }
 
 // ============================================================================
@@ -69,7 +69,7 @@ pub async fn kopia_server_start(
     repo_id: String,
 ) -> Result<KopiaServerInfo> {
     let (info, ready_waiter) = {
-        let mut manager_guard = manager.lock_or_recover();
+        let mut manager_guard = manager.lock().unwrap();
         let info = manager_guard.start_server(&repo_id)?;
         let waiter = manager_guard.get_ready_waiter(&repo_id)?;
         (info, waiter)
@@ -87,7 +87,7 @@ pub async fn kopia_server_stop(
     manager: State<'_, ServerManagerState>,
     repo_id: String,
 ) -> Result<()> {
-    manager.lock_or_recover().stop_server(&repo_id)
+    manager.lock().unwrap().stop_server(&repo_id)
 }
 
 /// Get Kopia server status for a repository
@@ -99,7 +99,7 @@ pub async fn kopia_server_status(
     manager: State<'_, ServerManagerState>,
     repo_id: String,
 ) -> Result<KopiaServerStatus> {
-    manager.lock_or_recover().get_server_status(&repo_id)
+    manager.lock().unwrap().get_server_status(&repo_id)
 }
 
 /// Get the default Kopia configuration directory
@@ -1308,7 +1308,7 @@ fn get_server_client(
     manager: &State<'_, ServerManagerState>,
     repo_id: &str,
 ) -> Result<(String, reqwest::Client)> {
-    let manager_guard = manager.lock_or_recover();
+    let manager_guard = manager.lock().unwrap();
 
     let server_url =
         manager_guard

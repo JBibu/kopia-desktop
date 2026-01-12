@@ -24,7 +24,7 @@ pub use windows_service::run_service;
 mod tests;
 
 use kopia_websocket::KopiaWebSocket;
-use server_manager::{create_server_manager_state, MutexRecoveryExt, ServerManagerState};
+use server_manager::{create_server_manager_state, ServerManagerState};
 use std::sync::Arc;
 use tauri::{
     menu::{Menu, MenuItem},
@@ -75,7 +75,7 @@ fn hide_main_window(app: &tauri::AppHandle) {
 async fn auto_start_servers(manager_state: ServerManagerState) -> error::Result<()> {
     // Discover repositories and start servers
     let repo_ids: Vec<String> = {
-        let manager = manager_state.lock_or_recover();
+        let manager = manager_state.lock().unwrap();
         manager.discover_repositories().unwrap_or_else(|e| {
             log::warn!("Failed to discover repositories: {}", e);
             vec![]
@@ -95,7 +95,7 @@ async fn auto_start_servers(manager_state: ServerManagerState) -> error::Result<
 
         // Start server
         let ready_waiter = {
-            let mut manager = manager_state.lock_or_recover();
+            let mut manager = manager_state.lock().unwrap();
             match manager.start_server(&repo_id) {
                 Ok(info) => {
                     log::info!("Server for '{}' started at {}", repo_id, info.server_url);
@@ -170,7 +170,7 @@ pub fn run() {
                     "quit" => {
                         log::info!("Quit requested from tray menu, stopping all servers...");
                         // Stop all Kopia servers before exiting
-                        if let Err(e) = tray_manager_state.lock_or_recover().stop_all() {
+                        if let Err(e) = tray_manager_state.lock().unwrap().stop_all() {
                             log::error!("Failed to stop servers during quit: {}", e);
                         }
                         app.exit(0);
@@ -289,7 +289,7 @@ pub fn run() {
             log::info!("App exit requested, stopping all Kopia servers...");
 
             // Stop all Kopia servers before exit
-            if let Err(e) = exit_manager_state.lock_or_recover().stop_all() {
+            if let Err(e) = exit_manager_state.lock().unwrap().stop_all() {
                 log::error!("Failed to stop Kopia servers during shutdown: {}", e);
             } else {
                 log::info!("All Kopia servers stopped successfully");

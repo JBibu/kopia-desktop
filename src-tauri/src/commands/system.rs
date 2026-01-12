@@ -36,7 +36,7 @@ pub async fn get_system_info() -> Result<SystemInfo> {
 pub async fn get_current_user(server: State<'_, KopiaServerState>) -> Result<(String, String)> {
     // Try to get from Kopia server first
     let server_result = {
-        let mut server_guard = lock_server!(server);
+        let mut server_guard = server.lock().unwrap();
         let status = server_guard.status();
 
         if status.running {
