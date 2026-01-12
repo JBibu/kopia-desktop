@@ -56,6 +56,7 @@ import type {
   Task,
   TasksSummary,
   WebSocketEvent,
+  WebSocketDisconnectEvent,
   MountsResponse,
 } from '@/lib/kopia';
 import { getErrorMessage, parseKopiaError, KopiaErrorCode } from '@/lib/kopia';
@@ -70,6 +71,40 @@ const DEFAULT_REPO_ID = 'repository';
 
 type StoreGet = () => KopiaStore;
 type StoreSet = (partial: Partial<KopiaStore>) => void;
+
+/**
+ * Track in-flight refresh operations to prevent duplicate concurrent requests.
+ * When a refresh is already in-flight for a given key, subsequent calls are skipped.
+ */
+const inFlightRequests = new Set<string>();
+
+/**
+ * Execute a refresh operation with deduplication.
+ *
+ * If the same operation is already in-flight, this call will be skipped to prevent
+ * duplicate concurrent HTTP requests. This is particularly important when:
+ * - WebSocket events trigger refreshes while polling refresh is in-flight
+ * - Multiple UI components trigger the same refresh simultaneously
+ *
+ * @param key - Unique identifier for the operation (e.g., 'tasks', 'snapshots')
+ * @param fn - Async function to execute
+ * @returns The result of fn, or undefined if skipped due to deduplication
+ */
+async function withDeduplication<T>(key: string, fn: () => Promise<T>): Promise<T | undefined> {
+  if (inFlightRequests.has(key)) {
+    if (import.meta.env.DEV) {
+      console.log(`Skipping duplicate ${key} refresh (already in-flight)`);
+    }
+    return undefined;
+  }
+
+  inFlightRequests.add(key);
+  try {
+    return await fn();
+  } finally {
+    inFlightRequests.delete(key);
+  }
+}
 
 /**
  * Execute an async action only if a repository is currently selected.
@@ -474,7 +509,7 @@ export const useKopiaStore = create<KopiaStore>()(
     },
 
     setCurrentRepository: async (repoId: string) => {
-      const { currentRepoId, repositories } = get();
+      const { currentRepoId, repositories, isPolling, isWebSocketConnected, useWebSocket } = get();
 
       // Validate the repo exists
       const repo = repositories.find((r) => r.id === repoId);
@@ -487,12 +522,19 @@ export const useKopiaStore = create<KopiaStore>()(
         return;
       }
 
-      // Stop WebSocket for old repo if connected
-      if (get().isWebSocketConnected) {
+      // Step 1: Stop polling to prevent race conditions during switch
+      // Polling timers could fire and update state with old repo data
+      const wasPolling = isPolling;
+      if (wasPolling) {
+        get().stopPolling();
+      }
+
+      // Step 2: Stop WebSocket for old repo if connected
+      if (isWebSocketConnected) {
         await get().stopWebSocket();
       }
 
-      // Clear current data before switching
+      // Step 3: Clear current data and switch repo (no polling can interfere now)
       set({
         currentRepoId: repoId,
         // Reset repository-specific state
@@ -513,12 +555,17 @@ export const useKopiaStore = create<KopiaStore>()(
         mountsError: null,
       });
 
-      // Refresh data for the new repository
+      // Step 4: Refresh data for the new repository
       await get().refreshAll();
 
-      // Start WebSocket for new repo if enabled
-      if (get().useWebSocket) {
+      // Step 5: Start WebSocket for new repo if enabled
+      if (useWebSocket) {
         await get().startWebSocket();
+      }
+
+      // Step 6: Resume polling if it was running before
+      if (wasPolling) {
+        get().startPolling();
       }
     },
 
@@ -530,7 +577,7 @@ export const useKopiaStore = create<KopiaStore>()(
       await withRepoId(get, async (repoId) => {
         try {
           const status = await getKopiaServerStatus(repoId);
-          set({ serverStatus: status });
+          set({ serverStatus: status, serverError: null });
         } catch (error) {
           const message = getErrorMessage(error);
           if (get().serverError !== message) {
@@ -584,7 +631,7 @@ export const useKopiaStore = create<KopiaStore>()(
       await withRepoId(get, async (repoId) => {
         try {
           const status = await getRepositoryStatus(repoId);
-          set({ repositoryStatus: status });
+          set({ repositoryStatus: status, repositoryError: null });
         } catch (error) {
           const kopiaError = parseKopiaError(error);
           const message = kopiaError.getUserMessage();
@@ -649,55 +696,59 @@ export const useKopiaStore = create<KopiaStore>()(
     // ========================================================================
 
     refreshSnapshots: async () => {
-      await withRepoId(get, async (repoId) => {
-        try {
-          // First, get all sources
-          const sourcesResponse = await listSources(repoId);
-          const sources = sourcesResponse.sources || [];
+      await withDeduplication('snapshots', async () => {
+        await withRepoId(get, async (repoId) => {
+          try {
+            // First, get all sources
+            const sourcesResponse = await listSources(repoId);
+            const sources = sourcesResponse.sources || [];
 
-          // Then fetch snapshots for each source
-          const allSnapshots: Snapshot[] = [];
-          for (const source of sources) {
-            try {
-              const response = await listSnapshots(
-                repoId,
-                source.source.userName,
-                source.source.host,
-                source.source.path,
-                true // all=true to include hidden snapshots
-              );
-              // Add source info to each snapshot (snapshots from /api/v1/snapshots don't have source field)
-              const snapshotsWithSource = (response.snapshots || []).map((snapshot) => ({
-                ...snapshot,
-                source: source.source,
-              }));
-              allSnapshots.push(...snapshotsWithSource);
-            } catch (error) {
-              // Continue with other sources even if one fails
-              if (import.meta.env.DEV) {
-                console.warn(
-                  `Failed to fetch snapshots for ${source.source.userName}@${source.source.host}:${source.source.path}`,
-                  error
+            // Then fetch snapshots for each source
+            const allSnapshots: Snapshot[] = [];
+            for (const source of sources) {
+              try {
+                const response = await listSnapshots(
+                  repoId,
+                  source.source.userName,
+                  source.source.host,
+                  source.source.path,
+                  true // all=true to include hidden snapshots
                 );
+                // Add source info to each snapshot (snapshots from /api/v1/snapshots don't have source field)
+                const snapshotsWithSource = (response.snapshots || []).map((snapshot) => ({
+                  ...snapshot,
+                  source: source.source,
+                }));
+                allSnapshots.push(...snapshotsWithSource);
+              } catch (error) {
+                // Continue with other sources even if one fails
+                if (import.meta.env.DEV) {
+                  console.warn(
+                    `Failed to fetch snapshots for ${source.source.userName}@${source.source.host}:${source.source.path}`,
+                    error
+                  );
+                }
               }
             }
-          }
 
-          set({ snapshots: allSnapshots });
-        } catch (error) {
-          setErrorIfChanged(get, set, 'snapshotsError', getErrorMessage(error));
-        }
+            set({ snapshots: allSnapshots, snapshotsError: null });
+          } catch (error) {
+            setErrorIfChanged(get, set, 'snapshotsError', getErrorMessage(error));
+          }
+        });
       });
     },
 
     refreshSources: async () => {
-      await withRepoId(get, async (repoId) => {
-        try {
-          const response = await listSources(repoId);
-          set({ sourcesResponse: response });
-        } catch (error) {
-          setErrorIfChanged(get, set, 'snapshotsError', getErrorMessage(error));
-        }
+      await withDeduplication('sources', async () => {
+        await withRepoId(get, async (repoId) => {
+          try {
+            const response = await listSources(repoId);
+            set({ sourcesResponse: response, snapshotsError: null });
+          } catch (error) {
+            setErrorIfChanged(get, set, 'snapshotsError', getErrorMessage(error));
+          }
+        });
       });
     },
 
@@ -766,7 +817,7 @@ export const useKopiaStore = create<KopiaStore>()(
       await withRepoId(get, async (repoId) => {
         try {
           const response = await listPolicies(repoId);
-          set({ policies: response.policies || [] });
+          set({ policies: response.policies || [], policiesError: null });
         } catch (error) {
           setErrorIfChanged(get, set, 'policiesError', getErrorMessage(error));
         }
@@ -824,49 +875,53 @@ export const useKopiaStore = create<KopiaStore>()(
     // ========================================================================
 
     refreshTasks: async () => {
-      await withRepoId(get, async (repoId) => {
-        try {
-          const response = await listTasks(repoId);
-          const newTasks = response.tasks || [];
-          const currentTasks = get().tasks;
+      await withDeduplication('tasks', async () => {
+        await withRepoId(get, async (repoId) => {
+          try {
+            const response = await listTasks(repoId);
+            const newTasks = response.tasks || [];
+            const currentTasks = get().tasks;
 
-          // Detect task completions for notifications
-          if (currentTasks.length > 0) {
-            for (const currentTask of currentTasks) {
-              const newTask = newTasks.find((t) => t.id === currentTask.id);
-              if (
-                currentTask.status === 'RUNNING' &&
-                newTask &&
-                (newTask.status === 'SUCCESS' ||
-                  newTask.status === 'FAILED' ||
-                  newTask.status === 'CANCELED')
-              ) {
-                void notifyTaskComplete(
-                  currentTask.description || currentTask.kind,
-                  newTask.status === 'SUCCESS'
-                );
+            // Detect task completions for notifications
+            if (currentTasks.length > 0) {
+              for (const currentTask of currentTasks) {
+                const newTask = newTasks.find((t) => t.id === currentTask.id);
+                if (
+                  currentTask.status === 'RUNNING' &&
+                  newTask &&
+                  (newTask.status === 'SUCCESS' ||
+                    newTask.status === 'FAILED' ||
+                    newTask.status === 'CANCELED')
+                ) {
+                  void notifyTaskComplete(
+                    currentTask.description || currentTask.kind,
+                    newTask.status === 'SUCCESS'
+                  );
+                }
               }
             }
-          }
 
-          set({ tasks: newTasks, tasksError: null });
-        } catch (error) {
-          setErrorIfChanged(get, set, 'tasksError', getErrorMessage(error));
-        }
+            set({ tasks: newTasks, tasksError: null });
+          } catch (error) {
+            setErrorIfChanged(get, set, 'tasksError', getErrorMessage(error));
+          }
+        });
       });
     },
 
     refreshTasksSummary: async () => {
-      await withRepoId(get, async (repoId) => {
-        try {
-          const summary = await getTasksSummary(repoId);
-          set({ tasksSummary: summary });
-        } catch (error) {
-          // Log in dev mode but don't update error state - summary is not critical
-          if (import.meta.env.DEV) {
-            console.warn('Failed to fetch tasks summary:', error);
+      await withDeduplication('tasksSummary', async () => {
+        await withRepoId(get, async (repoId) => {
+          try {
+            const summary = await getTasksSummary(repoId);
+            set({ tasksSummary: summary });
+          } catch (error) {
+            // Log in dev mode but don't update error state - summary is not critical
+            if (import.meta.env.DEV) {
+              console.warn('Failed to fetch tasks summary:', error);
+            }
           }
-        }
+        });
       });
     },
 
@@ -1092,8 +1147,20 @@ export const useKopiaStore = create<KopiaStore>()(
         // Set up event listeners
         wsEventUnlisten = await listen<WebSocketEvent>('kopia-ws-event', (event) => {
           const wsEvent = event.payload;
+          const currentRepo = get().currentRepoId;
+
+          // Only process events for the current repository
+          if (wsEvent.repoId !== currentRepo) {
+            if (import.meta.env.DEV) {
+              console.log(
+                `Ignoring WebSocket event for repo '${wsEvent.repoId}' (current: '${currentRepo}')`
+              );
+            }
+            return;
+          }
+
           if (import.meta.env.DEV) {
-            console.log('WebSocket event received:', wsEvent.type);
+            console.log('WebSocket event received:', wsEvent.type, 'for repo:', wsEvent.repoId);
           }
 
           // Handle different event types
@@ -1107,20 +1174,36 @@ export const useKopiaStore = create<KopiaStore>()(
           }
         });
 
-        wsDisconnectUnlisten = await listen('kopia-ws-disconnected', () => {
-          if (import.meta.env.DEV) {
-            console.log('WebSocket disconnected');
-          }
-          set({ isWebSocketConnected: false });
+        wsDisconnectUnlisten = await listen<WebSocketDisconnectEvent>(
+          'kopia-ws-disconnected',
+          (event) => {
+            const disconnectEvent = event.payload;
+            const currentRepo = get().currentRepoId;
 
-          // Fall back to polling if WebSocket disconnects
-          if (get().useWebSocket && !get().isPolling) {
-            if (import.meta.env.DEV) {
-              console.log('Falling back to polling after WebSocket disconnect');
+            // Only handle disconnect for the current repository
+            if (disconnectEvent.repoId !== currentRepo) {
+              if (import.meta.env.DEV) {
+                console.log(
+                  `Ignoring WebSocket disconnect for repo '${disconnectEvent.repoId}' (current: '${currentRepo}')`
+                );
+              }
+              return;
             }
-            get().startPolling();
+
+            if (import.meta.env.DEV) {
+              console.log('WebSocket disconnected for repo:', disconnectEvent.repoId);
+            }
+            set({ isWebSocketConnected: false });
+
+            // Fall back to polling if WebSocket disconnects
+            if (get().useWebSocket && !get().isPolling) {
+              if (import.meta.env.DEV) {
+                console.log('Falling back to polling after WebSocket disconnect');
+              }
+              get().startPolling();
+            }
           }
-        });
+        );
 
         set({ isWebSocketConnected: true });
         if (import.meta.env.DEV) {

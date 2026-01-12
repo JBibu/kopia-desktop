@@ -29,11 +29,12 @@ mod tests {
         runtime.block_on(async {
             let mut handles = vec![];
 
-            for _ in 0..10 {
+            for i in 0..10 {
                 let ws_clone = Arc::clone(&ws);
+                let repo_id = format!("test-repo-{}", i);
                 let handle = tokio::spawn(async move {
                     let ws = ws_clone.lock().await;
-                    ws.is_connected().await
+                    ws.is_connected(&repo_id).await
                 });
                 handles.push(handle);
             }

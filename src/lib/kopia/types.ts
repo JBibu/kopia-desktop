@@ -747,9 +747,11 @@ export type NotificationProfilesResponse = NotificationProfile[];
 
 /**
  * Task progress WebSocket event
+ * Includes repoId for multi-repository routing
  */
 export interface TaskProgressEvent {
   type: 'task-progress';
+  repoId: string;
   taskID: string;
   status: TaskStatus;
   progress: {
@@ -767,9 +769,11 @@ export interface TaskProgressEvent {
 
 /**
  * Snapshot progress WebSocket event
+ * Includes repoId for multi-repository routing
  */
 export interface SnapshotProgressEvent {
   type: 'snapshot-progress';
+  repoId: string;
   source: SourceInfo;
   status: 'UPLOADING' | 'IDLE' | 'FAILED';
   upload: {
@@ -782,20 +786,31 @@ export interface SnapshotProgressEvent {
 
 /**
  * Error WebSocket event
+ * Includes repoId for multi-repository routing
  */
 export interface ErrorEvent {
   type: 'error';
+  repoId: string;
   message: string;
   details?: string;
 }
 
 /**
  * General notification WebSocket event
+ * Includes repoId for multi-repository routing
  */
 export interface NotificationEvent {
   type: 'notification';
+  repoId: string;
   level: 'info' | 'warning' | 'error';
   message: string;
+}
+
+/**
+ * WebSocket disconnection event payload
+ */
+export interface WebSocketDisconnectEvent {
+  repoId: string;
 }
 
 /**

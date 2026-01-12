@@ -44,17 +44,17 @@ function ProtectedLayout() {
 function App(): React.JSX.Element {
   const theme = usePreferencesStore((state) => state.theme);
   const language = usePreferencesStore((state) => state.language);
-  const startPolling = useKopiaStore((state) => state.startPolling);
-  const stopPolling = useKopiaStore((state) => state.stopPolling);
 
   // Initialize preferences store (applies persisted font size on hydration)
   usePreferencesStore();
 
-  // Initialize global Kopia state polling
+  // Initialize global Kopia state polling on mount/unmount
+  // Using getState() to avoid unnecessary dependency tracking - Zustand functions are stable
   useEffect(() => {
+    const { startPolling, stopPolling } = useKopiaStore.getState();
     startPolling();
     return () => stopPolling();
-  }, [startPolling, stopPolling]);
+  }, []);
 
   useEffect(() => {
     const root = window.document.documentElement;

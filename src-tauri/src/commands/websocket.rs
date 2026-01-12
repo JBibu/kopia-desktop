@@ -1,7 +1,7 @@
 //! WebSocket command handlers for Tauri
 //!
 //! Provides frontend commands for managing WebSocket connections to Kopia server.
-//! Supports multi-repository by including repo_id in events.
+//! Supports multi-repository with one connection per repository and repo_id in events.
 
 use crate::error::Result;
 use crate::KopiaWebSocketState;
@@ -19,10 +19,10 @@ use tauri::{AppHandle, State};
 ///
 /// # Events Emitted
 /// * `kopia-ws-event` - WebSocket events with repo_id (task-progress, snapshot-progress, etc.)
-/// * `kopia-ws-disconnected` - Connection closed/lost with repo_id
+/// * `kopia-ws-disconnected` - Connection closed/lost with repo_id payload
 #[tauri::command]
 pub async fn websocket_connect(
-    _repo_id: String,
+    repo_id: String,
     server_url: String,
     username: String,
     password: String,
@@ -30,9 +30,7 @@ pub async fn websocket_connect(
     app_handle: AppHandle,
 ) -> Result<()> {
     let ws = ws_state.lock().await;
-    // TODO: Update KopiaWebSocket to support repo_id for event routing
-    // For now, connect without repo_id tracking
-    ws.connect(&server_url, &username, &password, app_handle)
+    ws.connect(&repo_id, &server_url, &username, &password, app_handle)
         .await
 }
 
@@ -44,8 +42,6 @@ pub async fn websocket_disconnect(
     repo_id: String,
     ws_state: State<'_, KopiaWebSocketState>,
 ) -> Result<()> {
-    // TODO: Update KopiaWebSocket to support repo_id for multi-connection
-    let _ = repo_id; // Silence unused warning until full implementation
     let ws = ws_state.lock().await;
-    ws.disconnect().await
+    ws.disconnect(&repo_id).await
 }

@@ -6,7 +6,7 @@
 mod tests {
     use crate::error::KopiaError;
     use crate::kopia_websocket::{
-        CountersInfo, KopiaWebSocket, ProgressInfo, UploadInfo, WebSocketEvent,
+        CountersInfo, DisconnectEvent, KopiaWebSocket, ProgressInfo, UploadInfo, WebSocketEvent,
     };
     use crate::types::SourceInfo;
 
@@ -26,19 +26,26 @@ mod tests {
     #[tokio::test]
     async fn test_is_connected_when_not_connected() {
         let ws = KopiaWebSocket::new();
-        assert!(!ws.is_connected().await);
+        assert!(!ws.is_connected("test-repo").await);
     }
 
     #[tokio::test]
     async fn test_disconnect_when_not_connected() {
         let ws = KopiaWebSocket::new();
-        let result = ws.disconnect().await;
+        let result = ws.disconnect("test-repo").await;
 
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
             KopiaError::WebSocketNotConnected
         ));
+    }
+
+    #[tokio::test]
+    async fn test_connected_repos_empty() {
+        let ws = KopiaWebSocket::new();
+        let repos = ws.connected_repos().await;
+        assert!(repos.is_empty());
     }
 
     #[test]
@@ -95,6 +102,7 @@ mod tests {
     #[test]
     fn test_websocket_event_task_progress() {
         let event = WebSocketEvent::TaskProgress {
+            repo_id: "default".to_string(),
             task_id: "task-123".to_string(),
             status: "RUNNING".to_string(),
             progress: ProgressInfo {
@@ -113,9 +121,14 @@ mod tests {
         let json = serde_json::to_string(&event).unwrap();
         assert!(json.contains("task-progress")); // kebab-case
         assert!(json.contains("taskID")); // Field name
+        assert!(json.contains("repoId")); // repo_id included
 
         let deserialized: WebSocketEvent = serde_json::from_str(&json).unwrap();
-        if let WebSocketEvent::TaskProgress { task_id, .. } = deserialized {
+        if let WebSocketEvent::TaskProgress {
+            repo_id, task_id, ..
+        } = deserialized
+        {
+            assert_eq!(repo_id, "default");
             assert_eq!(task_id, "task-123");
         } else {
             panic!("Expected TaskProgress event");
@@ -125,6 +138,7 @@ mod tests {
     #[test]
     fn test_websocket_event_snapshot_progress() {
         let event = WebSocketEvent::SnapshotProgress {
+            repo_id: "backup-repo".to_string(),
             source: SourceInfo {
                 user_name: "test".to_string(),
                 host: "localhost".to_string(),
@@ -141,9 +155,11 @@ mod tests {
 
         let json = serde_json::to_string(&event).unwrap();
         assert!(json.contains("snapshot-progress"));
+        assert!(json.contains("repoId"));
 
         let deserialized: WebSocketEvent = serde_json::from_str(&json).unwrap();
-        if let WebSocketEvent::SnapshotProgress { source, .. } = deserialized {
+        if let WebSocketEvent::SnapshotProgress { repo_id, source, .. } = deserialized {
+            assert_eq!(repo_id, "backup-repo");
             assert_eq!(source.user_name, "test");
         } else {
             panic!("Expected SnapshotProgress event");
@@ -153,6 +169,7 @@ mod tests {
     #[test]
     fn test_websocket_event_error() {
         let event = WebSocketEvent::Error {
+            repo_id: "test-repo".to_string(),
             message: "Test error".to_string(),
             details: Some("Error details".to_string()),
         };
@@ -160,7 +177,13 @@ mod tests {
         let json = serde_json::to_string(&event).unwrap();
         let deserialized: WebSocketEvent = serde_json::from_str(&json).unwrap();
 
-        if let WebSocketEvent::Error { message, details } = deserialized {
+        if let WebSocketEvent::Error {
+            repo_id,
+            message,
+            details,
+        } = deserialized
+        {
+            assert_eq!(repo_id, "test-repo");
             assert_eq!(message, "Test error");
             assert_eq!(details, Some("Error details".to_string()));
         } else {
@@ -171,6 +194,7 @@ mod tests {
     #[test]
     fn test_websocket_event_notification() {
         let event = WebSocketEvent::Notification {
+            repo_id: "main".to_string(),
             level: "info".to_string(),
             message: "Test notification".to_string(),
         };
@@ -178,12 +202,29 @@ mod tests {
         let json = serde_json::to_string(&event).unwrap();
         let deserialized: WebSocketEvent = serde_json::from_str(&json).unwrap();
 
-        if let WebSocketEvent::Notification { level, message } = deserialized {
+        if let WebSocketEvent::Notification {
+            repo_id,
+            level,
+            message,
+        } = deserialized
+        {
+            assert_eq!(repo_id, "main");
             assert_eq!(level, "info");
             assert_eq!(message, "Test notification");
         } else {
             panic!("Expected Notification event");
         }
+    }
+
+    #[test]
+    fn test_disconnect_event_serde() {
+        let event = DisconnectEvent {
+            repo_id: "disconnected-repo".to_string(),
+        };
+
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(json.contains("repoId"));
+        assert!(json.contains("disconnected-repo"));
     }
 
     // Integration tests
