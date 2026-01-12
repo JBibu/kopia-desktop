@@ -58,7 +58,7 @@ import type {
   WebSocketEvent,
   MountsResponse,
 } from '@/lib/kopia';
-import { getErrorMessage } from '@/lib/kopia';
+import { getErrorMessage, parseKopiaError, KopiaErrorCode } from '@/lib/kopia';
 import { notifyTaskComplete } from '@/lib/notifications';
 
 /** Default repository ID (matches Kopia CLI default) */
@@ -586,15 +586,18 @@ export const useKopiaStore = create<KopiaStore>()(
           const status = await getRepositoryStatus(repoId);
           set({ repositoryStatus: status });
         } catch (error) {
-          const message = getErrorMessage(error);
+          const kopiaError = parseKopiaError(error);
+          const message = kopiaError.getUserMessage();
           const currentError = get().repositoryError;
           const currentStatus = get().repositoryStatus;
 
+          // Don't show error for expected "not running/connected" states (language-independent)
+          const isExpectedError =
+            kopiaError.is(KopiaErrorCode.SERVER_NOT_RUNNING) ||
+            kopiaError.is(KopiaErrorCode.REPOSITORY_NOT_CONNECTED);
+
           // Only update if something changed
-          const shouldUpdateError =
-            !message.includes('not running') &&
-            !message.includes('not connected') &&
-            currentError !== message;
+          const shouldUpdateError = !isExpectedError && currentError !== message;
           const shouldUpdateStatus = currentStatus?.connected !== false;
 
           if (shouldUpdateError || shouldUpdateStatus) {

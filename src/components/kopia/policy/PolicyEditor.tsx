@@ -48,7 +48,12 @@ import {
 } from './PolicyFields';
 import { getPolicy, setPolicy as setPolicyClient, deletePolicy, resolvePolicy } from '@/lib/kopia';
 import { toast } from 'sonner';
-import { getErrorMessage } from '@/lib/kopia';
+import {
+  getErrorMessage,
+  parseKopiaError,
+  KopiaErrorCode,
+  OfficialKopiaAPIErrorCode,
+} from '@/lib/kopia';
 import { formatDateTime } from '@/lib/utils';
 import { usePreferencesStore } from '@/stores';
 import { useCurrentRepoId } from '@/hooks';
@@ -95,33 +100,17 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
         setIsNew(false);
       } catch (err: unknown) {
         // Policy not found - this is a new policy (expected for new policies)
-        const message = getErrorMessage(err);
+        // Use parseKopiaError for language-independent error code checking
+        const kopiaError = parseKopiaError(err);
 
-        // Extract nested error message if available
-        let errorData = '';
-        if (typeof err === 'object' && err !== null && 'data' in err) {
-          const data = err.data as Record<string, unknown>;
-          if (typeof data.message === 'string') {
-            errorData = data.message;
-          }
-        }
-
-        // Check error type directly (language-independent)
-        const errorType =
-          typeof err === 'object' && err !== null && 'type' in err ? (err.type as string) : '';
-
-        // Treat NOT_FOUND, 404, HTTP failures, deserialization errors, and "not found" as new policy scenarios
+        // Treat NOT_FOUND, HTTP failures, and parse errors as new policy scenarios
         // This is expected behavior when creating a new policy
         const isNotFoundError =
-          errorType === 'HTTP_REQUEST_FAILED' ||
-          message.includes('NOT_FOUND') ||
-          message.includes('not found') ||
-          message.includes('404') ||
-          message.includes('HTTP request failed') ||
-          message.includes('La solicitud HTTP falló') ||
-          errorData.includes('missing field') ||
-          errorData.includes('error decoding response body') ||
-          message.toLowerCase().includes('not found');
+          kopiaError.is(KopiaErrorCode.NOT_FOUND) ||
+          kopiaError.is(KopiaErrorCode.POLICY_NOT_FOUND) ||
+          kopiaError.is(KopiaErrorCode.HTTP_REQUEST_FAILED) ||
+          kopiaError.is(KopiaErrorCode.RESPONSE_PARSE_ERROR) ||
+          kopiaError.is(OfficialKopiaAPIErrorCode.NOT_FOUND);
 
         if (isNotFoundError) {
           setPolicy({});
@@ -129,9 +118,9 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
         } else {
           // Only set error for actual failures (not missing policies)
           if (import.meta.env.DEV) {
-            console.error('Error fetching policy:', message, err);
+            console.error('Error fetching policy:', kopiaError.getUserMessage(), err);
           }
-          setError(message);
+          setError(kopiaError.getUserMessage());
         }
       } finally {
         setIsLoading(false);
