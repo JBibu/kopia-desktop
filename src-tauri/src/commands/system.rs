@@ -102,21 +102,39 @@ pub fn get_current_user_from_os() -> Result<(String, String)> {
 #[tauri::command]
 pub async fn select_folder(app: AppHandle, default_path: Option<String>) -> Result<Option<String>> {
     use tauri_plugin_dialog::DialogExt;
+    use tokio::sync::oneshot;
 
     let dialog = configure_dialog(app.dialog().file(), default_path);
-    Ok(dialog.blocking_pick_folder().map(|path| path.to_string()))
+
+    let (tx, rx) = oneshot::channel();
+    dialog.pick_folder(move |path| {
+        let _ = tx.send(path.map(|p| p.to_string()));
+    });
+
+    rx.await.map_err(|_| KopiaError::Cancelled {
+        operation: "folder selection".to_string(),
+    })
 }
 
 /// Open save file dialog
 #[tauri::command]
 pub async fn save_file(app: AppHandle, default_filename: Option<String>) -> Result<Option<String>> {
     use tauri_plugin_dialog::DialogExt;
+    use tokio::sync::oneshot;
 
     let mut dialog = app.dialog().file();
     if let Some(filename) = default_filename {
         dialog = dialog.set_file_name(&filename);
     }
-    Ok(dialog.blocking_save_file().map(|path| path.to_string()))
+
+    let (tx, rx) = oneshot::channel();
+    dialog.save_file(move |path| {
+        let _ = tx.send(path.map(|p| p.to_string()));
+    });
+
+    rx.await.map_err(|_| KopiaError::Cancelled {
+        operation: "file save".to_string(),
+    })
 }
 
 /// Configure dialog with optional default path

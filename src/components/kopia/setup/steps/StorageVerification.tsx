@@ -45,15 +45,24 @@ export function StorageVerification({
         // This starts the server so we can check if storage has existing repo
         repoId = await addRepository();
         setRepoIdToUse(repoId);
-
-        // Wait for server to be ready
-        await startKopiaServer(repoId);
-        // Small delay to ensure server is fully initialized
-        await new Promise((resolve) => setTimeout(resolve, 500));
       } else {
         // For existing repos, use current repo ID or fall back to 'repository' (default)
         repoId = currentRepoId || 'repository';
         setRepoIdToUse(repoId);
+      }
+
+      // Ensure server is running for the repo (handles both new and existing cases)
+      // startKopiaServer will return early if already running
+      try {
+        await startKopiaServer(repoId);
+        // Small delay to ensure server is fully initialized
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      } catch (serverErr) {
+        // If server is already running, that's fine - continue with the check
+        const errorMsg = String(serverErr);
+        if (!errorMsg.includes('SERVER_ALREADY_RUNNING') && !errorMsg.includes('already running')) {
+          throw serverErr;
+        }
       }
 
       const exists = await repositoryExists(repoId, storageConfig);
