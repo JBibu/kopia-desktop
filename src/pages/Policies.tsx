@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
-import { useKopiaStore } from '@/stores';
+import { usePolicies } from '@/hooks';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -32,7 +32,6 @@ import {
   FolderTree,
   AlertCircle,
   Info,
-  Plus,
   Edit,
 } from 'lucide-react';
 import type { PolicyResponse } from '@/lib/kopia';
@@ -40,10 +39,7 @@ import type { PolicyResponse } from '@/lib/kopia';
 export function Policies() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const policies = useKopiaStore((state) => state.policies);
-  const isLoading = useKopiaStore((state) => state.isPoliciesLoading);
-  const error = useKopiaStore((state) => state.policiesError);
-  const fetchPolicies = useKopiaStore((state) => state.refreshPolicies);
+  const { policies, isLoading, error, refresh: fetchPolicies } = usePolicies();
   const [selectedTab, setSelectedTab] = useState('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -124,10 +120,6 @@ export function Policies() {
     if (policyResponse.target.host) params.set('host', policyResponse.target.host);
     if (policyResponse.target.path) params.set('path', policyResponse.target.path);
     void navigate(`/policies/edit?${params.toString()}`);
-  };
-
-  const handleCreateGlobalPolicy = () => {
-    void navigate('/policies/edit');
   };
 
   const PolicyCard = ({ policyResponse }: { policyResponse: PolicyResponse }) => {
@@ -295,10 +287,6 @@ export function Policies() {
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
             {t('common.refresh')}
-          </Button>
-          <Button size="sm" onClick={handleCreateGlobalPolicy}>
-            <Plus className="h-4 w-4 mr-2" />
-            {t('policies.createPolicy')}
           </Button>
         </div>
       </div>

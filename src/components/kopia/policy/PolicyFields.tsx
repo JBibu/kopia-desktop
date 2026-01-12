@@ -5,8 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Trash2 } from 'lucide-react';
-import { toast } from 'sonner';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Trash2, Plus } from 'lucide-react';
 import type { TimeOfDay } from '@/lib/kopia';
 
 // ============================================================================
@@ -26,15 +32,6 @@ interface PolicyFieldProps {
 
 function timeOfDayToString(tod: TimeOfDay): string {
   return `${tod.hour.toString().padStart(2, '0')}:${tod.min.toString().padStart(2, '0')}`;
-}
-
-function stringToTimeOfDay(str: string): TimeOfDay | null {
-  const match = str.match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) return null;
-  const hour = parseInt(match[1], 10);
-  const min = parseInt(match[2], 10);
-  if (hour < 0 || hour > 23 || min < 0 || min > 59) return null;
-  return { hour, min };
 }
 
 // ============================================================================
@@ -257,29 +254,36 @@ interface PolicyTimeOfDayFieldProps extends Omit<PolicyFieldProps, 'effectiveVal
   effectiveValue?: TimeOfDay[];
 }
 
+// Generate hour options (00-23)
+const HOURS = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+// Generate minute options (00, 05, 10, ..., 55) - 5-minute increments for usability
+const MINUTES = Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, '0'));
+
 export function PolicyTimeOfDayField({
   label,
   value,
   onChange,
   isDefined,
   effectiveValue,
-  placeholder,
   help,
 }: PolicyTimeOfDayFieldProps) {
   const { t } = useTranslation();
-  const [inputValue, setInputValue] = useState('');
+  const [selectedHour, setSelectedHour] = useState<string>('09');
+  const [selectedMinute, setSelectedMinute] = useState<string>('00');
 
   const handleAdd = () => {
-    const trimmed = inputValue.trim();
-    if (!trimmed) return;
-    const tod = stringToTimeOfDay(trimmed);
-    if (!tod) {
-      toast.error(t('policies.invalidTimeFormat'));
-      return;
-    }
-    const newValue = [...(value || []), tod];
+    const newTime: TimeOfDay = {
+      hour: parseInt(selectedHour, 10),
+      min: parseInt(selectedMinute, 10),
+    };
+    // Check if this time already exists
+    const exists = value?.some((v) => v.hour === newTime.hour && v.min === newTime.min);
+    if (exists) return;
+
+    const newValue = [...(value || []), newTime];
+    // Sort by time
+    newValue.sort((a, b) => a.hour * 60 + a.min - (b.hour * 60 + b.min));
     onChange(newValue);
-    setInputValue('');
   };
 
   const handleRemove = (index: number) => {
@@ -304,29 +308,43 @@ export function PolicyTimeOfDayField({
           </span>
         )}
       </div>
-      <div className="flex gap-2">
-        <Input
-          type="text"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          placeholder={placeholder}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              handleAdd();
-            }
-          }}
-        />
+      <div className="flex items-center gap-2">
+        <Select value={selectedHour} onValueChange={setSelectedHour}>
+          <SelectTrigger className="w-20">
+            <SelectValue placeholder="HH" />
+          </SelectTrigger>
+          <SelectContent>
+            {HOURS.map((hour) => (
+              <SelectItem key={hour} value={hour}>
+                {hour}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span className="text-lg font-medium">:</span>
+        <Select value={selectedMinute} onValueChange={setSelectedMinute}>
+          <SelectTrigger className="w-20">
+            <SelectValue placeholder="MM" />
+          </SelectTrigger>
+          <SelectContent>
+            {MINUTES.map((minute) => (
+              <SelectItem key={minute} value={minute}>
+                {minute}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Button type="button" size="sm" onClick={handleAdd}>
+          <Plus className="h-4 w-4 mr-1" />
           {t('common.add')}
         </Button>
       </div>
       {value && value.length > 0 && (
-        <div className="space-y-1">
+        <div className="flex flex-wrap gap-2">
           {value.map((item, idx) => (
             <div
               key={idx}
-              className="flex items-center justify-between p-2 text-sm bg-muted rounded"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-muted rounded-full"
             >
               <code className="font-mono">{timeOfDayToString(item)}</code>
               <Button
@@ -334,7 +352,7 @@ export function PolicyTimeOfDayField({
                 variant="ghost"
                 size="sm"
                 onClick={() => handleRemove(idx)}
-                className="h-6 w-6 p-0"
+                className="h-5 w-5 p-0 hover:bg-destructive/20 rounded-full"
               >
                 <Trash2 className="h-3 w-3" />
               </Button>
@@ -378,18 +396,19 @@ export function PolicySelectField({
           </span>
         )}
       </div>
-      <select
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value || undefined)}
-        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        <option value="">{t('policies.notSet')}</option>
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
+      <Select value={value ?? ''} onValueChange={(v) => onChange(v || undefined)}>
+        <SelectTrigger>
+          <SelectValue placeholder={t('policies.notSet')} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="">{t('policies.notSet')}</SelectItem>
+          {options.map((opt) => (
+            <SelectItem key={opt.value} value={opt.value}>
+              {opt.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       {help && <p className="text-xs text-muted-foreground">{help}</p>}
     </div>
   );

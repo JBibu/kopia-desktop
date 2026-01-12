@@ -858,8 +858,8 @@ pub struct CounterValue {
     pub level: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
 pub struct TasksSummary {
     pub running: i64,
     pub success: i64,
