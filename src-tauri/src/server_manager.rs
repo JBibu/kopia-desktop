@@ -41,19 +41,21 @@ pub trait MutexRecoveryExt<T> {
 
 impl<T> MutexRecoveryExt<T> for Mutex<T> {
     fn lock_or_recover(&self) -> MutexGuard<'_, T> {
-        self.lock().unwrap_or_else(|poisoned: PoisonError<MutexGuard<'_, T>>| {
-            log::warn!("Mutex poisoned, recovering...");
-            poisoned.into_inner()
-        })
+        self.lock()
+            .unwrap_or_else(|poisoned: PoisonError<MutexGuard<'_, T>>| {
+                log::warn!("Mutex poisoned, recovering...");
+                poisoned.into_inner()
+            })
     }
 }
 
 impl<T> MutexRecoveryExt<T> for Arc<Mutex<T>> {
     fn lock_or_recover(&self) -> MutexGuard<'_, T> {
-        self.lock().unwrap_or_else(|poisoned: PoisonError<MutexGuard<'_, T>>| {
-            log::warn!("Mutex poisoned, recovering...");
-            poisoned.into_inner()
-        })
+        self.lock()
+            .unwrap_or_else(|poisoned: PoisonError<MutexGuard<'_, T>>| {
+                log::warn!("Mutex poisoned, recovering...");
+                poisoned.into_inner()
+            })
     }
 }
 
