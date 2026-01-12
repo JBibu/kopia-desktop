@@ -5,6 +5,7 @@
 import { Fragment, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { useTasks, useSnapshots } from '@/hooks';
 import { useKopiaStore } from '@/stores';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -54,15 +55,10 @@ export function Tasks() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const locale = usePreferencesStore((state) => state.getLocale());
-  const tasks = useKopiaStore((state) => state.tasks);
-  const summary = useKopiaStore((state) => state.tasksSummary);
-  const isLoading = useKopiaStore((state) => state.isTasksLoading);
-  const error = useKopiaStore((state) => state.tasksError);
+  const { tasks, summary, isLoading, error, cancelTask, getTask } = useTasks();
+  const { sources: sourcesResponse } = useSnapshots();
   const isWebSocketConnected = useKopiaStore((state) => state.isWebSocketConnected);
-  const cancelTask = useKopiaStore((state) => state.cancelTask);
-  const getTask = useKopiaStore((state) => state.getTask);
   const refreshAll = useKopiaStore((state) => state.refreshAll);
-  const sourcesResponse = useKopiaStore((state) => state.sourcesResponse);
   const sources = sourcesResponse?.sources || [];
 
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);

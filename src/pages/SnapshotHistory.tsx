@@ -54,7 +54,7 @@ import { getErrorMessage } from '@/lib/kopia';
 import { formatBytes, formatDateTime } from '@/lib/utils';
 import { logger } from '@/lib/utils/logger';
 import { usePreferencesStore } from '@/stores';
-import { useKopiaStore } from '@/stores';
+import { useSnapshots } from '@/hooks';
 import { navigateToSnapshotBrowse, navigateToSnapshotRestore } from '@/lib/utils/navigation';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PinDialog, RetentionTags, DescriptionDialog } from '@/components/kopia/snapshots';
@@ -71,11 +71,13 @@ export function SnapshotHistory() {
   const path = searchParams.get('path') || '';
 
   // Use store for snapshot operations
-  const fetchSnapshotsForSource = useKopiaStore((state) => state.fetchSnapshotsForSource);
-  const storeCreateSnapshot = useKopiaStore((state) => state.createSnapshot);
-  const storeDeleteSnapshots = useKopiaStore((state) => state.deleteSnapshots);
-  const isSnapshotsLoading = useKopiaStore((state) => state.isSnapshotsLoading);
-  const snapshotsError = useKopiaStore((state) => state.snapshotsError);
+  const {
+    fetchSnapshotsForSource,
+    createSnapshot: storeCreateSnapshot,
+    deleteSnapshots: storeDeleteSnapshots,
+    isLoading: isSnapshotsLoading,
+    error: snapshotsError,
+  } = useSnapshots();
 
   // Local state for this page
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);

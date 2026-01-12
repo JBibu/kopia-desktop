@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { useKopiaStore } from '@/stores';
+import { useSnapshots } from '@/hooks';
 import { useProfilesStore } from '@/stores';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -74,13 +74,15 @@ export function Snapshots() {
   const toggleProfilePin = useProfilesStore((state) => state.togglePin);
   const reorderProfiles = useProfilesStore((state) => state.reorderProfiles);
 
-  const sourcesResponse = useKopiaStore((state) => state.sourcesResponse);
+  const {
+    snapshots,
+    sources: sourcesResponse,
+    isLoading: isSourcesLoading,
+    refresh: refreshSnapshots,
+    refreshSources,
+    createSnapshot,
+  } = useSnapshots();
   const sources = sourcesResponse?.sources || [];
-  const snapshots = useKopiaStore((state) => state.snapshots);
-  const isSourcesLoading = useKopiaStore((state) => state.isSnapshotsLoading);
-  const refreshSources = useKopiaStore((state) => state.refreshSources);
-  const refreshSnapshots = useKopiaStore((state) => state.refreshSnapshots);
-  const createSnapshot = useKopiaStore((state) => state.createSnapshot);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);

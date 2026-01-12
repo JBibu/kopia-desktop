@@ -71,7 +71,26 @@ const DEFAULT_REPO_ID = 'repository';
 type StoreGet = () => KopiaStore;
 type StoreSet = (partial: Partial<KopiaStore>) => void;
 
-/** Helper to run action only if a repository is selected, returning early otherwise */
+/**
+ * Execute an async action only if a repository is currently selected.
+ *
+ * Use this helper for store actions that should gracefully skip when no repository
+ * is selected (e.g., refresh operations during polling).
+ *
+ * @param get - Store getter function
+ * @param fn - Async function to execute with the current repository ID
+ * @returns The result of fn, or undefined if no repository is selected
+ *
+ * @example
+ * ```ts
+ * refreshSnapshots: async () => {
+ *   await withRepoId(get, async (repoId) => {
+ *     const snapshots = await listSnapshots(repoId);
+ *     set({ snapshots });
+ *   });
+ * }
+ * ```
+ */
 async function withRepoId<T>(
   get: StoreGet,
   fn: (repoId: string) => Promise<T>
@@ -81,14 +100,53 @@ async function withRepoId<T>(
   return fn(currentRepoId);
 }
 
-/** Helper to get repo ID or throw if not selected */
+/**
+ * Get the current repository ID or throw an error if none is selected.
+ *
+ * Use this helper for store actions that require a repository to be selected
+ * and should fail explicitly if one isn't (e.g., create/delete operations).
+ *
+ * @param get - Store getter function
+ * @returns The current repository ID
+ * @throws Error if no repository is selected
+ *
+ * @example
+ * ```ts
+ * createSnapshot: async (path: string) => {
+ *   const repoId = requireRepoId(get);
+ *   await apiCreateSnapshot(repoId, path);
+ * }
+ * ```
+ */
 function requireRepoId(get: StoreGet): string {
   const { currentRepoId } = get();
   if (!currentRepoId) throw new Error('No repository selected');
   return currentRepoId;
 }
 
-/** Helper for refresh actions: handles error deduplication pattern */
+/**
+ * Update an error state only if the message has changed.
+ *
+ * This helper prevents redundant state updates during polling, which would
+ * cause unnecessary re-renders. Used in refresh operations to deduplicate
+ * repeated error messages.
+ *
+ * @param get - Store getter function
+ * @param set - Store setter function
+ * @param errorKey - The error state key to update
+ * @param message - The new error message
+ *
+ * @example
+ * ```ts
+ * refreshSnapshots: async () => {
+ *   try {
+ *     // ... fetch logic
+ *   } catch (error) {
+ *     setErrorIfChanged(get, set, 'snapshotsError', getErrorMessage(error));
+ *   }
+ * }
+ * ```
+ */
 function setErrorIfChanged(
   get: StoreGet,
   set: StoreSet,
@@ -800,8 +858,11 @@ export const useKopiaStore = create<KopiaStore>()(
         try {
           const summary = await getTasksSummary(repoId);
           set({ tasksSummary: summary });
-        } catch {
-          // Silently fail for summary - not critical
+        } catch (error) {
+          // Log in dev mode but don't update error state - summary is not critical
+          if (import.meta.env.DEV) {
+            console.warn('Failed to fetch tasks summary:', error);
+          }
         }
       });
     },

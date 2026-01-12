@@ -4,7 +4,7 @@
  */
 
 import { useTranslation } from 'react-i18next';
-import { useKopiaStore } from '@/stores';
+import { useTasks, useRepositoryStatus } from '@/hooks';
 import { Activity, CheckCircle2, AlertCircle, Pause, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
@@ -20,9 +20,8 @@ interface StatusConfig {
 
 export function StatusIndicator() {
   const { t } = useTranslation();
-  const tasks = useKopiaStore((state) => state.tasks);
-  const summary = useKopiaStore((state) => state.tasksSummary);
-  const isConnected = useKopiaStore((state) => state.isRepoConnected());
+  const { tasks, summary } = useTasks();
+  const { isConnected } = useRepositoryStatus();
 
   // Determine current status based on tasks and repository state
   const getCurrentStatus = (): Status => {

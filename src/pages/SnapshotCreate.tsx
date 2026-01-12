@@ -11,7 +11,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { useKopiaStore } from '@/stores';
+import { useSnapshots, usePolicies } from '@/hooks';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,8 +37,8 @@ import { useCurrentRepoId } from '@/hooks';
 export function SnapshotCreate() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const createSnapshot = useKopiaStore((state) => state.createSnapshot);
-  const getPolicy = useKopiaStore((state) => state.getPolicy);
+  const { createSnapshot } = useSnapshots();
+  const { getPolicy } = usePolicies();
   const currentRepoId = useCurrentRepoId();
 
   // Loading states

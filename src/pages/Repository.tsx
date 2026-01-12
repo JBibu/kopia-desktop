@@ -5,6 +5,7 @@
 import { useEffect, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { useRepositoryStatus, useTasks } from '@/hooks';
 import { useKopiaStore } from '@/stores';
 import { updateRepositoryDescription } from '@/lib/kopia';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,13 +21,15 @@ import { getErrorMessage } from '@/lib/kopia';
 export function Repository() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const status = useKopiaStore((state) => state.repositoryStatus);
-  const isLoading = useKopiaStore((state) => state.isRepositoryLoading);
-  const isConnected = useKopiaStore((state) => state.isRepoConnected());
-  const isInitializing = useKopiaStore((state) => state.isRepoInitializing());
-  const disconnect = useKopiaStore((state) => state.disconnectRepo);
-  const refreshRepositoryStatus = useKopiaStore((state) => state.refreshRepositoryStatus);
-  const cancelTask = useKopiaStore((state) => state.cancelTask);
+  const {
+    status,
+    isLoading,
+    isConnected,
+    isInitializing,
+    disconnect,
+    refresh: refreshRepositoryStatus,
+  } = useRepositoryStatus();
+  const { cancelTask } = useTasks();
   const currentRepoId = useKopiaStore((state) => state.currentRepoId);
 
   const [isEditingDescription, setIsEditingDescription] = useState(false);

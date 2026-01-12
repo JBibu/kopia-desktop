@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, CheckCircle2, AlertCircle, ArrowLeft } from 'lucide-react';
 import { repositoryExists, addRepository, startKopiaServer } from '@/lib/kopia';
-import { getErrorMessage } from '@/lib/kopia';
+import { getErrorMessage, parseKopiaError, KopiaErrorCode } from '@/lib/kopia';
 import type { StorageConfig } from '@/lib/kopia';
 import { useCurrentRepoId } from '@/hooks';
 
@@ -59,8 +59,8 @@ export function StorageVerification({
         await new Promise((resolve) => setTimeout(resolve, 500));
       } catch (serverErr) {
         // If server is already running, that's fine - continue with the check
-        const errorMsg = String(serverErr);
-        if (!errorMsg.includes('SERVER_ALREADY_RUNNING') && !errorMsg.includes('already running')) {
+        const kopiaError = parseKopiaError(serverErr);
+        if (!kopiaError.is(KopiaErrorCode.SERVER_ALREADY_RUNNING)) {
           throw serverErr;
         }
       }

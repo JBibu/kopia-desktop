@@ -31,7 +31,7 @@ import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia';
 import { formatDateTime, formatBytes } from '@/lib/utils';
 import { usePreferencesStore } from '@/stores';
-import { useKopiaStore } from '@/stores';
+import { useTasks } from '@/hooks';
 
 export function TaskDetail() {
   const { taskId } = useParams<{ taskId: string }>();
@@ -40,8 +40,7 @@ export function TaskDetail() {
   const byteFormat = usePreferencesStore((state) => state.byteFormat);
 
   // Use store methods which handle repoId internally
-  const getTask = useKopiaStore((state) => state.getTask);
-  const cancelTaskAction = useKopiaStore((state) => state.cancelTask);
+  const { getTask, cancelTask: cancelTaskAction } = useTasks();
 
   const [task, setTask] = useState<TaskDetailType | null>(null);
   const [isLoading, setIsLoading] = useState(true);

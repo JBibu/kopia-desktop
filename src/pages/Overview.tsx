@@ -5,7 +5,7 @@
 import { useEffect, useRef, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { useKopiaStore } from '@/stores';
+import { useServerStatus, useRepositoryStatus, useSnapshots, useTasks } from '@/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -64,20 +64,21 @@ export function Overview() {
   const navigate = useNavigate();
   const locale = usePreferencesStore((state) => state.getLocale());
   const byteFormat = usePreferencesStore((state) => state.byteFormat);
-  const serverStatus = useKopiaStore((state) => state.serverStatus);
-  const serverLoading = useKopiaStore((state) => state.isServerLoading);
-  const startServer = useKopiaStore((state) => state.startServer);
-  const repoStatus = useKopiaStore((state) => state.repositoryStatus);
-  const repoLoading = useKopiaStore((state) => state.isRepositoryLoading);
-  const snapshots = useKopiaStore((state) => state.snapshots);
-  const snapshotsLoading = useKopiaStore((state) => state.isSnapshotsLoading);
-  const tasks = useKopiaStore((state) => state.tasks);
-  const tasksSummary = useKopiaStore((state) => state.tasksSummary);
+  const {
+    status: serverStatus,
+    isLoading: serverLoading,
+    start: startServer,
+    isRunning: isServerRunning,
+  } = useServerStatus();
+  const {
+    status: repoStatus,
+    isLoading: repoLoading,
+    isConnected: isRepoConnected,
+  } = useRepositoryStatus();
+  const { snapshots, isLoading: snapshotsLoading } = useSnapshots();
+  const { tasks, summary: tasksSummary } = useTasks();
   const hasTriedToStart = useRef(false);
   const [timeRange, setTimeRange] = useState<7 | 14 | 30 | 60>(7);
-
-  const isServerRunning = serverStatus?.running ?? false;
-  const isRepoConnected = repoStatus?.connected ?? false;
 
   // Auto-start server if not running (only try once)
   useEffect(() => {

@@ -61,8 +61,7 @@ import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia';
 import { formatBytes, formatDateTime } from '@/lib/utils';
 import { usePreferencesStore } from '@/stores';
-import { useKopiaStore } from '@/stores';
-import { useCurrentRepoId } from '@/hooks';
+import { useCurrentRepoId, useMounts } from '@/hooks';
 
 export function SnapshotBrowse() {
   const { t } = useTranslation();
@@ -70,10 +69,12 @@ export function SnapshotBrowse() {
   const [searchParams, setSearchParams] = useSearchParams();
   const locale = usePreferencesStore((state) => state.getLocale());
   const byteFormat = usePreferencesStore((state) => state.byteFormat);
-  const getMountForObject = useKopiaStore((state) => state.getMountForObject);
-  const mountSnapshot = useKopiaStore((state) => state.mountSnapshot);
-  const unmountSnapshot = useKopiaStore((state) => state.unmountSnapshot);
-  const isMountLoading = useKopiaStore((state) => state.isMountsLoading);
+  const {
+    getMountForObject,
+    mount: mountSnapshot,
+    unmount: unmountSnapshot,
+    isLoading: isMountLoading,
+  } = useMounts();
   const currentRepoId = useCurrentRepoId();
 
   const snapshotId = searchParams.get('snapshotId') || '';

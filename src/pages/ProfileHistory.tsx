@@ -34,9 +34,9 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatBytes, formatDateTime } from '@/lib/utils';
-import { useKopiaStore } from '@/stores';
 import { useProfilesStore } from '@/stores';
 import { usePreferencesStore } from '@/stores';
+import { useSnapshots } from '@/hooks';
 import { navigateToSnapshotBrowse, navigateToSnapshotRestore } from '@/lib/utils/navigation';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PinDialog, RetentionTags } from '@/components/kopia/snapshots';
@@ -49,11 +49,13 @@ export function ProfileHistory() {
   const byteFormat = usePreferencesStore((state) => state.byteFormat);
 
   const profile = useProfilesStore((state) => state.profiles.find((p) => p.id === profileId));
-  const refreshSnapshots = useKopiaStore((state) => state.refreshSnapshots);
-  const refreshSources = useKopiaStore((state) => state.refreshSources);
-  const isSnapshotsLoading = useKopiaStore((state) => state.isSnapshotsLoading);
-  const snapshotsError = useKopiaStore((state) => state.snapshotsError);
-  const storeSnapshots = useKopiaStore((state) => state.snapshots);
+  const {
+    snapshots: storeSnapshots,
+    isLoading: isSnapshotsLoading,
+    error: snapshotsError,
+    refresh: refreshSnapshots,
+    refreshSources,
+  } = useSnapshots();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);

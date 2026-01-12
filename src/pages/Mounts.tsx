@@ -7,7 +7,7 @@
 
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
-import { useKopiaStore } from '@/stores';
+import { useMounts } from '@/hooks';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -29,10 +29,7 @@ import { getErrorMessage } from '@/lib/kopia';
 export function Mounts() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const mounts = useKopiaStore((state) => state.mounts);
-  const isLoading = useKopiaStore((state) => state.isMountsLoading);
-  const error = useKopiaStore((state) => state.mountsError);
-  const unmountSnapshot = useKopiaStore((state) => state.unmountSnapshot);
+  const { mounts, isLoading, error, unmount: unmountSnapshot } = useMounts();
 
   const handleCopyPath = (path: string) => {
     void navigator.clipboard.writeText(path);

@@ -30,10 +30,9 @@ import type { RestoreRequest } from '@/lib/kopia';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia';
 import { formatBytes } from '@/lib/utils';
-import { useKopiaStore } from '@/stores';
 import { usePreferencesStore } from '@/stores';
 import { navigateBack } from '@/lib/utils/navigation';
-import { useCurrentRepoId } from '@/hooks';
+import { useCurrentRepoId, useTasks } from '@/hooks';
 
 type RestoreMode = 'filesystem' | 'zip' | 'tar';
 
@@ -75,7 +74,7 @@ export function SnapshotRestore() {
   const [estimatedSize, setEstimatedSize] = useState<number>(0);
 
   // Get tasks from store to show restore progress
-  const tasks = useKopiaStore((state) => state.tasks);
+  const { tasks } = useTasks();
 
   // Fetch entry info to display what we're restoring
   useEffect(() => {
