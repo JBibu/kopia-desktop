@@ -196,12 +196,6 @@ impl ServerManager {
         }
     }
 
-    /// Get server reference for a repository (for command routing)
-    #[allow(dead_code)]
-    pub fn get_server(&self, repo_id: &str) -> Option<Arc<Mutex<KopiaServer>>> {
-        self.servers.get(repo_id).cloned()
-    }
-
     /// Get server status for a specific repository
     pub fn get_server_status(&mut self, repo_id: &str) -> Result<KopiaServerStatus> {
         let server = self
@@ -320,14 +314,8 @@ impl ServerManager {
             .to_string()
     }
 
-    /// Get the config directory
-    #[allow(dead_code)]
-    pub fn get_config_dir(&self) -> &str {
-        &self.config_dir
-    }
-
     /// Check if a repository exists (has a config file)
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn repository_exists(&self, repo_id: &str) -> bool {
         PathBuf::from(self.get_config_file_path(repo_id)).exists()
     }
@@ -345,14 +333,6 @@ impl ServerManager {
             let mut server_guard = server.lock().unwrap();
             server_guard.status().server_url
         })
-    }
-
-    /// Get server info for a repository
-    #[allow(dead_code)]
-    pub fn get_server_info(&self, repo_id: &str) -> Option<KopiaServerInfo> {
-        self.servers
-            .get(repo_id)
-            .and_then(|server| server.lock().unwrap().get_info())
     }
 
     /// Get ready waiter for a repository (for waiting after start)
