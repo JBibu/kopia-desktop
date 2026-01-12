@@ -80,6 +80,22 @@ export interface RepositoryCreateRequest {
     username?: string;
     hostname?: string;
     readonly?: boolean;
+    /** Allow loading from cache even if it may be stale */
+    permissiveCacheLoading?: boolean;
+    /** Enable actions (scripts) defined in policies */
+    enableActions?: boolean;
+    /** Duration in nanoseconds for format blob cache */
+    formatBlobCacheDuration?: number;
+    /** Throttling limits for repository operations */
+    throttlingLimits?: {
+      readsPerSecond?: number;
+      writesPerSecond?: number;
+      listsPerSecond?: number;
+      maxUploadSpeedBytesPerSecond?: number;
+      maxDownloadSpeedBytesPerSecond?: number;
+      concurrentReads?: number;
+      concurrentWrites?: number;
+    };
   };
   /** Time in seconds to wait for repository sync after creation */
   syncWaitTime?: number;
@@ -930,6 +946,22 @@ export interface RepositoryConnectRequest {
     username?: string;
     hostname?: string;
     readonly?: boolean;
+    /** Allow loading from cache even if it may be stale */
+    permissiveCacheLoading?: boolean;
+    /** Enable actions (scripts) defined in policies */
+    enableActions?: boolean;
+    /** Duration in nanoseconds for format blob cache */
+    formatBlobCacheDuration?: number;
+    /** Throttling limits for repository operations */
+    throttlingLimits?: {
+      readsPerSecond?: number;
+      writesPerSecond?: number;
+      listsPerSecond?: number;
+      maxUploadSpeedBytesPerSecond?: number;
+      maxDownloadSpeedBytesPerSecond?: number;
+      concurrentReads?: number;
+      concurrentWrites?: number;
+    };
   };
   /** Time in seconds to wait for repository sync after connection */
   syncWaitTime?: number;

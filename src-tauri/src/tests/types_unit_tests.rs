@@ -52,6 +52,7 @@ mod tests {
             username: Some("user".to_string()),
             hostname: Some("host".to_string()),
             readonly: Some(true),
+            ..Default::default()
         };
 
         let cloned = options.clone();

@@ -41,6 +41,7 @@ mod tests {
             username: Some("custom-user".to_string()),
             hostname: Some("custom-host".to_string()),
             readonly: Some(true),
+            ..Default::default()
         };
 
         let json = serde_json::to_string(&options).unwrap();
@@ -73,6 +74,7 @@ mod tests {
             username: None,
             hostname: Some("host".to_string()),
             readonly: None,
+            ..Default::default()
         };
 
         let json = serde_json::to_string(&options).unwrap();
@@ -97,6 +99,7 @@ mod tests {
                 username: None,
                 hostname: None,
                 readonly: Some(false),
+                ..Default::default()
             }),
             sync_wait_time: None,
         };
@@ -261,6 +264,7 @@ mod tests {
                 username: Some("user".to_string()),
                 hostname: Some("host".to_string()),
                 readonly: Some(true),
+                ..Default::default()
             }),
             sync_wait_time: None,
         };
@@ -320,6 +324,7 @@ mod tests {
                 username: None,
                 hostname: None,
                 readonly,
+                ..Default::default()
             };
 
             let json = serde_json::to_string(&options).unwrap();

@@ -153,13 +153,35 @@ pub struct RepositoryCreateRequest {
     pub sync_wait_time: Option<i32>,
 }
 
+/// Client options for repository connection/creation
+/// See: repo/local_config.go (ClientOptions)
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClientOptions {
+    /// Human-readable description of the repository
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// Username for the repository client
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub username: Option<String>,
+    /// Hostname for the repository client
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub hostname: Option<String>,
+    /// Whether to open repository in read-only mode
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub readonly: Option<bool>,
+    /// Allow loading from cache even if it may be stale
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permissive_cache_loading: Option<bool>,
+    /// Enable actions (scripts) defined in policies
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enable_actions: Option<bool>,
+    /// Duration in nanoseconds for format blob cache
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub format_blob_cache_duration: Option<i64>,
+    /// Throttling limits for repository operations
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub throttling_limits: Option<ThrottleLimits>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
