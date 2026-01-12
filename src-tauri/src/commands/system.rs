@@ -3,7 +3,6 @@
 //! Provides system-level utility commands for file/folder selection, system information,
 //! and user detection.
 
-use super::lock_server;
 use crate::error::{HttpResultExt, KopiaError, Result};
 use crate::kopia_server::KopiaServerState;
 use serde::{Deserialize, Serialize};

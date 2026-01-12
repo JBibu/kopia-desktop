@@ -17,8 +17,6 @@ macro_rules! lock_server {
     };
 }
 
-pub(crate) use lock_server;
-
 pub mod kopia;
 pub mod system;
 pub mod websocket;
