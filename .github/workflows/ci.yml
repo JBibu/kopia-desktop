@@ -76,6 +76,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          # Include deps action hash to invalidate cache when system deps change
+          shared-key: ubuntu-deps-${{ hashFiles('.github/actions/setup-ubuntu-deps/action.yml') }}
 
       - name: Verify pkg-config files
         run: |
