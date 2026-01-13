@@ -8,7 +8,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router';
-import { listen } from '@tauri-apps/api/event';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -122,29 +121,6 @@ export function SnapshotHistory() {
     void fetchSnapshots();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userName, host, path, showAllSnapshots]);
-
-  // Listen for WebSocket events to auto-refresh
-  useEffect(() => {
-    const setupListener = async () => {
-      const unlisten = await listen('kopia-ws-event', (event) => {
-        const data = event.payload as { type?: string };
-
-        // Refresh snapshots when snapshot-related events occur
-        if (data.type === 'snapshot-progress' || data.type === 'task-progress') {
-          void fetchSnapshots();
-        }
-      });
-
-      return unlisten;
-    };
-
-    const listenerPromise = setupListener();
-
-    return () => {
-      void listenerPromise.then((unlisten) => unlisten());
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userName, host, path]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);

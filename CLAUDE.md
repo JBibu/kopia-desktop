@@ -45,7 +45,6 @@ pnpm test:e2e         # Run E2E tests with Playwright
 - Tauri 2.9 (Rust) with tray-icon feature
 - reqwest 0.11 (HTTP client for Kopia API)
 - tokio 1.x (async runtime)
-- tokio-tungstenite 0.24 (WebSocket client)
 - serde/serde_json (serialization)
 - hostname, base64, urlencoding, thiserror, rand
 - Tauri plugins: shell, notification, dialog
@@ -72,7 +71,7 @@ pnpm test:e2e         # Run E2E tests with Playwright
 
 ```
 React UI (Frontend)
-    ↓ HTTP REST API + WebSocket
+    ↓ HTTP REST API
 Tauri Backend (Rust)
     ↓ spawns
 Kopia Server (localhost:random-port)
@@ -85,15 +84,15 @@ Repositories / Snapshots / Storage
 - Kopia binary bundled with app (platform-specific, auto-downloaded)
 - Backend spawns `kopia server start --ui` on launch
 - Localhost-only, TLS with self-signed cert, random password per session
-- WebSocket for real-time updates + polling for reliability
+- Polling-based updates (matches official Kopia)
 - Server shuts down gracefully on app exit
 
 **State Management:**
 
 Centralized Zustand store ([src/stores/kopia.ts](src/stores/kopia.ts)):
 
-- **Polling intervals:** Server/Repository (30s), Tasks/Sources (5s)
-- **Hybrid approach:** WebSocket (instant updates) + polling (reliable state)
+- **Polling intervals:** Server/Repository (30s), Tasks (5s), Sources (3s)
+- **Polling-only approach:** Matches official Kopia, simple and reliable
 - **Benefits:** Eliminates redundant API calls, single polling loop, consistent state
 - **Stores:** kopia.ts (main), preferences.ts (theme, language, fontSize), profiles.ts (backup profiles)
 - **Hooks:** Thin wrappers around store selectors (useIsMobile, useProviderConfig)
@@ -132,10 +131,8 @@ kopia-desktop/
 │   │   ├── commands/
 │   │   │   ├── kopia.rs           # 41 Kopia commands
 │   │   │   ├── system.rs          # 4 system commands
-│   │   │   ├── websocket.rs       # 2 WebSocket commands
 │   │   │   └── windows_service.rs # 5 Windows service commands
 │   │   ├── kopia_server.rs        # Server lifecycle & HTTP client
-│   │   ├── kopia_websocket.rs     # WebSocket client
 │   │   ├── types.rs               # Rust types
 │   │   ├── error.rs               # Error handling
 │   │   └── lib.rs, main.rs
@@ -189,7 +186,7 @@ export function useSnapshots() {
 
 ---
 
-## Tauri Commands (55 total)
+## Tauri Commands (53 total)
 
 **Server (3):** start, stop, status
 **Repository (11):** status, connect, disconnect, create, exists, sync, get_algorithms, update_description, get_throttle, set_throttle
@@ -202,7 +199,6 @@ export function useSnapshots() {
 **Utilities (2):** path_resolve, estimate_snapshot
 **Notifications (4):** profiles list/create/delete/test
 **System (4):** get_system_info, get_current_user, select_folder, save_file
-**WebSocket (2):** websocket_connect, websocket_disconnect
 **Windows Service (5):** install, uninstall, start, stop, status
 
 ---
@@ -262,8 +258,8 @@ Kopia Desktop maintains **API parity** with official Kopia while providing enhan
    - `NOT_CONNECTED`, `NOT_FOUND`, `NOT_INITIALIZED`
    - `PATH_NOT_FOUND`, `STORAGE_CONNECTION`, `ACCESS_DENIED`
 
-2. **Extended Desktop Errors** (70+ codes for application-specific scenarios):
-   - Server lifecycle, WebSocket, Notifications, etc.
+2. **Extended Desktop Errors** (66 codes for application-specific scenarios):
+   - Server lifecycle, Notifications, File I/O, etc.
    - Mapped from official codes (see `API_ERROR_CODE_MAPPING` in errors.ts)
 
 **Error Flow:**

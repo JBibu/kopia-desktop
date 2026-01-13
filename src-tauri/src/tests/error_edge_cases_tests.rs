@@ -215,8 +215,6 @@ mod tests {
             KopiaError::RepositoryNotConnected {
                 api_error_code: None,
             },
-            KopiaError::WebSocketAlreadyConnected,
-            KopiaError::WebSocketNotConnected,
         ];
 
         for error in simple_errors {
@@ -266,7 +264,6 @@ mod tests {
             KopiaError::RepositoryNotConnected {
                 api_error_code: None,
             },
-            KopiaError::WebSocketNotConnected,
             KopiaError::InvalidInput {
                 message: "x".to_string(),
                 field: None,

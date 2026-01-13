@@ -233,25 +233,6 @@ pub enum KopiaError {
     },
 
     // ============================================================================
-    // WebSocket Errors
-    // ============================================================================
-    /// WebSocket connection failed
-    #[error("WebSocket connection failed: {message}")]
-    WebSocketConnectionFailed { message: String },
-
-    /// WebSocket already connected
-    #[error("WebSocket is already connected")]
-    WebSocketAlreadyConnected,
-
-    /// WebSocket not connected
-    #[error("WebSocket is not connected")]
-    WebSocketNotConnected,
-
-    /// WebSocket message parsing failed
-    #[error("Failed to parse WebSocket message: {message}")]
-    WebSocketMessageParseFailed { message: String },
-
-    // ============================================================================
     // HTTP/API Errors
     // ============================================================================
     /// HTTP request failed

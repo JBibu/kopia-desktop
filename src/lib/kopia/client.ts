@@ -524,28 +524,3 @@ export async function testNotificationProfile(
 ): Promise<void> {
   return invoke('notification_profile_test', { repoId, profile });
 }
-
-// ============================================================================
-// WebSocket Connection
-// ============================================================================
-
-/**
- * Connect to Kopia WebSocket for real-time task updates
- * @param repoId - Repository identifier
- */
-export async function connectWebSocket(
-  repoId: string,
-  serverUrl: string,
-  username: string,
-  password: string
-): Promise<void> {
-  return invoke('websocket_connect', { repoId, serverUrl, username, password });
-}
-
-/**
- * Disconnect from Kopia WebSocket
- * @param repoId - Repository identifier
- */
-export async function disconnectWebSocket(repoId: string): Promise<void> {
-  return invoke('websocket_disconnect', { repoId });
-}

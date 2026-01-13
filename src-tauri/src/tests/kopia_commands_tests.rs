@@ -197,10 +197,6 @@ mod tests {
                 },
                 "Repository is not connected",
             ),
-            (
-                KopiaError::WebSocketNotConnected,
-                "WebSocket is not connected",
-            ),
         ];
 
         for (error, expected) in errors {

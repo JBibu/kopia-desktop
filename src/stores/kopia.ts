@@ -14,7 +14,6 @@
 
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import {
   getKopiaServerStatus,
   getRepositoryStatus,
@@ -34,8 +33,6 @@ import {
   getTasksSummary,
   getTask as apiGetTask,
   cancelTask as apiCancelTask,
-  connectWebSocket,
-  disconnectWebSocket,
   listMounts,
   mountSnapshot as apiMountSnapshot,
   unmountSnapshot as apiUnmountSnapshot,
@@ -55,8 +52,6 @@ import type {
   PolicyResponse,
   Task,
   TasksSummary,
-  WebSocketEvent,
-  WebSocketDisconnectEvent,
   MountsResponse,
 } from '@/lib/kopia';
 import { getErrorMessage, parseKopiaError, KopiaErrorCode } from '@/lib/kopia';
@@ -83,7 +78,6 @@ const inFlightRequests = new Set<string>();
  *
  * If the same operation is already in-flight, this call will be skipped to prevent
  * duplicate concurrent HTTP requests. This is particularly important when:
- * - WebSocket events trigger refreshes while polling refresh is in-flight
  * - Multiple UI components trigger the same refresh simultaneously
  *
  * @param key - Unique identifier for the operation (e.g., 'tasks', 'snapshots')
@@ -243,12 +237,8 @@ interface KopiaStore {
   // Polling state
   isPolling: boolean;
   serverPollingInterval: number; // For server/repo (30s)
-  tasksPollingInterval: number; // For tasks (5s - real-time, fallback if WebSocket fails)
+  tasksPollingInterval: number; // For tasks (5s - real-time)
   sourcesPollingInterval: number; // For sources (3s - matches official KopiaUI)
-
-  // WebSocket state
-  isWebSocketConnected: boolean;
-  useWebSocket: boolean; // Prefer WebSocket over polling for tasks
 
   // Derived state
   isServerRunning: () => boolean;
@@ -323,11 +313,6 @@ interface KopiaStore {
   setServerPollingInterval: (interval: number) => void;
   setTasksPollingInterval: (interval: number) => void;
 
-  // WebSocket control
-  startWebSocket: () => Promise<void>;
-  stopWebSocket: () => Promise<void>;
-  setUseWebSocket: (use: boolean) => void;
-
   // Utility
   refreshAll: () => Promise<void>;
   reset: () => void;
@@ -337,22 +322,6 @@ interface KopiaStore {
 let serverPollingTimer: ReturnType<typeof setInterval> | null = null;
 let tasksPollingTimer: ReturnType<typeof setInterval> | null = null;
 let sourcesPollingTimer: ReturnType<typeof setInterval> | null = null;
-
-// WebSocket event listener (outside store to avoid serialization issues)
-let wsEventUnlisten: UnlistenFn | null = null;
-let wsDisconnectUnlisten: UnlistenFn | null = null;
-
-/** Helper to clean up WebSocket listeners */
-function cleanupWSListeners() {
-  if (wsEventUnlisten) {
-    wsEventUnlisten();
-    wsEventUnlisten = null;
-  }
-  if (wsDisconnectUnlisten) {
-    wsDisconnectUnlisten();
-    wsDisconnectUnlisten = null;
-  }
-}
 
 /** Initial state values - used for store initialization and reset */
 const INITIAL_STATE = {
@@ -400,10 +369,6 @@ const INITIAL_STATE = {
   serverPollingInterval: 30000, // 30 seconds
   tasksPollingInterval: 5000, // 5 seconds
   sourcesPollingInterval: 3000, // 3 seconds (matches official KopiaUI)
-
-  // WebSocket
-  isWebSocketConnected: false,
-  useWebSocket: true, // Prefer WebSocket over polling by default
 };
 
 export const useKopiaStore = create<KopiaStore>()(
@@ -509,7 +474,7 @@ export const useKopiaStore = create<KopiaStore>()(
     },
 
     setCurrentRepository: async (repoId: string) => {
-      const { currentRepoId, repositories, isPolling, isWebSocketConnected, useWebSocket } = get();
+      const { currentRepoId, repositories, isPolling } = get();
 
       // Validate the repo exists
       const repo = repositories.find((r) => r.id === repoId);
@@ -529,12 +494,7 @@ export const useKopiaStore = create<KopiaStore>()(
         get().stopPolling();
       }
 
-      // Step 2: Stop WebSocket for old repo if connected
-      if (isWebSocketConnected) {
-        await get().stopWebSocket();
-      }
-
-      // Step 3: Clear current data and switch repo (no polling can interfere now)
+      // Step 2: Clear current data and switch repo (no polling can interfere now)
       set({
         currentRepoId: repoId,
         // Reset repository-specific state
@@ -555,15 +515,10 @@ export const useKopiaStore = create<KopiaStore>()(
         mountsError: null,
       });
 
-      // Step 4: Refresh data for the new repository
+      // Step 3: Refresh data for the new repository
       await get().refreshAll();
 
-      // Step 5: Start WebSocket for new repo if enabled
-      if (useWebSocket) {
-        await get().startWebSocket();
-      }
-
-      // Step 6: Resume polling if it was running before
+      // Step 4: Resume polling if it was running before
       if (wasPolling) {
         get().startPolling();
       }
@@ -1016,23 +971,13 @@ export const useKopiaStore = create<KopiaStore>()(
     // ========================================================================
 
     startPolling: () => {
-      const {
-        isPolling,
-        serverPollingInterval,
-        tasksPollingInterval,
-        sourcesPollingInterval,
-        useWebSocket,
-      } = get();
+      const { isPolling, serverPollingInterval, tasksPollingInterval, sourcesPollingInterval } =
+        get();
 
       if (isPolling) return;
 
       // Initial fetch
       void get().refreshAll();
-
-      // Try to start WebSocket if enabled
-      if (useWebSocket) {
-        void get().startWebSocket();
-      }
 
       // Server/Repo/Snapshots/Mounts polling (30s)
       serverPollingTimer = setInterval(() => {
@@ -1043,8 +988,6 @@ export const useKopiaStore = create<KopiaStore>()(
       }, serverPollingInterval);
 
       // Tasks polling (5s for real-time updates)
-      // Always poll tasks as fallback even if WebSocket is enabled
-      // WebSocket events will trigger additional refreshes for better real-time updates
       tasksPollingTimer = setInterval(() => {
         void get().refreshTasks();
         void get().refreshTasksSummary();
@@ -1072,10 +1015,6 @@ export const useKopiaStore = create<KopiaStore>()(
         clearInterval(sourcesPollingTimer);
         sourcesPollingTimer = null;
       }
-      // Stop WebSocket if connected
-      if (get().isWebSocketConnected) {
-        void get().stopWebSocket();
-      }
       set({ isPolling: false });
     },
 
@@ -1094,199 +1033,6 @@ export const useKopiaStore = create<KopiaStore>()(
       if (isPolling) {
         get().stopPolling();
         get().startPolling();
-      }
-    },
-
-    // ========================================================================
-    // WebSocket Control
-    // ========================================================================
-
-    startWebSocket: async () => {
-      const { isWebSocketConnected, serverStatus, serverInfo, currentRepoId } = get();
-
-      if (!currentRepoId) {
-        if (import.meta.env.DEV) {
-          console.debug('Cannot connect WebSocket: no repository selected');
-        }
-        return;
-      }
-
-      if (isWebSocketConnected) {
-        if (import.meta.env.DEV) {
-          console.log('WebSocket already connected');
-        }
-        return;
-      }
-
-      if (!serverStatus?.running || !serverStatus.serverUrl) {
-        if (import.meta.env.DEV) {
-          console.debug('Cannot connect WebSocket: server not running');
-        }
-        return;
-      }
-
-      if (!serverInfo?.password) {
-        if (import.meta.env.DEV) {
-          console.error('Cannot connect WebSocket: server password not available');
-        }
-        return;
-      }
-
-      try {
-        // Clean up any existing listeners first to prevent memory leaks
-        cleanupWSListeners();
-
-        // Connect to WebSocket
-        await connectWebSocket(
-          currentRepoId,
-          serverStatus.serverUrl,
-          'kopia', // Server username (must match SERVER_USERNAME in kopia_server.rs)
-          serverInfo.password
-        );
-
-        // Set up event listeners
-        wsEventUnlisten = await listen<WebSocketEvent>('kopia-ws-event', (event) => {
-          const wsEvent = event.payload;
-          const currentRepo = get().currentRepoId;
-
-          // Only process events for the current repository
-          if (wsEvent.repoId !== currentRepo) {
-            if (import.meta.env.DEV) {
-              console.log(
-                `Ignoring WebSocket event for repo '${wsEvent.repoId}' (current: '${currentRepo}')`
-              );
-            }
-            return;
-          }
-
-          if (import.meta.env.DEV) {
-            console.log('WebSocket event received:', wsEvent.type, 'for repo:', wsEvent.repoId);
-          }
-
-          // Handle different event types
-          if (wsEvent.type === 'task-progress') {
-            // Refresh tasks to get updated status
-            void get().refreshTasks();
-          } else if (wsEvent.type === 'snapshot-progress') {
-            // Refresh snapshots and sources
-            void get().refreshSnapshots();
-            void get().refreshSources();
-          }
-        });
-
-        wsDisconnectUnlisten = await listen<WebSocketDisconnectEvent>(
-          'kopia-ws-disconnected',
-          (event) => {
-            const disconnectEvent = event.payload;
-            const currentRepo = get().currentRepoId;
-
-            // Only handle disconnect for the current repository
-            if (disconnectEvent.repoId !== currentRepo) {
-              if (import.meta.env.DEV) {
-                console.log(
-                  `Ignoring WebSocket disconnect for repo '${disconnectEvent.repoId}' (current: '${currentRepo}')`
-                );
-              }
-              return;
-            }
-
-            if (import.meta.env.DEV) {
-              console.log('WebSocket disconnected for repo:', disconnectEvent.repoId);
-            }
-            set({ isWebSocketConnected: false });
-
-            // Fall back to polling if WebSocket disconnects
-            if (get().useWebSocket && !get().isPolling) {
-              if (import.meta.env.DEV) {
-                console.log('Falling back to polling after WebSocket disconnect');
-              }
-              get().startPolling();
-            }
-          }
-        );
-
-        set({ isWebSocketConnected: true });
-        if (import.meta.env.DEV) {
-          console.log('WebSocket connected successfully');
-        }
-
-        // Keep task polling running as fallback
-        // WebSocket provides real-time updates, polling ensures we don't miss updates
-      } catch (error) {
-        if (import.meta.env.DEV) {
-          console.error('Failed to connect WebSocket:', error);
-        }
-        set({ isWebSocketConnected: false });
-
-        // Fall back to polling
-        if (get().useWebSocket && !get().isPolling) {
-          if (import.meta.env.DEV) {
-            console.log('Falling back to polling after WebSocket error');
-          }
-          get().startPolling();
-        }
-      }
-    },
-
-    stopWebSocket: async () => {
-      const { isWebSocketConnected, currentRepoId } = get();
-
-      if (!isWebSocketConnected) {
-        return;
-      }
-
-      try {
-        // Clean up event listeners
-        cleanupWSListeners();
-
-        // Disconnect WebSocket
-        if (currentRepoId) {
-          await disconnectWebSocket(currentRepoId);
-        }
-        set({ isWebSocketConnected: false });
-        if (import.meta.env.DEV) {
-          console.log('WebSocket disconnected');
-        }
-      } catch (error) {
-        if (import.meta.env.DEV) {
-          console.error('Failed to disconnect WebSocket:', error);
-        }
-      }
-    },
-
-    setUseWebSocket: (use: boolean) => {
-      const { useWebSocket, isWebSocketConnected, isPolling } = get();
-
-      if (useWebSocket === use) {
-        return;
-      }
-
-      set({ useWebSocket: use });
-
-      if (use) {
-        // Enable WebSocket: stop polling and start WebSocket
-        if (isPolling) {
-          if (tasksPollingTimer) {
-            clearInterval(tasksPollingTimer);
-            tasksPollingTimer = null;
-          }
-        }
-        if (!isWebSocketConnected) {
-          void get().startWebSocket();
-        }
-      } else {
-        // Disable WebSocket: stop WebSocket and start polling
-        if (isWebSocketConnected) {
-          void get().stopWebSocket();
-        }
-        if (isPolling && !tasksPollingTimer) {
-          // Restart task polling
-          const { tasksPollingInterval } = get();
-          tasksPollingTimer = setInterval(() => {
-            void get().refreshTasks();
-            void get().refreshTasksSummary();
-          }, tasksPollingInterval);
-        }
       }
     },
 
@@ -1316,7 +1062,6 @@ export const useKopiaStore = create<KopiaStore>()(
 
     reset: () => {
       get().stopPolling();
-      void get().stopWebSocket();
       set(INITIAL_STATE);
     },
   }))

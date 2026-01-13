@@ -113,14 +113,6 @@ export enum KopiaErrorCode {
   MAINTENANCE_FAILED = 'MAINTENANCE_FAILED',
 
   // ============================================================================
-  // WebSocket Errors
-  // ============================================================================
-  WEBSOCKET_CONNECTION_FAILED = 'WEBSOCKET_CONNECTION_FAILED',
-  WEBSOCKET_ALREADY_CONNECTED = 'WEBSOCKET_ALREADY_CONNECTED',
-  WEBSOCKET_NOT_CONNECTED = 'WEBSOCKET_NOT_CONNECTED',
-  WEBSOCKET_MESSAGE_PARSE_FAILED = 'WEBSOCKET_MESSAGE_PARSE_FAILED',
-
-  // ============================================================================
   // HTTP/API Errors
   // ============================================================================
   HTTP_REQUEST_FAILED = 'HTTP_REQUEST_FAILED',
@@ -197,7 +189,6 @@ export class KopiaError extends Error {
       this.is(OfficialKopiaAPIErrorCode.NOT_CONNECTED) ||
       this.is(OfficialKopiaAPIErrorCode.STORAGE_CONNECTION) ||
       this.is(KopiaErrorCode.SERVER_NOT_RUNNING) ||
-      this.is(KopiaErrorCode.WEBSOCKET_NOT_CONNECTED) ||
       this.statusCode === 0
     );
   }

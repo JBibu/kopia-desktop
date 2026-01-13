@@ -87,11 +87,6 @@ describe('KopiaError', () => {
       expect(error.isConnectionError()).toBe(true);
     });
 
-    it('identifies websocket not connected', () => {
-      const error = new KopiaError('Test', KopiaErrorCode.WEBSOCKET_NOT_CONNECTED);
-      expect(error.isConnectionError()).toBe(true);
-    });
-
     it('identifies status code 0', () => {
       const error = new KopiaError('Test', undefined, 0);
       expect(error.isConnectionError()).toBe(true);

@@ -202,7 +202,6 @@ mod tests {
             KopiaError::TaskNotFound {
                 task_id: "task-456".to_string(),
             },
-            KopiaError::WebSocketNotConnected,
             KopiaError::InvalidInput {
                 message: "Invalid path".to_string(),
                 field: Some("path".to_string()),

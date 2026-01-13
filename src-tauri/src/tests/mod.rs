@@ -6,7 +6,6 @@
 //! - Concurrency (concurrency_tests)
 //! - Integration (integration_tests, kopia_api_integration_tests)
 //! - Server functionality (kopia_server_tests)
-//! - WebSocket functionality (kopia_websocket_tests)
 //! - System utilities (system_tests)
 //! - Type definitions (types_tests, types_advanced_tests, types_unit_tests)
 
@@ -18,7 +17,6 @@ mod integration_tests;
 mod kopia_api_integration_tests;
 mod kopia_commands_tests;
 mod kopia_server_tests;
-mod kopia_websocket_tests;
 mod system_tests;
 mod types_advanced_tests;
 mod types_tests;

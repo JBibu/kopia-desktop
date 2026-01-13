@@ -107,14 +107,6 @@ mod tests {
                 message: "failed".to_string(),
                 operation: Some("full".to_string()),
             },
-            KopiaError::WebSocketConnectionFailed {
-                message: "failed".to_string(),
-            },
-            KopiaError::WebSocketAlreadyConnected,
-            KopiaError::WebSocketNotConnected,
-            KopiaError::WebSocketMessageParseFailed {
-                message: "parse failed".to_string(),
-            },
             KopiaError::HttpRequestFailed {
                 message: "request failed".to_string(),
                 status_code: Some(500),

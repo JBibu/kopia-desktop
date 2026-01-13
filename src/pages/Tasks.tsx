@@ -57,7 +57,6 @@ export function Tasks() {
   const locale = usePreferencesStore((state) => state.getLocale());
   const { tasks, summary, isLoading, error, cancelTask, getTask } = useTasks();
   const { sources: sourcesResponse } = useSnapshots();
-  const isWebSocketConnected = useKopiaStore((state) => state.isWebSocketConnected);
   const refreshAll = useKopiaStore((state) => state.refreshAll);
   const sources = sourcesResponse?.sources || [];
 
@@ -188,22 +187,14 @@ export function Tasks() {
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight">{t('tasks.title')}</h1>
-          <p className="text-sm text-muted-foreground">
-            {t('tasks.subtitle')}
-            {isWebSocketConnected && (
-              <span className="ml-2 inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-                <Activity className="h-3 w-3 animate-pulse" />
-                {t('tasks.realtimeUpdates')}
-              </span>
-            )}
-          </p>
+          <p className="text-sm text-muted-foreground">{t('tasks.subtitle')}</p>
         </div>
         <Button
           variant="outline"
           size="sm"
           onClick={() => void handleRefresh()}
           disabled={isRefreshing}
-          title={isWebSocketConnected ? t('tasks.manualRefresh') : t('tasks.pollingMode')}
+          title={t('common.refresh')}
         >
           <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
           {t('common.refresh')}

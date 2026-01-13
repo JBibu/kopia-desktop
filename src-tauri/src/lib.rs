@@ -5,7 +5,6 @@
 mod commands;
 mod error;
 mod kopia_server;
-mod kopia_websocket;
 mod server_manager;
 mod types;
 
@@ -23,23 +22,12 @@ pub use windows_service::run_service;
 #[cfg(test)]
 mod tests;
 
-use kopia_websocket::KopiaWebSocket;
 use server_manager::{create_server_manager_state, ServerManagerState};
-use std::sync::Arc;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Manager,
 };
-use tokio::sync::Mutex;
-
-/// WebSocket state type
-pub type KopiaWebSocketState = Arc<Mutex<KopiaWebSocket>>;
-
-/// Create WebSocket state
-pub fn create_websocket_state() -> KopiaWebSocketState {
-    Arc::new(Mutex::new(KopiaWebSocket::new()))
-}
 
 /// Restore and show the main window
 ///
@@ -128,7 +116,6 @@ pub fn run() {
 
     // Initialize ServerManager state (manages multiple repositories)
     let manager_state = create_server_manager_state(&config_dir);
-    let websocket_state = create_websocket_state();
 
     // Clone manager state for the exit handler (before it's moved into setup closure)
     let exit_manager_state = manager_state.clone();
@@ -138,7 +125,6 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(manager_state.clone())
-        .manage(websocket_state.clone())
         .setup(move |app| {
             // Create system tray menu
             let show_i = MenuItem::with_id(app, "show", "Show Window", true, None::<&str>)?;
@@ -265,9 +251,6 @@ pub fn run() {
             commands::get_current_user,
             commands::select_folder,
             commands::save_file,
-            // WebSocket
-            commands::websocket_connect,
-            commands::websocket_disconnect,
             // Windows Service (Windows only)
             #[cfg(windows)]
             commands::service_install,

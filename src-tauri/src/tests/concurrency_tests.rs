@@ -5,8 +5,6 @@
 #[cfg(test)]
 mod tests {
     use crate::kopia_server::KopiaServer;
-    use crate::kopia_websocket::KopiaWebSocket;
-    use std::sync::Arc;
     use std::thread;
 
     #[test]
@@ -18,32 +16,6 @@ mod tests {
             let status = server.status();
             assert!(!status.running);
         }
-    }
-
-    #[test]
-    fn test_websocket_multiple_is_connected_calls() {
-        let ws = Arc::new(tokio::sync::Mutex::new(KopiaWebSocket::new()));
-
-        // Run multiple checks concurrently
-        let runtime = tokio::runtime::Runtime::new().unwrap();
-        runtime.block_on(async {
-            let mut handles = vec![];
-
-            for i in 0..10 {
-                let ws_clone = Arc::clone(&ws);
-                let repo_id = format!("test-repo-{}", i);
-                let handle = tokio::spawn(async move {
-                    let ws = ws_clone.lock().await;
-                    ws.is_connected(&repo_id).await
-                });
-                handles.push(handle);
-            }
-
-            for handle in handles {
-                let connected = handle.await.unwrap();
-                assert!(!connected);
-            }
-        });
     }
 
     #[test]
@@ -74,7 +46,6 @@ mod tests {
             KopiaError::RepositoryNotConnected {
                 api_error_code: None,
             },
-            KopiaError::WebSocketNotConnected,
         ];
 
         let handles: Vec<_> = errors

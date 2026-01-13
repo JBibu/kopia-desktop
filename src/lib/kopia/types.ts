@@ -647,6 +647,8 @@ export interface BackupProfile {
   description?: string;
   directories: string[]; // List of directory paths to backup
   policy?: PolicyDefinition; // Policy override to apply to all directories in this profile
+  policyPreset?: string; // Policy preset ID (e.g., 'QUICK_START', 'DAILY_30', 'CUSTOM')
+  customPolicy?: PolicyDefinition; // Custom policy definition (only used if policyPreset === 'CUSTOM')
   enabled: boolean;
   pinned?: boolean; // Whether this profile is pinned
   order?: number; // Custom order for sorting
@@ -740,87 +742,6 @@ export interface NotificationProfile {
  * Notification profiles list response (just an array)
  */
 export type NotificationProfilesResponse = NotificationProfile[];
-
-// ============================================================================
-// WebSocket Event Types
-// ============================================================================
-
-/**
- * Task progress WebSocket event
- * Includes repoId for multi-repository routing
- */
-export interface TaskProgressEvent {
-  type: 'task-progress';
-  repoId: string;
-  taskID: string;
-  status: TaskStatus;
-  progress: {
-    current: number;
-    total: number;
-    percentage: number;
-  };
-  counters: {
-    hashedFiles: number;
-    hashedBytes: number;
-    cachedFiles: number;
-    cachedBytes: number;
-  };
-}
-
-/**
- * Snapshot progress WebSocket event
- * Includes repoId for multi-repository routing
- */
-export interface SnapshotProgressEvent {
-  type: 'snapshot-progress';
-  repoId: string;
-  source: SourceInfo;
-  status: 'UPLOADING' | 'IDLE' | 'FAILED';
-  upload: {
-    hashedFiles: number;
-    hashedBytes: number;
-    estimatedBytes?: number;
-    directory: string;
-  };
-}
-
-/**
- * Error WebSocket event
- * Includes repoId for multi-repository routing
- */
-export interface ErrorEvent {
-  type: 'error';
-  repoId: string;
-  message: string;
-  details?: string;
-}
-
-/**
- * General notification WebSocket event
- * Includes repoId for multi-repository routing
- */
-export interface NotificationEvent {
-  type: 'notification';
-  repoId: string;
-  level: 'info' | 'warning' | 'error';
-  message: string;
-}
-
-/**
- * WebSocket disconnection event payload
- */
-export interface WebSocketDisconnectEvent {
-  repoId: string;
-}
-
-/**
- * Union type for all WebSocket events
- */
-export type WebSocketEvent =
-  | TaskProgressEvent
-  | SnapshotProgressEvent
-  | ErrorEvent
-  | NotificationEvent;
 
 // ============================================================================
 // Kopia Server Lifecycle Types
