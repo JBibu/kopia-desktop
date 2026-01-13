@@ -1,12 +1,13 @@
 /**
  * Profile Form Dialog - Create/Edit backup profiles with directory management
+ * Redesigned with policy presets for simplified UX
  */
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { listen } from '@tauri-apps/api/event';
 import { useProfilesStore } from '@/stores';
-import { selectFolder, getCurrentUser } from '@/lib/kopia';
+import { selectFolder } from '@/lib/kopia';
 import {
   Dialog,
   DialogContent,
@@ -19,10 +20,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { PolicyPresetSelector } from '@/components/kopia/policy';
 import { FolderOpen, Trash2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { PolicyEditor } from '@/components/kopia/policy';
 import type { BackupProfile } from '@/lib/kopia';
+import type { PolicyPresetId } from '@/lib/kopia/policy-presets';
 
 interface ProfileFormDialogProps {
   open: boolean;
@@ -37,6 +39,9 @@ export function ProfileFormDialog({ open, onOpenChange, profile }: ProfileFormDi
   const [name, setName] = useState(() => profile?.name || '');
   const [description, setDescription] = useState(() => profile?.description || '');
   const [directories, setDirectories] = useState<string[]>(() => profile?.directories || []);
+  const [policyPreset, setPolicyPreset] = useState<PolicyPresetId>(
+    () => (profile?.policyPreset as PolicyPresetId) || 'DAILY_30'
+  );
   const [isDragging, setIsDragging] = useState(false);
 
   // Reset form when profile or open changes
@@ -46,6 +51,7 @@ export function ProfileFormDialog({ open, onOpenChange, profile }: ProfileFormDi
     setName(profile?.name || '');
     setDescription(profile?.description || '');
     setDirectories(profile?.directories || []);
+    setPolicyPreset((profile?.policyPreset as PolicyPresetId) || 'DAILY_30');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, profile?.id]);
 
@@ -120,6 +126,7 @@ export function ProfileFormDialog({ open, onOpenChange, profile }: ProfileFormDi
           name: name.trim(),
           description: description.trim() || undefined,
           directories,
+          policyPreset,
         });
         toast.success(t('profiles.profileUpdated', { name: name.trim() }));
       } else {
@@ -128,6 +135,7 @@ export function ProfileFormDialog({ open, onOpenChange, profile }: ProfileFormDi
           name: name.trim(),
           description: description.trim() || undefined,
           directories,
+          policyPreset,
           enabled: true,
         });
         toast.success(t('profiles.profileCreated', { name: name.trim() }));
@@ -146,22 +154,9 @@ export function ProfileFormDialog({ open, onOpenChange, profile }: ProfileFormDi
     onOpenChange(false);
   };
 
-  // Get current user for policy editor
-  const [currentUser, setCurrentUser] = useState<{ username: string; hostname: string } | null>(
-    null
-  );
-
-  useEffect(() => {
-    if (!open) return;
-
-    void getCurrentUser().then((user) => {
-      setCurrentUser({ username: user.username, hostname: user.hostname });
-    });
-  }, [open]);
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] w-[1400px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {profile ? t('profiles.editProfile') : t('profiles.createProfile')}
@@ -173,133 +168,106 @@ export function ProfileFormDialog({ open, onOpenChange, profile }: ProfileFormDi
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-2 gap-6 py-4">
-            {/* Left Column - Profile Details */}
-            <div className="space-y-4">
-              {/* Profile Name */}
-              <div className="space-y-2">
-                <Label htmlFor="name">
-                  {t('profiles.name')} <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder={t('profiles.namePlaceholder')}
-                  autoFocus
-                />
-              </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Profile Name */}
+          <div className="space-y-2">
+            <Label htmlFor="name">
+              {t('profiles.name')} <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t('profiles.namePlaceholder')}
+              autoFocus
+            />
+          </div>
 
-              {/* Description */}
-              <div className="space-y-2">
-                <Label htmlFor="description">{t('profiles.description')}</Label>
-                <Textarea
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder={t('profiles.descriptionPlaceholder')}
-                  rows={2}
-                />
-              </div>
+          {/* Description */}
+          <div className="space-y-2">
+            <Label htmlFor="description">{t('profiles.description')}</Label>
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder={t('profiles.descriptionPlaceholder')}
+              rows={2}
+            />
+          </div>
 
-              {/* Directories */}
-              <div className="space-y-2">
-                <Label>
-                  {t('profiles.directories')} <span className="text-destructive">*</span>
-                </Label>
-                <div className="space-y-2">
-                  {directories.length === 0 ? (
-                    <div
-                      className={`flex items-center justify-center py-8 border-2 border-dashed rounded-md transition-colors ${
-                        isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
-                      }`}
-                    >
-                      <div className="text-center">
-                        <FolderOpen className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                        <p className="text-sm text-muted-foreground">
-                          {t('profiles.noDirectoriesAdded')}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {t('profiles.dragDropHint')}
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      className={`space-y-2 max-h-[300px] overflow-y-auto p-2 border-2 border-dashed rounded-md transition-colors ${
-                        isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
-                      }`}
-                    >
-                      {directories.map((directory, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center gap-2 p-2 bg-background rounded group"
-                        >
-                          <FolderOpen className="h-4 w-4 text-muted-foreground shrink-0" />
-                          <span className="text-sm flex-1 truncate" title={directory}>
-                            {directory}
-                          </span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                            onClick={() => handleRemoveDirectory(directory)}
-                          >
-                            <Trash2 className="h-3 w-3 text-destructive" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => void handleAddDirectory()}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    {t('profiles.addDirectory')}
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column - Policy Editor */}
-            <div className="space-y-4 border-l pl-6">
-              <div>
-                <h3 className="text-lg font-semibold mb-2">{t('profiles.policySettings')}</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {t('profiles.policySettingsDescription')}
-                </p>
-              </div>
-              {currentUser && directories.length > 0 ? (
-                <PolicyEditor
-                  target={{
-                    userName: currentUser.username,
-                    host: currentUser.hostname,
-                    path: directories[0],
-                  }}
-                  onSave={() => {
-                    // Policy saved - no action needed as it auto-applies
-                  }}
-                />
-              ) : (
-                <div className="flex items-center justify-center py-12 text-center">
-                  <div>
-                    <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          {/* Directories */}
+          <div className="space-y-2">
+            <Label>
+              {t('profiles.directories')} <span className="text-destructive">*</span>
+            </Label>
+            <div className="space-y-2">
+              {directories.length === 0 ? (
+                <div
+                  className={`flex items-center justify-center py-8 border-2 border-dashed rounded-md transition-colors ${
+                    isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
+                  }`}
+                >
+                  <div className="text-center">
+                    <FolderOpen className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                     <p className="text-sm text-muted-foreground">
-                      {t('profiles.addDirectoryToConfigurePolicy')}
+                      {t('profiles.noDirectoriesAdded')}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {t('profiles.dragDropHint')}
                     </p>
                   </div>
                 </div>
+              ) : (
+                <div
+                  className={`space-y-2 max-h-[200px] overflow-y-auto p-2 border-2 border-dashed rounded-md transition-colors ${
+                    isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
+                  }`}
+                >
+                  {directories.map((directory, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-2 p-2 bg-background rounded group"
+                    >
+                      <FolderOpen className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="text-sm flex-1 truncate" title={directory}>
+                        {directory}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                        onClick={() => handleRemoveDirectory(directory)}
+                      >
+                        <Trash2 className="h-3 w-3 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => void handleAddDirectory()}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                {t('profiles.addDirectory')}
+              </Button>
             </div>
           </div>
 
-          <DialogFooter className="mt-6">
+          {/* Backup Schedule (Policy Preset) */}
+          <div className="space-y-2">
+            <Label>{t('profiles.backupSchedule')}</Label>
+            <p className="text-sm text-muted-foreground mb-3">
+              {t('profiles.backupScheduleDescription')}
+            </p>
+            <PolicyPresetSelector value={policyPreset} onChange={setPolicyPreset} />
+          </div>
+
+          <DialogFooter>
             <Button type="button" variant="outline" onClick={handleCancel}>
               {t('common.cancel')}
             </Button>

@@ -58,6 +58,10 @@ interface PreferencesStore {
   sourcePreferences: Record<string, SourcePreference>; // key: sourceId (user@host:path)
   toggleSourcePin: (sourceId: string) => void;
   reorderSources: (sourceIds: string[]) => void;
+
+  // Onboarding
+  hasCompletedOnboarding: boolean;
+  setOnboardingComplete: () => void;
 }
 
 /**
@@ -149,6 +153,10 @@ export const usePreferencesStore = create<PreferencesStore>()(
           });
           return { sourcePreferences: newPreferences };
         }),
+
+      // Onboarding
+      hasCompletedOnboarding: false,
+      setOnboardingComplete: () => set({ hasCompletedOnboarding: true }),
     }),
     {
       name: 'kopia-preferences',

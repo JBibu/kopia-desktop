@@ -14,6 +14,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   FolderArchive,
   RefreshCw,
   Plus,
@@ -21,7 +31,6 @@ import {
   Clock,
   HardDrive,
   Info,
-  FolderTree,
   Folder,
   PlayCircle,
   Calendar,
@@ -33,7 +42,7 @@ import { formatBytes, formatDistanceToNow } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia';
 import { usePreferencesStore } from '@/stores';
-import { ProfileFormDialog } from '@/components/kopia/profiles';
+import { ProfileFormDialog, ProfilesTable } from '@/components/kopia/profiles';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -72,7 +81,8 @@ export function Snapshots() {
 
   const profiles = useProfilesStore((state) => state.profiles);
   const toggleProfilePin = useProfilesStore((state) => state.togglePin);
-  const reorderProfiles = useProfilesStore((state) => state.reorderProfiles);
+  const createProfile = useProfilesStore((state) => state.createProfile);
+  const deleteProfile = useProfilesStore((state) => state.deleteProfile);
 
   const {
     snapshots,
@@ -88,7 +98,8 @@ export function Snapshots() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'profiles' | 'sources'>('profiles');
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
-  const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
+  const [editingProfile, setEditingProfile] = useState<BackupProfile | null>(null);
+  const [deletingProfile, setDeletingProfile] = useState<BackupProfile | null>(null);
   const [activeSourceId, setActiveSourceId] = useState<string | null>(null);
 
   // Drag and drop sensors with activation constraint
@@ -127,28 +138,56 @@ export function Snapshots() {
     }
   };
 
+  // Profile handlers
+  const handleEditProfile = (profile: BackupProfile) => {
+    setEditingProfile(profile);
+    setIsProfileDialogOpen(true);
+  };
+
+  const handleDeleteProfile = (profile: BackupProfile) => {
+    setDeletingProfile(profile);
+  };
+
+  const handleConfirmDelete = () => {
+    if (deletingProfile) {
+      deleteProfile(deletingProfile.id);
+      toast.success(t('profiles.profileDeleted', { name: deletingProfile.name }));
+      setDeletingProfile(null);
+    }
+  };
+
+  const handleDuplicateProfile = (profile: BackupProfile) => {
+    const newProfile = {
+      name: `${profile.name} (${t('common.copy')})`,
+      description: profile.description,
+      directories: [...profile.directories],
+      enabled: profile.enabled,
+    };
+    createProfile(newProfile);
+    toast.success(t('profiles.profileDuplicated', { name: profile.name }));
+  };
+
+  const handleBackupProfile = async (profile: BackupProfile) => {
+    try {
+      for (const dir of profile.directories) {
+        await createSnapshot(dir, true);
+      }
+      toast.success(t('profiles.backupAllStarted', { name: profile.name }));
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  };
+
+  const handleProfileDialogClose = (open: boolean) => {
+    setIsProfileDialogOpen(open);
+    if (!open) {
+      setEditingProfile(null);
+    }
+  };
+
   // Get snapshot count for a path
   const getSnapshotCount = (path: string): number => {
     return snapshots.filter((s) => s.source?.path === path).length;
-  };
-
-  // Get last snapshot time for a path
-  const getLastSnapshotTime = (path: string): string | null => {
-    const pathSnapshots = snapshots
-      .filter((s) => s.source?.path === path)
-      .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
-    return pathSnapshots[0]?.startTime || null;
-  };
-
-  // Helper: Get profile snapshot stats
-  const getProfileStats = (profile: BackupProfile) => {
-    const totalSnapshots = profile.directories.reduce((sum, dir) => sum + getSnapshotCount(dir), 0);
-    const lastSnapshot = profile.directories
-      .map(getLastSnapshotTime)
-      .filter((t): t is string => t !== null)
-      .sort()
-      .reverse()[0];
-    return { totalSnapshots, lastSnapshot };
   };
 
   // Helper: Generate source ID
@@ -223,33 +262,11 @@ export function Snapshots() {
   );
 
   // Drag start handlers
-  const handleProfileDragStart = (event: DragStartEvent) => {
-    setActiveProfileId(event.active.id as string);
-  };
-
   const handleSourceDragStart = (event: DragStartEvent) => {
     setActiveSourceId(event.active.id as string);
   };
 
   // Drag end handlers
-  const handleProfileDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveProfileId(null);
-
-    if (!over || active.id === over.id) return;
-
-    const oldIndex = filteredProfiles.findIndex((p) => p.id === active.id);
-    const newIndex = filteredProfiles.findIndex((p) => p.id === over.id);
-
-    if (oldIndex === -1 || newIndex === -1) return;
-
-    const reordered = [...filteredProfiles];
-    const [moved] = reordered.splice(oldIndex, 1);
-    reordered.splice(newIndex, 0, moved);
-
-    reorderProfiles(reordered.map((p) => p.id));
-  };
-
   const handleSourceDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveSourceId(null);
@@ -269,57 +286,7 @@ export function Snapshots() {
   };
 
   // Get active dragging items
-  const activeProfile = filteredProfiles.find((p) => p.id === activeProfileId);
   const activeSource = filteredSources.find((s) => getSourceId(s) === activeSourceId);
-
-  // Static Profile Card (for drag overlay)
-  const ProfileCard = ({ profile }: { profile: BackupProfile }) => {
-    const { totalSnapshots, lastSnapshot } = getProfileStats(profile);
-
-    return (
-      <Card className="hover:shadow-md hover:border-muted-foreground/20 transition-all duration-200 relative overflow-hidden group">
-        <CardHeader className="pb-3 space-y-1">
-          <div className="flex items-center gap-2">
-            <GripVertical className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
-            <div className="p-1.5 rounded-md bg-muted/50 group-hover:bg-muted transition-colors">
-              <FolderTree className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <CardTitle className="text-base font-semibold truncate flex-1">
-              {profile.name}
-            </CardTitle>
-            {profile.pinned && <Pin className="h-3.5 w-3.5 fill-current text-muted-foreground" />}
-          </div>
-          {profile.description && (
-            <p className="text-sm text-muted-foreground line-clamp-2 pl-10">
-              {profile.description}
-            </p>
-          )}
-        </CardHeader>
-        <CardContent className="pt-0 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <CardStatItem
-              icon={Folder}
-              label={t('snapshots.directories')}
-              value={profile.directories.length}
-            />
-            <CardStatItem
-              icon={FolderArchive}
-              label={t('snapshots.backups')}
-              value={totalSnapshots}
-            />
-          </div>
-          {lastSnapshot && (
-            <div className="flex items-center gap-2 pt-2 border-t text-xs text-muted-foreground">
-              <Clock className="h-3.5 w-3.5" />
-              <span>
-                {t('snapshots.lastBackup')} {formatDistanceToNow(new Date(lastSnapshot))}
-              </span>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    );
-  };
 
   // Static Source Card (for drag overlay)
   const SourceCard = ({ source }: { source: (typeof filteredSources)[0] }) => {
@@ -367,94 +334,6 @@ export function Snapshots() {
           )}
         </CardContent>
       </Card>
-    );
-  };
-
-  // Sortable Profile Card
-  const SortableProfileCard = ({ profile }: { profile: (typeof profiles)[0] }) => {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-      id: profile.id,
-    });
-
-    const style = {
-      transform: CSS.Transform.toString(transform),
-      transition,
-      opacity: isDragging ? 0.3 : 1,
-      visibility: isDragging ? ('hidden' as const) : ('visible' as const),
-    };
-
-    const { totalSnapshots, lastSnapshot } = getProfileStats(profile);
-
-    return (
-      <div ref={setNodeRef} style={style} className="h-full">
-        <Card
-          className="hover:shadow-md hover:border-muted-foreground/20 transition-all duration-200 relative overflow-hidden group cursor-pointer h-full flex flex-col"
-          onClick={() => void navigate(`/snapshots/${profile.id}/history`)}
-        >
-          <CardHeader className="pb-3 space-y-1">
-            <div className="flex items-center gap-2">
-              <div
-                {...attributes}
-                {...listeners}
-                className="cursor-grab active:cursor-grabbing"
-                role="button"
-                aria-label={t('common.dragToReorder')}
-                tabIndex={0}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <GripVertical className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
-              </div>
-              <div className="p-1.5 rounded-md bg-muted/50 group-hover:bg-muted transition-colors">
-                <FolderTree className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <CardTitle className="text-base font-semibold truncate flex-1">
-                {profile.name}
-              </CardTitle>
-              {profile.pinned && <Pin className="h-3.5 w-3.5 fill-current text-muted-foreground" />}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-muted">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => toggleProfilePin(profile.id)}>
-                    <Pin className="h-4 w-4 mr-2" />
-                    {profile.pinned ? t('common.unpin') : t('common.pin')}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-            {profile.description && (
-              <p className="text-sm text-muted-foreground line-clamp-2 pl-10">
-                {profile.description}
-              </p>
-            )}
-          </CardHeader>
-          <CardContent className="pt-0 space-y-3 flex-1">
-            <div className="grid grid-cols-2 gap-3">
-              <CardStatItem
-                icon={Folder}
-                label={t('snapshots.directories')}
-                value={profile.directories.length}
-              />
-              <CardStatItem
-                icon={FolderArchive}
-                label={t('snapshots.backups')}
-                value={totalSnapshots}
-              />
-            </div>
-            {lastSnapshot && (
-              <div className="flex items-center gap-2 pt-2 border-t text-xs text-muted-foreground">
-                <Clock className="h-3.5 w-3.5" />
-                <span>
-                  {t('snapshots.lastBackup')} {formatDistanceToNow(new Date(lastSnapshot))}
-                </span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
     );
   };
 
@@ -634,37 +513,16 @@ export function Snapshots() {
           <>
             {/* Profiles Tab */}
             <TabsContent value="profiles" className="space-y-3">
-              {filteredProfiles.length === 0 ? (
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertDescription>{t('snapshots.noProfilesFound')}</AlertDescription>
-                </Alert>
-              ) : (
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragStart={handleProfileDragStart}
-                  onDragEnd={handleProfileDragEnd}
-                >
-                  <SortableContext
-                    items={filteredProfiles.map((p) => p.id)}
-                    strategy={rectSortingStrategy}
-                  >
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 auto-rows-fr">
-                      {filteredProfiles.map((profile) => (
-                        <SortableProfileCard key={profile.id} profile={profile} />
-                      ))}
-                    </div>
-                  </SortableContext>
-                  <DragOverlay>
-                    {activeProfile ? (
-                      <div className="w-[320px]">
-                        <ProfileCard profile={activeProfile} />
-                      </div>
-                    ) : null}
-                  </DragOverlay>
-                </DndContext>
-              )}
+              <ProfilesTable
+                profiles={filteredProfiles}
+                snapshots={snapshots}
+                onEdit={handleEditProfile}
+                onDelete={handleDeleteProfile}
+                onDuplicate={handleDuplicateProfile}
+                onBackupNow={(profile) => void handleBackupProfile(profile)}
+                onTogglePin={toggleProfilePin}
+                onRowClick={(profile) => void navigate(`/snapshots/${profile.id}/history`)}
+              />
             </TabsContent>
 
             {/* Sources Tab */}
@@ -705,12 +563,36 @@ export function Snapshots() {
         )}
       </Tabs>
 
-      {/* Profile Creation Dialog */}
+      {/* Profile Create/Edit Dialog */}
       <ProfileFormDialog
         open={isProfileDialogOpen}
-        onOpenChange={setIsProfileDialogOpen}
-        profile={null}
+        onOpenChange={handleProfileDialogClose}
+        profile={editingProfile}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={!!deletingProfile}
+        onOpenChange={(open: boolean) => !open && setDeletingProfile(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('profiles.deleteConfirmTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('profiles.deleteConfirmMessage', { name: deletingProfile?.name })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {t('profiles.deleteProfile')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

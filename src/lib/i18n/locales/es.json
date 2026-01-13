@@ -23,6 +23,7 @@
     "development": "Desarrollo",
     "browse": "Explorar",
     "duplicate": "Duplicar",
+    "copy": "Copia",
     "test": "Probar",
     "optional": "Opcional",
     "home": "Inicio",
@@ -348,6 +349,10 @@
     "skipOwners": "Omitir restauración de propietarios de archivos",
     "skipPermissions": "Omitir restauración de permisos de archivos",
     "skipTimes": "Omitir restauración de tiempos de modificación",
+    "overwriteExisting": "Sobrescribir archivos existentes",
+    "preserveAttributes": "Preservar atributos originales del archivo",
+    "continueOnErrors": "Continuar ante errores",
+    "advancedOptions": "Opciones avanzadas",
     "ignorePermissionErrors": "Ignorar errores de permisos (recomendado)",
     "writeFilesAtomically": "Escribir archivos atómicamente (más seguro pero más lento)",
     "writeSparseFiles": "Escribir archivos dispersos (ahorra espacio)",
@@ -409,6 +414,10 @@
     "profileCreated": "Perfil '{{name}}' creado correctamente",
     "profileUpdated": "Perfil '{{name}}' actualizado correctamente",
     "profileDeleted": "Perfil '{{name}}' eliminado correctamente",
+    "profileDuplicated": "Perfil '{{name}}' duplicado",
+    "duplicateProfile": "Duplicar",
+    "backupNow": "Respaldar ahora",
+    "backupAllStarted": "Respaldo iniciado para todos los directorios en '{{name}}'",
     "profileEnabled": "Perfil '{{name}}' habilitado",
     "profileDisabled": "Perfil '{{name}}' deshabilitado",
     "deleteConfirmTitle": "Eliminar perfil",
@@ -421,6 +430,8 @@
     "profileNotFound": "Perfil no encontrado",
     "backToProfiles": "Volver a perfiles",
     "noSnapshotsForProfile": "No se encontraron respaldos para los directorios de este perfil",
+    "noDirectories": "No hay directorios en el perfil",
+    "noDirectoriesDesc": "Este perfil no tiene directorios configurados. Edita el perfil para agregar directorios.",
     "policy": "Regla de respaldo",
     "selectPolicy": "Seleccionar una regla de respaldo",
     "noPolicyDefault": "Sin regla (usar predeterminada)",
@@ -435,7 +446,11 @@
     "directoriesAdded_other": "{{count}} directorios añadidos",
     "policySettings": "Configuración de las reglas de respaldo",
     "policySettingsDescription": "Configura las reglas de respaldo para el primer directorio. Las reglas se aplicarán a todos los directorios de este perfil.",
-    "addDirectoryToConfigurePolicy": "Añade un directorio para configurar las reglas de respaldo"
+    "addDirectoryToConfigurePolicy": "Añade un directorio para configurar las reglas de respaldo",
+    "backupSchedule": "Horario de Respaldo",
+    "backupScheduleDescription": "Elige cuándo y con qué frecuencia respaldar estos directorios",
+    "schedule": "Horario",
+    "editCustomPolicy": "Editar Política Personalizada"
   },
   "policies": {
     "title": "Reglas de respaldo",
@@ -1140,5 +1155,73 @@
   },
   "time": {
     "hoursShort": "H"
+  },
+  "presets": {
+    "quickStart": {
+      "name": "Inicio Rápido",
+      "description": "Copias diarias a las 2 AM, conservar durante 30 días. Perfecto para empezar."
+    },
+    "daily30": {
+      "name": "Diario (30 días)",
+      "description": "Copias diarias con retención de 30 días. Bueno para documentos y código."
+    },
+    "weeklyYear": {
+      "name": "Semanal (1 año)",
+      "description": "Copias semanales guardadas durante 1 año. Ideal para archivos a largo plazo."
+    },
+    "hourlyWeek": {
+      "name": "Cada Hora (7 días)",
+      "description": "Copias cada hora durante 7 días. Mejor para datos que cambian frecuentemente."
+    },
+    "custom": {
+      "name": "Personalizado",
+      "description": "Gestiona tu propia política con control total sobre todas las configuraciones."
+    }
+  },
+  "onboarding": {
+    "welcome": {
+      "title": "Bienvenido a Kopia Desktop",
+      "subtitle": "Respaldo seguro y encriptado para tus archivos importantes",
+      "feature1Title": "Encriptado y Seguro",
+      "feature1Description": "Encriptación de grado militar mantiene tus respaldos seguros",
+      "feature2Title": "Rápido y Eficiente",
+      "feature2Description": "Respaldos incrementales ahorran tiempo y almacenamiento",
+      "feature3Title": "Almacenamiento Flexible",
+      "feature3Description": "Respalda a discos locales, nube o almacenamiento en red",
+      "quickStart": "Inicio Rápido (Recomendado)",
+      "advancedSetup": "Configuración Avanzada",
+      "skip": "Lo configuraré más tarde"
+    },
+    "quickStart": {
+      "title": "Configuración de Inicio Rápido",
+      "subtitle": "Configura tus respaldos en menos de 5 minutos",
+      "backupLocation": "¿Dónde deben guardarse los respaldos?",
+      "backupLocationHint": "Elige una unidad externa o ubicación de red para mayor seguridad",
+      "backupLocationPlaceholder": "/media/respaldos o \\\\servidor\\respaldos",
+      "foldersToBackup": "¿Qué carpetas deben respaldarse?",
+      "foldersToBackupHint": "Selecciona las carpetas que contienen tus archivos importantes",
+      "documents": "Documentos",
+      "pictures": "Imágenes",
+      "videos": "Videos",
+      "music": "Música",
+      "addCustomFolder": "Agregar Carpeta Personalizada",
+      "password": "Contraseña del Respaldo",
+      "passwordHint": "Elige una contraseña fuerte para encriptar tus respaldos. ¡No se puede recuperar si la pierdes!",
+      "passwordPlaceholder": "Ingresa una contraseña fuerte",
+      "confirmPasswordPlaceholder": "Confirma tu contraseña",
+      "createBackup": "Crear Respaldo",
+      "backupPathRequired": "Por favor selecciona dónde guardar los respaldos",
+      "selectAtLeastOneFolder": "Por favor selecciona al menos una carpeta para respaldar",
+      "passwordRequired": "La contraseña es requerida",
+      "passwordTooShort": "La contraseña debe tener al menos 8 caracteres",
+      "passwordMismatch": "Las contraseñas no coinciden",
+      "selectFolderError": "Error al seleccionar carpeta",
+      "repositoryCreated": "Destino de respaldo creado exitosamente",
+      "profileCreated": "Perfil de respaldo '{{name}}' creado",
+      "setupComplete": "¡Configuración completa! Tu primer respaldo comenzará pronto.",
+      "setupFailed": "Configuración fallida. Por favor intenta de nuevo.",
+      "defaultProfileName": "Mis Archivos",
+      "defaultProfileDescription": "Respaldos diarios de mis archivos importantes"
+    }
   }
 }

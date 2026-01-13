@@ -22,8 +22,27 @@ import { Preferences } from './pages/Preferences';
 import { Setup } from './pages/Setup';
 import { Repositories } from './pages/Repositories';
 import { NotFound } from './pages/NotFound';
+import Onboarding from './pages/Onboarding';
 import './lib/i18n/config';
 import './styles/globals.css';
+
+/** Component that handles first-run onboarding detection */
+function OnboardingGuard() {
+  const hasCompletedOnboarding = usePreferencesStore((state) => state.hasCompletedOnboarding);
+  const isConnected = useKopiaStore((state) => state.isRepoConnected());
+  const isLoading = useKopiaStore((state) => state.isRepositoryLoading);
+
+  if (isLoading) {
+    return null;
+  }
+
+  // If user hasn't completed onboarding AND no repository is connected, show onboarding
+  if (!hasCompletedOnboarding && !isConnected) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  return <Outlet />;
+}
 
 /** Layout component that protects child routes - redirects to setup if not connected */
 function ProtectedLayout() {
@@ -79,31 +98,37 @@ function App(): React.JSX.Element {
       <WindowCloseHandler />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<AppLayout />}>
-            {/* Public routes (no auth required) */}
-            <Route path="setup" element={<Setup />} />
-            <Route path="repository" element={<Repository />} />
-            <Route path="preferences" element={<Preferences />} />
-            <Route path="repositories" element={<Repositories />} />
+          {/* Onboarding route (full-screen, outside AppLayout) */}
+          <Route path="/onboarding" element={<Onboarding />} />
 
-            {/* Protected routes (require connected repository) */}
-            <Route element={<ProtectedLayout />}>
-              <Route index element={<Overview />} />
-              <Route path="snapshots" element={<Snapshots />} />
-              <Route path="snapshots/:profileId/history" element={<ProfileHistory />} />
-              <Route path="snapshots/create" element={<SnapshotCreate />} />
-              <Route path="snapshots/history" element={<SnapshotHistory />} />
-              <Route path="snapshots/browse" element={<SnapshotBrowse />} />
-              <Route path="snapshots/restore" element={<SnapshotRestore />} />
-              <Route path="policies" element={<Policies />} />
-              <Route path="policies/edit" element={<PolicyEdit />} />
-              <Route path="tasks" element={<Tasks />} />
-              <Route path="tasks/:taskId" element={<TaskDetail />} />
-              <Route path="mounts" element={<Mounts />} />
+          {/* Main app routes with OnboardingGuard */}
+          <Route element={<OnboardingGuard />}>
+            <Route path="/" element={<AppLayout />}>
+              {/* Public routes (no auth required) */}
+              <Route path="setup" element={<Setup />} />
+              <Route path="repository" element={<Repository />} />
+              <Route path="preferences" element={<Preferences />} />
+              <Route path="repositories" element={<Repositories />} />
+
+              {/* Protected routes (require connected repository) */}
+              <Route element={<ProtectedLayout />}>
+                <Route index element={<Overview />} />
+                <Route path="snapshots" element={<Snapshots />} />
+                <Route path="snapshots/:profileId/history" element={<ProfileHistory />} />
+                <Route path="snapshots/create" element={<SnapshotCreate />} />
+                <Route path="snapshots/history" element={<SnapshotHistory />} />
+                <Route path="snapshots/browse" element={<SnapshotBrowse />} />
+                <Route path="snapshots/restore" element={<SnapshotRestore />} />
+                <Route path="policies" element={<Policies />} />
+                <Route path="policies/edit" element={<PolicyEdit />} />
+                <Route path="tasks" element={<Tasks />} />
+                <Route path="tasks/:taskId" element={<TaskDetail />} />
+                <Route path="mounts" element={<Mounts />} />
+              </Route>
+
+              {/* 404 Catch-all route */}
+              <Route path="*" element={<NotFound />} />
             </Route>
-
-            {/* 404 Catch-all route */}
-            <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
       </BrowserRouter>

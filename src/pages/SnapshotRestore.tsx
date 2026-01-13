@@ -15,6 +15,12 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { Spinner } from '@/components/ui/spinner';
 import {
   FolderOpen,
@@ -54,19 +60,14 @@ export function SnapshotRestore() {
   const [isRestoring, setIsRestoring] = useState(false);
   const [restoreTaskId, setRestoreTaskId] = useState<string | null>(null);
 
-  // Filesystem restore options
-  const [overwriteFiles, setOverwriteFiles] = useState(false);
-  const [overwriteDirectories, setOverwriteDirectories] = useState(false);
-  const [overwriteSymlinks, setOverwriteSymlinks] = useState(false);
-  const [skipOwners, setSkipOwners] = useState(false);
-  const [skipPermissions, setSkipPermissions] = useState(false);
-  const [skipTimes, setSkipTimes] = useState(false);
-  const [ignorePermissionErrors, setIgnorePermissionErrors] = useState(true); // Critical: prevents chown errors
-  const [writeFilesAtomically, setWriteFilesAtomically] = useState(false); // Matches official Kopia UI
-  const [writeSparseFiles, setWriteSparseFiles] = useState(false);
+  // Simplified restore options with safe defaults
+  const [overwriteExisting, setOverwriteExisting] = useState(false); // Grouped: files + dirs + symlinks
+  const [preserveAttributes, setPreserveAttributes] = useState(false); // Grouped: owners + permissions + times
+  const [continueOnErrors, setContinueOnErrors] = useState(true); // Safe default: don't stop on errors
 
-  // General restore options
-  const [ignoreErrors, setIgnoreErrors] = useState(false);
+  // Advanced options (collapsed by default)
+  const [writeFilesAtomically, setWriteFilesAtomically] = useState(false);
+  const [writeSparseFiles, setWriteSparseFiles] = useState(false);
   const [incremental, setIncremental] = useState(false);
   const [uncompressedZip, setUncompressedZip] = useState(false);
 
@@ -165,13 +166,20 @@ export function SnapshotRestore() {
       if (mode === 'filesystem') {
         request.fsOutput = {
           targetPath,
-          ...(overwriteFiles && { overwriteFiles }),
-          ...(overwriteDirectories && { overwriteDirectories }),
-          ...(overwriteSymlinks && { overwriteSymlinks }),
-          ...(skipOwners && { skipOwners }),
-          ...(skipPermissions && { skipPermissions }),
-          ...(skipTimes && { skipTimes }),
-          ...(ignorePermissionErrors && { ignorePermissionErrors }),
+          // Map simplified options to Kopia API
+          ...(overwriteExisting && {
+            overwriteFiles: true,
+            overwriteDirectories: true,
+            overwriteSymlinks: true,
+          }),
+          ...(!preserveAttributes && {
+            skipOwners: true,
+            skipPermissions: true,
+            skipTimes: true,
+          }),
+          // Always ignore permission errors (prevents chown failures on Windows/macOS)
+          ignorePermissionErrors: true,
+          // Advanced options
           ...(writeFilesAtomically && { writeFilesAtomically }),
           ...(writeSparseFiles && { writeSparseFiles }),
         };
@@ -187,7 +195,7 @@ export function SnapshotRestore() {
       // Always add options - CRITICAL to prevent shallow restore with placeholder files
       request.options = {
         incremental: incremental,
-        ignoreErrors: ignoreErrors,
+        ignoreErrors: continueOnErrors,
         restoreDirEntryAtDepth: 2147483647, // Max int32 - never use shallow restore
         minSizeForPlaceholder: 2147483647, // Max int32 - never create placeholder files
       };
@@ -273,6 +281,7 @@ export function SnapshotRestore() {
             {/* Filesystem Restore */}
             <TabsContent value="filesystem" className="space-y-6">
               <div className="space-y-4">
+                {/* Target Path */}
                 <div className="space-y-2">
                   <Label htmlFor="targetPath">{t('restore.targetPath')}</Label>
                   <div className="flex gap-2">
@@ -291,110 +300,83 @@ export function SnapshotRestore() {
                   <p className="text-xs text-muted-foreground">{t('restore.targetPathHelp')}</p>
                 </div>
 
+                {/* Simplified Options */}
                 <div className="space-y-3">
-                  <Label className="text-base">{t('restore.overwriteOptions')}</Label>
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="overwriteFiles"
-                        checked={overwriteFiles}
-                        onCheckedChange={(checked) => setOverwriteFiles(checked === true)}
-                      />
-                      <Label htmlFor="overwriteFiles" className="font-normal cursor-pointer">
-                        {t('restore.overwriteFiles')}
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="overwriteDirectories"
-                        checked={overwriteDirectories}
-                        onCheckedChange={(checked) => setOverwriteDirectories(checked === true)}
-                      />
-                      <Label htmlFor="overwriteDirectories" className="font-normal cursor-pointer">
-                        {t('restore.overwriteDirectories')}
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="overwriteSymlinks"
-                        checked={overwriteSymlinks}
-                        onCheckedChange={(checked) => setOverwriteSymlinks(checked === true)}
-                      />
-                      <Label htmlFor="overwriteSymlinks" className="font-normal cursor-pointer">
-                        {t('restore.overwriteSymlinks')}
-                      </Label>
-                    </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="overwriteExisting"
+                      checked={overwriteExisting}
+                      onCheckedChange={(checked) => setOverwriteExisting(checked === true)}
+                    />
+                    <Label htmlFor="overwriteExisting" className="font-normal cursor-pointer">
+                      {t('restore.overwriteExisting')}
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="preserveAttributes"
+                      checked={preserveAttributes}
+                      onCheckedChange={(checked) => setPreserveAttributes(checked === true)}
+                    />
+                    <Label htmlFor="preserveAttributes" className="font-normal cursor-pointer">
+                      {t('restore.preserveAttributes')}
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="continueOnErrors"
+                      checked={continueOnErrors}
+                      onCheckedChange={(checked) => setContinueOnErrors(checked === true)}
+                    />
+                    <Label htmlFor="continueOnErrors" className="font-normal cursor-pointer">
+                      {t('restore.continueOnErrors')}
+                    </Label>
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <Label className="text-base">{t('restore.preserveOptions')}</Label>
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="skipOwners"
-                        checked={skipOwners}
-                        onCheckedChange={(checked) => setSkipOwners(checked === true)}
-                      />
-                      <Label htmlFor="skipOwners" className="font-normal cursor-pointer">
-                        {t('restore.skipOwners')}
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="skipPermissions"
-                        checked={skipPermissions}
-                        onCheckedChange={(checked) => setSkipPermissions(checked === true)}
-                      />
-                      <Label htmlFor="skipPermissions" className="font-normal cursor-pointer">
-                        {t('restore.skipPermissions')}
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="skipTimes"
-                        checked={skipTimes}
-                        onCheckedChange={(checked) => setSkipTimes(checked === true)}
-                      />
-                      <Label htmlFor="skipTimes" className="font-normal cursor-pointer">
-                        {t('restore.skipTimes')}
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="ignorePermissionErrors"
-                        checked={ignorePermissionErrors}
-                        onCheckedChange={(checked) => setIgnorePermissionErrors(checked === true)}
-                      />
-                      <Label
-                        htmlFor="ignorePermissionErrors"
-                        className="font-normal cursor-pointer"
-                      >
-                        {t('restore.ignorePermissionErrors')}
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="writeFilesAtomically"
-                        checked={writeFilesAtomically}
-                        onCheckedChange={(checked) => setWriteFilesAtomically(checked === true)}
-                      />
-                      <Label htmlFor="writeFilesAtomically" className="font-normal cursor-pointer">
-                        {t('restore.writeFilesAtomically')}
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="writeSparseFiles"
-                        checked={writeSparseFiles}
-                        onCheckedChange={(checked) => setWriteSparseFiles(checked === true)}
-                      />
-                      <Label htmlFor="writeSparseFiles" className="font-normal cursor-pointer">
-                        {t('restore.writeSparseFiles')}
-                      </Label>
-                    </div>
-                  </div>
-                </div>
+                {/* Advanced Options (Accordion - collapsed by default) */}
+                <Accordion type="single" collapsible>
+                  <AccordionItem value="advanced">
+                    <AccordionTrigger className="text-sm">
+                      {t('restore.advancedOptions')}
+                    </AccordionTrigger>
+                    <AccordionContent className="space-y-3 pt-3">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="writeFilesAtomically"
+                          checked={writeFilesAtomically}
+                          onCheckedChange={(checked) => setWriteFilesAtomically(checked === true)}
+                        />
+                        <Label
+                          htmlFor="writeFilesAtomically"
+                          className="font-normal cursor-pointer"
+                        >
+                          {t('restore.writeFilesAtomically')}
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="writeSparseFiles"
+                          checked={writeSparseFiles}
+                          onCheckedChange={(checked) => setWriteSparseFiles(checked === true)}
+                        />
+                        <Label htmlFor="writeSparseFiles" className="font-normal cursor-pointer">
+                          {t('restore.writeSparseFiles')}
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="incremental"
+                          checked={incremental}
+                          onCheckedChange={(checked) => setIncremental(checked === true)}
+                        />
+                        <Label htmlFor="incremental" className="font-normal cursor-pointer">
+                          {t('restore.incremental')}
+                        </Label>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               </div>
             </TabsContent>
 
@@ -441,33 +423,6 @@ export function SnapshotRestore() {
               </div>
             </TabsContent>
           </Tabs>
-
-          {/* General Options */}
-          <div className="mt-6 space-y-3 border-t pt-6">
-            <Label className="text-base">{t('restore.generalOptions')}</Label>
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="ignoreErrors"
-                  checked={ignoreErrors}
-                  onCheckedChange={(checked) => setIgnoreErrors(checked === true)}
-                />
-                <Label htmlFor="ignoreErrors" className="font-normal cursor-pointer">
-                  {t('restore.ignoreErrors')}
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="incremental"
-                  checked={incremental}
-                  onCheckedChange={(checked) => setIncremental(checked === true)}
-                />
-                <Label htmlFor="incremental" className="font-normal cursor-pointer">
-                  {t('restore.incremental')}
-                </Label>
-              </div>
-            </div>
-          </div>
         </CardContent>
       </Card>
 

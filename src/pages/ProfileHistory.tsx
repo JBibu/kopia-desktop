@@ -1,54 +1,59 @@
 /**
- * Profile History page - View all snapshots for a profile's directories
+ * Profile History page - View directories in a profile with stats
  */
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams, Link } from 'react-router';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Spinner } from '@/components/ui/spinner';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   FolderArchive,
   RefreshCw,
-  Search,
-  Calendar,
-  HardDrive,
   AlertCircle,
-  CheckCircle2,
-  XCircle,
   FolderOpen,
-  RotateCcw,
-  Pin,
+  Clock,
+  HardDrive,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
-import { toast } from 'sonner';
-import { formatBytes, formatDateTime } from '@/lib/utils';
+import { formatBytes, formatDistanceToNow } from '@/lib/utils';
 import { useProfilesStore } from '@/stores';
 import { usePreferencesStore } from '@/stores';
 import { useSnapshots } from '@/hooks';
-import { navigateToSnapshotBrowse, navigateToSnapshotRestore } from '@/lib/utils/navigation';
 import { EmptyState } from '@/components/ui/empty-state';
-import { PinDialog, RetentionTags } from '@/components/kopia/snapshots';
+import { CardStatItem } from '@/components/kopia/snapshots';
+import { ProfileFormDialog } from '@/components/kopia/profiles';
+import { toast } from 'sonner';
 
 export function ProfileHistory() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { profileId } = useParams<{ profileId: string }>();
-  const locale = usePreferencesStore((state) => state.getLocale());
   const byteFormat = usePreferencesStore((state) => state.byteFormat);
 
   const profile = useProfilesStore((state) => state.profiles.find((p) => p.id === profileId));
+  const deleteProfile = useProfilesStore((state) => state.deleteProfile);
   const {
     snapshots: storeSnapshots,
     isLoading: isSnapshotsLoading,
@@ -57,32 +62,8 @@ export function ProfileHistory() {
     refreshSources,
   } = useSnapshots();
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [pinDialogSnapshot, setPinDialogSnapshot] = useState<{
-    id: string;
-    pins: string[];
-  } | null>(null);
-
-  // Filter snapshots that belong to this profile's directories
-  const profileSnapshots = storeSnapshots.filter((snapshot) => {
-    if (!profile) return false;
-
-    // Check if the snapshot's source path is in the profile's directories
-    const snapshotPath = snapshot.source?.path;
-    if (!snapshotPath) return false;
-
-    return profile.directories.includes(snapshotPath);
-  });
-
-  const filteredSnapshots = profileSnapshots.filter((snapshot) => {
-    return (
-      searchQuery === '' ||
-      snapshot.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      snapshot.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      snapshot.source?.path?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  });
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     // Refresh snapshots and sources when profileId changes
@@ -91,12 +72,42 @@ export function ProfileHistory() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileId]);
 
+  // Get snapshot stats for a directory
+  const getDirectoryStats = (directory: string) => {
+    const dirSnapshots = storeSnapshots.filter((s) => s.source?.path === directory);
+    const snapshotCount = dirSnapshots.length;
+    const totalSize = dirSnapshots.reduce((sum, s) => sum + (s.summary?.size || 0), 0);
+    const sortedSnapshots = [...dirSnapshots].sort(
+      (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+    );
+    const lastSnapshot = sortedSnapshots[0];
+    const lastSnapshotTime = lastSnapshot?.startTime || null;
+    // Get source info from the most recent snapshot
+    const userName = lastSnapshot?.source?.userName || '';
+    const host = lastSnapshot?.source?.host || '';
+
+    return { snapshotCount, totalSize, lastSnapshotTime, userName, host };
+  };
+
+  // Navigate to SnapshotHistory for a specific directory
+  const handleDirectoryClick = (directory: string) => {
+    const { userName, host } = getDirectoryStats(directory);
+    const params = new URLSearchParams();
+    if (userName) params.set('userName', userName);
+    if (host) params.set('host', host);
+    params.set('path', directory);
+    void navigate(`/snapshots/history?${params.toString()}`);
+  };
+
   const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      await Promise.all([refreshSnapshots(), refreshSources()]);
-    } finally {
-      setIsRefreshing(false);
+    await Promise.all([refreshSnapshots(), refreshSources()]);
+  };
+
+  const handleDeleteProfile = () => {
+    if (profile) {
+      deleteProfile(profile.id);
+      toast.success(t('profiles.profileDeleted', { name: profile.name }));
+      void navigate('/snapshots');
     }
   };
 
@@ -114,44 +125,49 @@ export function ProfileHistory() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to="/snapshots">{t('nav.snapshots')}</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{profile.name}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">{t('profiles.snapshotHistory')}</h1>
-          <p className="text-sm text-muted-foreground">
-            {profile.name}
-            {profile.description && ` - ${profile.description}`}
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight">{profile.name}</h1>
+          {profile.description && (
+            <p className="text-sm text-muted-foreground">{profile.description}</p>
+          )}
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => void handleRefresh()}
-          disabled={isRefreshing || isSnapshotsLoading}
-        >
-          <RefreshCw
-            className={`h-4 w-4 mr-2 ${isRefreshing || isSnapshotsLoading ? 'animate-spin' : ''}`}
-          />
-          {t('common.refresh')}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setIsEditDialogOpen(true)}>
+            <Pencil className="h-4 w-4 mr-2" />
+            {t('common.edit')}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setIsDeleteDialogOpen(true)}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            {t('common.delete')}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void handleRefresh()}
+            disabled={isSnapshotsLoading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isSnapshotsLoading ? 'animate-spin' : ''}`} />
+            {t('common.refresh')}
+          </Button>
+        </div>
       </div>
-
-      {/* Profile directories */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">{t('profiles.directories')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {profile.directories.map((directory, index) => (
-              <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded text-sm">
-                <FolderOpen className="h-4 w-4 text-muted-foreground" />
-                <span className="truncate">{directory}</span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Error Alert */}
       {snapshotsError && (
@@ -161,206 +177,100 @@ export function ProfileHistory() {
         </Alert>
       )}
 
-      {/* Snapshots List */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-base">{t('snapshots.allSnapshots')}</CardTitle>
-              <CardDescription>
-                {t('snapshots.snapshotsFound', { count: filteredSnapshots.length })}
-              </CardDescription>
-            </div>
-            <div className="relative w-[250px]">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder={t('snapshots.searchSnapshotsPlaceholder')}
-                className="pl-8"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isSnapshotsLoading && filteredSnapshots.length === 0 ? (
-            <div className="flex items-center justify-center py-12">
-              <Spinner className="h-8 w-8" />
-            </div>
-          ) : filteredSnapshots.length === 0 ? (
-            <EmptyState
-              icon={FolderArchive}
-              title={t('snapshots.noSnapshotsFound')}
-              description={
-                searchQuery ? t('snapshots.noSnapshotsMatch') : t('profiles.noSnapshotsForProfile')
-              }
-              action={{
-                label: t('profiles.createSnapshot'),
-                onClick: () => void navigate(`/snapshots/create?profileId=${profile.id}`),
-              }}
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('snapshots.status')}</TableHead>
-                  <TableHead>{t('snapshots.directory')}</TableHead>
-                  <TableHead>{t('snapshots.id')}</TableHead>
-                  <TableHead>{t('snapshots.description')}</TableHead>
-                  <TableHead>{t('snapshots.time')}</TableHead>
-                  <TableHead className="text-right">{t('snapshots.size')}</TableHead>
-                  <TableHead className="text-right">{t('snapshots.files')}</TableHead>
-                  <TableHead>{t('snapshots.pins.pins')}</TableHead>
-                  <TableHead>{t('snapshots.retention.retention')}</TableHead>
-                  <TableHead className="w-[150px]">{t('snapshots.actions')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredSnapshots.map((snapshot) => (
-                  <TableRow key={snapshot.id}>
-                    <TableCell>
-                      {snapshot.incomplete ? (
-                        <XCircle className="h-4 w-4 text-destructive" />
-                      ) : (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-xs text-muted-foreground font-mono">
-                        {snapshot.source?.path || '-'}
-                      </span>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {snapshot.id.slice(0, 12)}...
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm truncate max-w-[150px] block">
-                        {snapshot.description || t('snapshots.noDescription')}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-sm">
-                          {formatDateTime(snapshot.startTime, locale)}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <HardDrive className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-sm">
-                          {formatBytes(snapshot.summary?.size || 0, 2, byteFormat)}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Badge variant="secondary">{snapshot.summary?.files || 0}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      {snapshot.pins && snapshot.pins.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {snapshot.pins.map((pin) => (
-                            <Badge key={pin} variant="secondary" className="gap-1">
-                              <Pin className="h-3 w-3" />
-                              {pin}
-                            </Badge>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <RetentionTags retention={snapshot.retention} />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            if (!snapshot.rootID) {
-                              toast.error(t('snapshots.cannotBrowse'), {
-                                description: t('snapshots.cannotBrowseDesc'),
-                              });
-                              return;
-                            }
-                            navigateToSnapshotBrowse(
-                              navigate,
-                              snapshot.id,
-                              snapshot.rootID,
-                              snapshot.rootID,
-                              '/'
-                            );
-                          }}
-                          disabled={!snapshot.rootID}
-                          title={
-                            snapshot.rootID ? t('snapshots.browse') : t('snapshots.cannotBrowse')
-                          }
-                          aria-label={
-                            snapshot.rootID ? t('snapshots.browse') : t('snapshots.cannotBrowse')
-                          }
-                        >
-                          <FolderOpen className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            if (!snapshot.rootID) {
-                              toast.error(t('snapshots.cannotRestore'), {
-                                description: t('snapshots.cannotRestoreDesc'),
-                              });
-                              return;
-                            }
-                            navigateToSnapshotRestore(navigate, snapshot.id, snapshot.rootID, '/');
-                          }}
-                          disabled={!snapshot.rootID}
-                          title={
-                            snapshot.rootID ? t('snapshots.restore') : t('snapshots.cannotRestore')
-                          }
-                          aria-label={
-                            snapshot.rootID ? t('snapshots.restore') : t('snapshots.cannotRestore')
-                          }
-                        >
-                          <RotateCcw className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            setPinDialogSnapshot({
-                              id: snapshot.id,
-                              pins: snapshot.pins || [],
-                            })
-                          }
-                          title={t('snapshots.pins.managePins')}
-                          aria-label={t('snapshots.pins.managePins')}
-                        >
-                          <Pin className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Pin Management Dialog */}
-      {pinDialogSnapshot && (
-        <PinDialog
-          open={!!pinDialogSnapshot}
-          onOpenChange={(open) => !open && setPinDialogSnapshot(null)}
-          snapshotId={pinDialogSnapshot.id}
-          currentPins={pinDialogSnapshot.pins}
-          onPinsUpdated={() => void refreshSnapshots()}
+      {/* Loading state */}
+      {isSnapshotsLoading && storeSnapshots.length === 0 ? (
+        <div className="flex items-center justify-center py-12">
+          <Spinner className="h-8 w-8" />
+        </div>
+      ) : profile.directories.length === 0 ? (
+        <EmptyState
+          icon={FolderArchive}
+          title={t('profiles.noDirectories')}
+          description={t('profiles.noDirectoriesDesc')}
         />
+      ) : (
+        /* Directory cards grid */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {profile.directories.map((directory) => {
+            const stats = getDirectoryStats(directory);
+            return (
+              <Card
+                key={directory}
+                className="hover:shadow-md hover:border-muted-foreground/20 transition-all duration-200 cursor-pointer group"
+                onClick={() => handleDirectoryClick(directory)}
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-md bg-muted/50 group-hover:bg-muted transition-colors">
+                      <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <CardTitle className="text-sm font-medium truncate flex-1">
+                      {directory}
+                    </CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <CardStatItem
+                      icon={FolderArchive}
+                      label={t('snapshots.backups')}
+                      value={stats.snapshotCount}
+                    />
+                    <CardStatItem
+                      icon={HardDrive}
+                      label={t('snapshots.size')}
+                      value={formatBytes(stats.totalSize, 1, byteFormat)}
+                    />
+                  </div>
+                  {stats.lastSnapshotTime && (
+                    <div className="flex items-center gap-2 pt-2 border-t text-xs text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span>
+                        {t('snapshots.lastBackup')}{' '}
+                        {formatDistanceToNow(new Date(stats.lastSnapshotTime))}
+                      </span>
+                    </div>
+                  )}
+                  {!stats.lastSnapshotTime && (
+                    <div className="flex items-center gap-2 pt-2 border-t text-xs text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span>{t('snapshots.noSnapshots')}</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       )}
+
+      {/* Edit Profile Dialog */}
+      <ProfileFormDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        profile={profile}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('profiles.deleteConfirmTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('profiles.deleteConfirmMessage', { name: profile.name })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteProfile}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {t('profiles.deleteProfile')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

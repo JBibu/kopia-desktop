@@ -23,6 +23,7 @@
     "development": "Development",
     "browse": "Browse",
     "duplicate": "Duplicate",
+    "copy": "Copy",
     "test": "Test",
     "optional": "Optional",
     "home": "Home",
@@ -348,6 +349,10 @@
     "skipOwners": "Skip restoring file owners",
     "skipPermissions": "Skip restoring file permissions",
     "skipTimes": "Skip restoring modification times",
+    "overwriteExisting": "Overwrite existing files",
+    "preserveAttributes": "Preserve original file attributes",
+    "continueOnErrors": "Continue on errors",
+    "advancedOptions": "Advanced Options",
     "ignorePermissionErrors": "Ignore permission errors (recommended)",
     "writeFilesAtomically": "Write files atomically (safer but slower)",
     "writeSparseFiles": "Write sparse files (save space)",
@@ -409,6 +414,10 @@
     "profileCreated": "Profile '{{name}}' created successfully",
     "profileUpdated": "Profile '{{name}}' updated successfully",
     "profileDeleted": "Profile '{{name}}' deleted successfully",
+    "profileDuplicated": "Profile '{{name}}' duplicated",
+    "duplicateProfile": "Duplicate",
+    "backupNow": "Backup Now",
+    "backupAllStarted": "Backup started for all directories in '{{name}}'",
     "profileEnabled": "Profile '{{name}}' enabled",
     "profileDisabled": "Profile '{{name}}' disabled",
     "deleteConfirmTitle": "Delete Profile",
@@ -421,6 +430,8 @@
     "profileNotFound": "Profile not found",
     "backToProfiles": "Back to Profiles",
     "noSnapshotsForProfile": "No backups found for this profile's directories yet",
+    "noDirectories": "No directories in profile",
+    "noDirectoriesDesc": "This profile has no directories configured. Edit the profile to add directories.",
     "policy": "Backup Rule",
     "selectPolicy": "Select a backup rule",
     "noPolicyDefault": "No rule (use default)",
@@ -435,7 +446,11 @@
     "directoriesAdded_other": "{{count}} directories added",
     "policySettings": "Backup Rule Settings",
     "policySettingsDescription": "Configure backup rules for the first directory. Rules will be applied to all directories in this profile.",
-    "addDirectoryToConfigurePolicy": "Add a directory to configure backup rules"
+    "addDirectoryToConfigurePolicy": "Add a directory to configure backup rules",
+    "backupSchedule": "Backup Schedule",
+    "backupScheduleDescription": "Choose when and how often to backup these directories",
+    "schedule": "Schedule",
+    "editCustomPolicy": "Edit Custom Policy"
   },
   "policies": {
     "title": "Backup Rules",
@@ -1140,5 +1155,73 @@
   },
   "time": {
     "hoursShort": "H"
+  },
+  "presets": {
+    "quickStart": {
+      "name": "Quick Start",
+      "description": "Daily backups at 2 AM, keep for 30 days. Perfect for getting started."
+    },
+    "daily30": {
+      "name": "Daily (30 days)",
+      "description": "Daily backups with 30-day retention. Good for documents and code."
+    },
+    "weeklyYear": {
+      "name": "Weekly (1 year)",
+      "description": "Weekly backups kept for 1 year. Ideal for long-term archives."
+    },
+    "hourlyWeek": {
+      "name": "Hourly (7 days)",
+      "description": "Hourly backups for 7 days. Best for frequently changing data."
+    },
+    "custom": {
+      "name": "Custom",
+      "description": "Manage your own policy with full control over all settings."
+    }
+  },
+  "onboarding": {
+    "welcome": {
+      "title": "Welcome to Kopia Desktop",
+      "subtitle": "Secure, encrypted backup for your important files",
+      "feature1Title": "Encrypted & Secure",
+      "feature1Description": "Military-grade encryption keeps your backups safe",
+      "feature2Title": "Fast & Efficient",
+      "feature2Description": "Incremental backups save time and storage",
+      "feature3Title": "Flexible Storage",
+      "feature3Description": "Backup to local drives, cloud, or network storage",
+      "quickStart": "Quick Start (Recommended)",
+      "advancedSetup": "Advanced Setup",
+      "skip": "I'll set this up later"
+    },
+    "quickStart": {
+      "title": "Quick Start Setup",
+      "subtitle": "Get your backups running in under 5 minutes",
+      "backupLocation": "Where should backups be saved?",
+      "backupLocationHint": "Choose an external drive or network location for safety",
+      "backupLocationPlaceholder": "/media/backups or \\\\server\\backups",
+      "foldersToBackup": "What folders should be backed up?",
+      "foldersToBackupHint": "Select the folders containing your important files",
+      "documents": "Documents",
+      "pictures": "Pictures",
+      "videos": "Videos",
+      "music": "Music",
+      "addCustomFolder": "Add Custom Folder",
+      "password": "Backup Password",
+      "passwordHint": "Choose a strong password to encrypt your backups. This cannot be recovered if lost!",
+      "passwordPlaceholder": "Enter a strong password",
+      "confirmPasswordPlaceholder": "Confirm your password",
+      "createBackup": "Create Backup",
+      "backupPathRequired": "Please select where to save backups",
+      "selectAtLeastOneFolder": "Please select at least one folder to backup",
+      "passwordRequired": "Password is required",
+      "passwordTooShort": "Password must be at least 8 characters",
+      "passwordMismatch": "Passwords do not match",
+      "selectFolderError": "Failed to select folder",
+      "repositoryCreated": "Backup destination created successfully",
+      "profileCreated": "Backup profile '{{name}}' created",
+      "setupComplete": "Setup complete! Your first backup will start soon.",
+      "setupFailed": "Setup failed. Please try again.",
+      "defaultProfileName": "My Files",
+      "defaultProfileDescription": "Daily backups of my important files"
+    }
   }
 }
