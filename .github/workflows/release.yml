@@ -36,6 +36,9 @@ jobs:
       - name: Run validation
         run: pnpm validate
 
+      - name: Install system dependencies
+        uses: ./.github/actions/setup-ubuntu-deps
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -43,6 +46,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          shared-key: ubuntu-deps-${{ hashFiles('.github/actions/setup-ubuntu-deps/action.yml') }}
 
       - name: Run Rust tests
         working-directory: src-tauri
@@ -102,6 +106,10 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
 
+      - name: Install dependencies (Ubuntu)
+        if: matrix.platform == 'Linux'
+        uses: ./.github/actions/setup-ubuntu-deps
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
@@ -109,10 +117,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-
-      - name: Install dependencies (Ubuntu)
-        if: matrix.platform == 'Linux'
-        uses: ./.github/actions/setup-ubuntu-deps
+          shared-key: ${{ matrix.platform == 'Linux' && format('ubuntu-deps-{0}', hashFiles('.github/actions/setup-ubuntu-deps/action.yml')) || '' }}
 
       - name: Cache Kopia binaries
         uses: actions/cache@v4
