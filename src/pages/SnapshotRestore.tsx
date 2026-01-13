@@ -210,7 +210,7 @@ export function SnapshotRestore() {
   };
 
   const handleBack = () => {
-    navigateBack(navigate, '/snapshots');
+    navigateBack(navigate, '/profiles');
   };
 
   return (

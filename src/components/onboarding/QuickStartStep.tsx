@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 
 interface QuickStartStepProps {
   onBack: () => void;
-  onComplete: (config: QuickStartConfig) => void;
+  onComplete: (config: QuickStartConfig) => Promise<void>;
 }
 
 export interface QuickStartConfig {
@@ -73,9 +73,9 @@ export function QuickStartStep({ onBack, onComplete }: QuickStartStepProps) {
     setSelectedFolders(newSelected);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
+
     // Validation
     if (!backupPath) {
       toast.error(t('onboarding.quickStart.backupPathRequired'));
@@ -108,12 +108,16 @@ export function QuickStartStep({ onBack, onComplete }: QuickStartStepProps) {
       return common?.path || id; // If not common folder, it's a custom path
     });
 
-    onComplete({
-      backupPath,
-      directories,
-      password,
-    });
-    setIsSubmitting(false);
+    setIsSubmitting(true);
+    try {
+      await onComplete({
+        backupPath,
+        directories,
+        password,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -125,7 +129,7 @@ export function QuickStartStep({ onBack, onComplete }: QuickStartStepProps) {
           <p className="text-muted-foreground mt-2">{t('onboarding.quickStart.subtitle')}</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-8">
           {/* Backup Storage Location */}
           <div className="space-y-3">
             <Label htmlFor="backupPath">

@@ -28,7 +28,7 @@ export function OnboardingWizard() {
 
   const handleAdvancedSetup = () => {
     setOnboardingComplete();
-    void navigate('/setup');
+    void navigate('/repository?tab=connect');
   };
 
   const handleSkip = () => {
@@ -65,9 +65,9 @@ export function OnboardingWizard() {
       // Step 3: Mark onboarding as complete
       setOnboardingComplete();
 
-      // Step 4: Navigate to snapshots page
+      // Step 4: Navigate to profiles page
       toast.success(t('onboarding.quickStart.setupComplete'));
-      void navigate('/snapshots');
+      void navigate('/profiles');
     } catch (err) {
       console.error('Quick start setup failed:', err);
       toast.error(t('onboarding.quickStart.setupFailed'));
@@ -91,7 +91,7 @@ export function OnboardingWizard() {
       {currentStep === 'quickStart' && (
         <QuickStartStep
           onBack={handleBack}
-          onComplete={(config) => void handleQuickStartComplete(config)}
+          onComplete={(config) => handleQuickStartComplete(config)}
         />
       )}
     </div>

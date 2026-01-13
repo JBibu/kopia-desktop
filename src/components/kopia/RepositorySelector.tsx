@@ -50,11 +50,11 @@ export function RepositorySelector({ className, collapsed }: RepositorySelectorP
   };
 
   const handleAddRepository = () => {
-    void navigate('/setup?new=true');
+    void navigate('/repository?tab=connect');
   };
 
   const handleManageRepositories = () => {
-    void navigate('/repositories');
+    void navigate('/repository?tab=switch');
   };
 
   // If collapsed, show only icon

@@ -470,7 +470,9 @@ export function RepositoryPage() {
       )}
 
       {/* Connect Tab */}
-      {activeTab === 'connect' && <SetupRepository embedded />}
+      {activeTab === 'connect' && (
+        <SetupRepository embedded onSuccess={() => handleTabChange('status')} />
+      )}
 
       {/* Switch Tab */}
       {activeTab === 'switch' && (
