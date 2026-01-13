@@ -94,8 +94,9 @@ windows_service::define_windows_service!(ffi_service_main, kopia_service_main);
 /// Windows service entry point
 #[cfg(windows)]
 pub fn run_service() -> Result<()> {
-    windows_service::service_dispatcher::start(SERVICE_NAME, ffi_service_main)
-        .map_err(|e| KopiaError::operation_failed("Service dispatcher", format!("Failed to start: {}", e)))
+    windows_service::service_dispatcher::start(SERVICE_NAME, ffi_service_main).map_err(|e| {
+        KopiaError::operation_failed("Service dispatcher", format!("Failed to start: {}", e))
+    })
 }
 
 /// Service main function (called by Windows Service Control Manager)
@@ -131,8 +132,12 @@ fn service_main() -> Result<()> {
 
     // Register service control handler
     let status_handle =
-        service_control_handler::register(SERVICE_NAME, event_handler)
-            .map_err(|e| KopiaError::operation_failed("Service control handler", format!("Failed to register: {}", e)))?;
+        service_control_handler::register(SERVICE_NAME, event_handler).map_err(|e| {
+            KopiaError::operation_failed(
+                "Service control handler",
+                format!("Failed to register: {}", e),
+            )
+        })?;
 
     // Tell Windows we're starting
     status_handle
@@ -145,13 +150,19 @@ fn service_main() -> Result<()> {
             wait_hint: Duration::from_secs(3),
             process_id: None,
         })
-        .map_err(|e| KopiaError::operation_failed("Service status", format!("Failed to set StartPending: {}", e)))?;
+        .map_err(|e| {
+            KopiaError::operation_failed(
+                "Service status",
+                format!("Failed to set StartPending: {}", e),
+            )
+        })?;
 
     // Start Kopia server
     log::info!("Starting Kopia server from service");
     {
-        let mut server = kopia_server.lock()
-            .map_err(|e| KopiaError::operation_failed("Server lock", format!("Failed to acquire: {}", e)))?;
+        let mut server = kopia_server.lock().map_err(|e| {
+            KopiaError::operation_failed("Server lock", format!("Failed to acquire: {}", e))
+        })?;
 
         let config_dir = get_service_config_dir()?;
         let _info = server.start(&config_dir)?;
@@ -169,7 +180,9 @@ fn service_main() -> Result<()> {
             wait_hint: Duration::default(),
             process_id: None,
         })
-        .map_err(|e| KopiaError::operation_failed("Service status", format!("Failed to set Running: {}", e)))?;
+        .map_err(|e| {
+            KopiaError::operation_failed("Service status", format!("Failed to set Running: {}", e))
+        })?;
 
     log::info!("Service is now running, starting IPC server");
 
@@ -189,13 +202,19 @@ fn service_main() -> Result<()> {
             wait_hint: Duration::from_secs(5),
             process_id: None,
         })
-        .map_err(|e| KopiaError::operation_failed("Service status", format!("Failed to set StopPending: {}", e)))?;
+        .map_err(|e| {
+            KopiaError::operation_failed(
+                "Service status",
+                format!("Failed to set StopPending: {}", e),
+            )
+        })?;
 
     // Stop Kopia server
     log::info!("Stopping Kopia server");
     {
-        let mut server = kopia_server.lock()
-            .map_err(|e| KopiaError::operation_failed("Server lock", format!("Failed to acquire: {}", e)))?;
+        let mut server = kopia_server.lock().map_err(|e| {
+            KopiaError::operation_failed("Server lock", format!("Failed to acquire: {}", e))
+        })?;
         server.stop()?;
     }
 
@@ -210,7 +229,9 @@ fn service_main() -> Result<()> {
             wait_hint: Duration::default(),
             process_id: None,
         })
-        .map_err(|e| KopiaError::operation_failed("Service status", format!("Failed to set Stopped: {}", e)))?;
+        .map_err(|e| {
+            KopiaError::operation_failed("Service status", format!("Failed to set Stopped: {}", e))
+        })?;
 
     log::info!("Service stopped successfully");
     Ok(())
@@ -226,16 +247,18 @@ fn run_ipc_server(kopia_server: Arc<Mutex<KopiaServer>>) -> Result<()> {
 #[cfg(windows)]
 fn get_service_config_dir() -> Result<String> {
     // Service runs as LocalSystem, use ProgramData instead of user profile
-    let program_data = std::env::var("ProgramData")
-        .map_err(|_| KopiaError::operation_failed("Environment", "ProgramData variable not found"))?;
+    let program_data = std::env::var("ProgramData").map_err(|_| {
+        KopiaError::operation_failed("Environment", "ProgramData variable not found")
+    })?;
 
     let config_path = std::path::PathBuf::from(program_data)
         .join("Kopia Desktop")
         .join("config");
 
     // Ensure directory exists
-    std::fs::create_dir_all(&config_path)
-        .map_err(|e| KopiaError::operation_failed("Config directory", format!("Failed to create: {}", e)))?;
+    std::fs::create_dir_all(&config_path).map_err(|e| {
+        KopiaError::operation_failed("Config directory", format!("Failed to create: {}", e))
+    })?;
 
     config_path
         .to_str()
@@ -255,10 +278,13 @@ pub fn install_service() -> Result<()> {
         None::<&str>,
         ServiceManagerAccess::CREATE_SERVICE | ServiceManagerAccess::CONNECT,
     )
-    .map_err(|e| KopiaError::operation_failed("Service manager", format!("Failed to open: {}", e)))?;
+    .map_err(|e| {
+        KopiaError::operation_failed("Service manager", format!("Failed to open: {}", e))
+    })?;
 
-    let service_binary_path = std::env::current_exe()
-        .map_err(|e| KopiaError::operation_failed("Executable path", format!("Failed to get: {}", e)))?;
+    let service_binary_path = std::env::current_exe().map_err(|e| {
+        KopiaError::operation_failed("Executable path", format!("Failed to get: {}", e))
+    })?;
 
     let service_info = ServiceInfo {
         name: OsString::from(SERVICE_NAME),
@@ -275,11 +301,13 @@ pub fn install_service() -> Result<()> {
 
     let _service = manager
         .create_service(&service_info, ServiceAccess::CHANGE_CONFIG)
-        .map_err(|e| KopiaError::operation_failed_with_details(
+        .map_err(|e| {
+            KopiaError::operation_failed_with_details(
             "Service creation",
             format!("Failed to create: {}", e),
             "Make sure you're running as administrator and the service is not already installed"
-        ))?;
+        )
+        })?;
 
     log::info!("Service installed successfully");
     Ok(())
@@ -292,20 +320,25 @@ pub fn uninstall_service() -> Result<()> {
     use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
 
     let manager = ServiceManager::local_computer(None::<&str>, ServiceManagerAccess::CONNECT)
-        .map_err(|e| KopiaError::operation_failed("Service manager", format!("Failed to open: {}", e)))?;
+        .map_err(|e| {
+            KopiaError::operation_failed("Service manager", format!("Failed to open: {}", e))
+        })?;
 
     let service = manager
         .open_service(SERVICE_NAME, ServiceAccess::DELETE | ServiceAccess::STOP)
-        .map_err(|e| KopiaError::operation_failed_with_details(
-            "Service",
-            format!("Failed to open: {}", e),
-            "Make sure you're running as administrator"
-        ))?;
+        .map_err(|e| {
+            KopiaError::operation_failed_with_details(
+                "Service",
+                format!("Failed to open: {}", e),
+                "Make sure you're running as administrator",
+            )
+        })?;
 
     // Try to stop the service first (ignore errors if already stopped)
     let _ = service.stop();
 
-    service.delete()
+    service
+        .delete()
         .map_err(|e| KopiaError::operation_failed("Service", format!("Failed to delete: {}", e)))?;
 
     log::info!("Service uninstalled successfully");
@@ -319,7 +352,9 @@ pub fn start_service() -> Result<()> {
     use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
 
     let manager = ServiceManager::local_computer(None::<&str>, ServiceManagerAccess::CONNECT)
-        .map_err(|e| KopiaError::operation_failed("Service manager", format!("Failed to open: {}", e)))?;
+        .map_err(|e| {
+            KopiaError::operation_failed("Service manager", format!("Failed to open: {}", e))
+        })?;
 
     let service = manager
         .open_service(SERVICE_NAME, ServiceAccess::START)
@@ -340,13 +375,16 @@ pub fn stop_service() -> Result<()> {
     use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
 
     let manager = ServiceManager::local_computer(None::<&str>, ServiceManagerAccess::CONNECT)
-        .map_err(|e| KopiaError::operation_failed("Service manager", format!("Failed to open: {}", e)))?;
+        .map_err(|e| {
+            KopiaError::operation_failed("Service manager", format!("Failed to open: {}", e))
+        })?;
 
     let service = manager
         .open_service(SERVICE_NAME, ServiceAccess::STOP)
         .map_err(|e| KopiaError::operation_failed("Service", format!("Failed to open: {}", e)))?;
 
-    service.stop()
+    service
+        .stop()
         .map_err(|e| KopiaError::operation_failed("Service", format!("Failed to stop: {}", e)))?;
 
     log::info!("Service stopped successfully");
@@ -360,19 +398,23 @@ pub fn query_service_status() -> Result<ServiceState> {
     use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
 
     let manager = ServiceManager::local_computer(None::<&str>, ServiceManagerAccess::CONNECT)
-        .map_err(|e| KopiaError::operation_failed("Service manager", format!("Failed to open: {}", e)))?;
+        .map_err(|e| {
+            KopiaError::operation_failed("Service manager", format!("Failed to open: {}", e))
+        })?;
 
     let service = manager
         .open_service(SERVICE_NAME, ServiceAccess::QUERY_STATUS)
-        .map_err(|e| KopiaError::operation_failed_with_details(
-            "Service",
-            format!("Failed to open: {}", e),
-            "Service may not be installed"
-        ))?;
+        .map_err(|e| {
+            KopiaError::operation_failed_with_details(
+                "Service",
+                format!("Failed to open: {}", e),
+                "Service may not be installed",
+            )
+        })?;
 
-    let status = service
-        .query_status()
-        .map_err(|e| KopiaError::operation_failed("Service status", format!("Failed to query: {}", e)))?;
+    let status = service.query_status().map_err(|e| {
+        KopiaError::operation_failed("Service status", format!("Failed to query: {}", e))
+    })?;
 
     Ok(status.current_state)
 }
@@ -382,7 +424,7 @@ pub fn query_service_status() -> Result<ServiceState> {
 pub fn run_service() -> crate::error::Result<()> {
     Err(crate::error::KopiaError::operation_failed(
         "Windows service",
-        format!("Not supported on {}", std::env::consts::OS)
+        format!("Not supported on {}", std::env::consts::OS),
     ))
 }
 
@@ -390,7 +432,7 @@ pub fn run_service() -> crate::error::Result<()> {
 pub fn install_service() -> crate::error::Result<()> {
     Err(crate::error::KopiaError::operation_failed(
         "Windows service",
-        format!("Not supported on {}", std::env::consts::OS)
+        format!("Not supported on {}", std::env::consts::OS),
     ))
 }
 
@@ -398,7 +440,7 @@ pub fn install_service() -> crate::error::Result<()> {
 pub fn uninstall_service() -> crate::error::Result<()> {
     Err(crate::error::KopiaError::operation_failed(
         "Windows service",
-        format!("Not supported on {}", std::env::consts::OS)
+        format!("Not supported on {}", std::env::consts::OS),
     ))
 }
 
@@ -406,7 +448,7 @@ pub fn uninstall_service() -> crate::error::Result<()> {
 pub fn start_service() -> crate::error::Result<()> {
     Err(crate::error::KopiaError::operation_failed(
         "Windows service",
-        format!("Not supported on {}", std::env::consts::OS)
+        format!("Not supported on {}", std::env::consts::OS),
     ))
 }
 
@@ -414,6 +456,6 @@ pub fn start_service() -> crate::error::Result<()> {
 pub fn stop_service() -> crate::error::Result<()> {
     Err(crate::error::KopiaError::operation_failed(
         "Windows service",
-        format!("Not supported on {}", std::env::consts::OS)
+        format!("Not supported on {}", std::env::consts::OS),
     ))
 }

@@ -92,7 +92,7 @@ pub fn run_pipe_server(kopia_server: Arc<Mutex<KopiaServer>>) -> Result<()> {
                 "Failed to create",
                 format!("Error code: {}", unsafe {
                     windows_sys::Win32::Foundation::GetLastError()
-                })
+                }),
             ));
         }
 
@@ -114,7 +114,7 @@ pub fn run_pipe_server(kopia_server: Arc<Mutex<KopiaServer>>) -> Result<()> {
             return Err(KopiaError::operation_failed_with_details(
                 "Named pipe",
                 "Failed to connect to client",
-                format!("Error code: {}", error)
+                format!("Error code: {}", error),
             ));
         }
 
@@ -162,22 +162,24 @@ fn handle_pipe_client(
         return Err(KopiaError::operation_failed_with_details(
             "Pipe read",
             "Failed to read from pipe",
-            format!("Error code: {}", error)
+            format!("Error code: {}", error),
         ));
     }
 
     // Parse request
     let request_data = &buffer[..bytes_read as usize];
-    let message: ServiceMessage =
-        serde_json::from_slice(request_data).map_err(|e| KopiaError::operation_failed("JSON parse", format!("Failed to parse request: {}", e)))?;
+    let message: ServiceMessage = serde_json::from_slice(request_data).map_err(|e| {
+        KopiaError::operation_failed("JSON parse", format!("Failed to parse request: {}", e))
+    })?;
 
     log::debug!("Received message: {:?}", message);
 
     // Process request
     let response = match message {
         ServiceMessage::GetStatus => {
-            let mut server = kopia_server.lock()
-                .map_err(|e| KopiaError::operation_failed("Server lock", format!("Failed to acquire: {}", e)))?;
+            let mut server = kopia_server.lock().map_err(|e| {
+                KopiaError::operation_failed("Server lock", format!("Failed to acquire: {}", e))
+            })?;
             let status = server.status();
             ServiceResponse::Status {
                 running: status.running,
@@ -187,8 +189,9 @@ fn handle_pipe_client(
             }
         }
         ServiceMessage::GetServerInfo => {
-            let server = kopia_server.lock()
-                .map_err(|e| KopiaError::operation_failed("Server lock", format!("Failed to acquire: {}", e)))?;
+            let server = kopia_server.lock().map_err(|e| {
+                KopiaError::operation_failed("Server lock", format!("Failed to acquire: {}", e))
+            })?;
 
             // Get server info if running
             if server.get_http_client().is_some() {
@@ -218,8 +221,12 @@ fn handle_pipe_client(
     };
 
     // Send response
-    let response_data = serde_json::to_vec(&response)
-        .map_err(|e| KopiaError::operation_failed("JSON serialize", format!("Failed to serialize response: {}", e)))?;
+    let response_data = serde_json::to_vec(&response).map_err(|e| {
+        KopiaError::operation_failed(
+            "JSON serialize",
+            format!("Failed to serialize response: {}", e),
+        )
+    })?;
 
     let mut bytes_written: u32 = 0;
     let write_result = unsafe {
@@ -238,7 +245,7 @@ fn handle_pipe_client(
             "Failed to write to pipe",
             format!("Error code: {}", unsafe {
                 windows_sys::Win32::Foundation::GetLastError()
-            })
+            }),
         ));
     }
 
@@ -292,7 +299,7 @@ impl PipeClient {
             return Err(KopiaError::operation_failed_with_details(
                 "Pipe connection",
                 "Failed to connect to service pipe",
-                format!("Error code: {}. Is the service running?", error)
+                format!("Error code: {}. Is the service running?", error),
             ));
         }
 
@@ -302,11 +309,17 @@ impl PipeClient {
 
     /// Send a message and receive response
     pub fn send_message(&mut self, message: &ServiceMessage) -> Result<ServiceResponse> {
-        let handle = self.pipe_handle.ok_or_else(|| KopiaError::operation_failed("Pipe", "Not connected"))?;
+        let handle = self
+            .pipe_handle
+            .ok_or_else(|| KopiaError::operation_failed("Pipe", "Not connected"))?;
 
         // Serialize message
-        let request_data = serde_json::to_vec(message)
-            .map_err(|e| KopiaError::operation_failed("JSON serialize", format!("Failed to serialize message: {}", e)))?;
+        let request_data = serde_json::to_vec(message).map_err(|e| {
+            KopiaError::operation_failed(
+                "JSON serialize",
+                format!("Failed to serialize message: {}", e),
+            )
+        })?;
 
         // Write request
         let mut bytes_written: u32 = 0;
@@ -326,7 +339,7 @@ impl PipeClient {
                 "Failed to write to pipe",
                 format!("Error code: {}", unsafe {
                     windows_sys::Win32::Foundation::GetLastError()
-                })
+                }),
             ));
         }
 
@@ -349,14 +362,15 @@ impl PipeClient {
                 "Failed to read from pipe",
                 format!("Error code: {}", unsafe {
                     windows_sys::Win32::Foundation::GetLastError()
-                })
+                }),
             ));
         }
 
         // Parse response
         let response_data = &buffer[..bytes_read as usize];
-        serde_json::from_slice(response_data)
-            .map_err(|e| KopiaError::operation_failed("JSON parse", format!("Failed to parse response: {}", e)))
+        serde_json::from_slice(response_data).map_err(|e| {
+            KopiaError::operation_failed("JSON parse", format!("Failed to parse response: {}", e))
+        })
     }
 
     /// Disconnect from pipe
@@ -381,7 +395,7 @@ pub fn run_pipe_server(
 ) -> crate::error::Result<()> {
     Err(crate::error::KopiaError::operation_failed(
         "Named pipe IPC",
-        format!("Not supported on {}", std::env::consts::OS)
+        format!("Not supported on {}", std::env::consts::OS),
     ))
 }
 
@@ -397,7 +411,7 @@ impl PipeClient {
     pub fn connect(&mut self) -> crate::error::Result<()> {
         Err(crate::error::KopiaError::operation_failed(
             "Named pipe IPC",
-            format!("Not supported on {}", std::env::consts::OS)
+            format!("Not supported on {}", std::env::consts::OS),
         ))
     }
 }
