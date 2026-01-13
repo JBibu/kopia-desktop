@@ -19,9 +19,11 @@ export const test = base.extend({
           console.log(`[Mock] Tauri invoke: ${cmd}`, args);
           switch (cmd) {
             case 'kopia_server_status':
-              return { running: false, uptime: null };
+              return { running: false, server_url: null, port: null, uptime: null };
             case 'repository_status':
               return { connected: false };
+            case 'list_repositories':
+              return ['repository'];
             case 'sources_list':
               return { sources: [] };
             case 'snapshots_list':
