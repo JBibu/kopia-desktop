@@ -14,6 +14,7 @@ jobs:
   validate-frontend:
     name: Validate Frontend
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -54,6 +55,7 @@ jobs:
   rust-tests:
     name: Rust Tests & Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -63,9 +65,7 @@ jobs:
         run: echo "version=$(grep '^VERSION=' scripts/download-kopia.sh | cut -d'"' -f2)" >> $GITHUB_OUTPUT
 
       - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+        uses: ./.github/actions/setup-ubuntu-deps
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -102,6 +102,7 @@ jobs:
   e2e-tests:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -120,29 +121,15 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Install system dependencies for Tauri
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            xvfb \
-            libxdo-dev \
-            libglib2.0-dev \
-            libcairo2-dev \
-            libpango1.0-dev \
-            libatk1.0-dev \
-            libgdk-pixbuf2.0-dev \
-            libsoup-3.0-dev \
-            libjavascriptcoregtk-4.1-dev
+        uses: ./.github/actions/setup-ubuntu-deps
+        with:
+          e2e: 'true'
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -156,7 +143,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: bin/
-          key: kopia-binaries-all-platforms-v${{ steps.kopia-version.outputs.version }}
+          key: kopia-binaries-${{ runner.os }}-${{ runner.arch }}-v${{ steps.kopia-version.outputs.version }}
 
       - name: Download Kopia binaries
         shell: bash
@@ -190,6 +177,7 @@ jobs:
   security-audit:
     name: Security Audit
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -208,7 +196,6 @@ jobs:
 
       - name: Run pnpm audit
         run: pnpm audit --audit-level=moderate
-        continue-on-error: true
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -218,36 +205,12 @@ jobs:
 
       - name: Run cargo audit
         run: cargo audit --file src-tauri/Cargo.lock
-        continue-on-error: true
-
-  build-frontend:
-    name: Build Frontend
-    if: github.ref == 'refs/heads/main'
-    needs: [validate-frontend]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile --ignore-scripts
-
-      - name: Build frontend
-        run: pnpm build
 
   build-tauri:
     name: Build Tauri (${{ matrix.platform }})
     if: github.ref == 'refs/heads/main'
     needs: [validate-frontend, rust-tests, e2e-tests]
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -288,9 +251,7 @@ jobs:
 
       - name: Install dependencies (Ubuntu)
         if: matrix.platform == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+        uses: ./.github/actions/setup-ubuntu-deps
 
       - name: Cache Kopia binaries
         uses: actions/cache@v4
