@@ -79,7 +79,7 @@ jobs:
           shared-key: ubuntu-deps-${{ hashFiles('.github/actions/setup-ubuntu-deps/action.yml') }}
 
       - name: Cache Kopia binaries
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: bin/
           key: kopia-binaries-${{ runner.os }}-${{ runner.arch }}-v${{ steps.kopia-version.outputs.version }}
@@ -180,7 +180,7 @@ jobs:
         uses: ./.github/actions/setup-ubuntu-deps
 
       - name: Cache Kopia binaries
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: bin/
           key: kopia-binaries-${{ runner.os }}-${{ runner.arch }}-v${{ steps.kopia-version.outputs.version }}
