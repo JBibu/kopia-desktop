@@ -42,7 +42,6 @@ updates:
           - "vitest*"
           - "@vitest/*"
           - "@testing-library/*"
-          - "@playwright/*"
       # Group Tailwind ecosystem (all types)
       tailwind:
         patterns:

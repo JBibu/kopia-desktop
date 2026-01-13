@@ -12,7 +12,6 @@ export default defineConfig({
     // Test file location: All tests centralized in tests/ directory
     // - tests/unit/**/*.test.ts - Unit tests
     // - tests/integration/**/*.test.ts - Integration tests
-    // - tests/e2e/**/*.spec.ts - E2E tests (Playwright)
     include: [
       'tests/unit/**/*.test.{ts,tsx}',
       'tests/integration/**/*.test.{ts,tsx}',
@@ -25,7 +24,6 @@ export default defineConfig({
       '**/cypress/**',
       '**/.{idea,git,cache,output,temp}/**',
       '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*',
-      '**/tests/e2e/**', // E2E tests run via Playwright
     ],
 
     coverage: {

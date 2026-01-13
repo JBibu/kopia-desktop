@@ -19,7 +19,7 @@ Modern desktop app for [Kopia](https://kopia.io) backup management. Built with *
 - 🎨 **Modern UI** - Light/dark themes, system tray, notifications
 - 🪟 **Windows Service** - Run as background service (Windows only)
 - 🌍 **i18n** - English and Spanish
-- ✅ **418 Tests** - Production-ready code quality
+- ✅ **302 Tests** - Production-ready code quality
 
 ---
 
@@ -38,7 +38,7 @@ pnpm tauri:dev     # Start development
 
 **Frontend:** React 19, TypeScript, Vite, Tailwind, shadcn/ui, Zustand
 **Backend:** Tauri 2.9 (Rust), embedded Kopia server
-**Testing:** Vitest, Playwright, cargo test
+**Testing:** Vitest, cargo test
 
 ---
 
@@ -54,9 +54,8 @@ pnpm validate           # Run all checks
 pnpm validate:fix       # Auto-fix issues
 
 # Testing
-pnpm test:run           # Frontend (194 tests)
-pnpm test:rust          # Backend (136 tests)
-pnpm test:e2e           # E2E (78 tests)
+pnpm test:run           # Frontend (183 tests)
+pnpm test:rust          # Backend (119 tests)
 ```
 
 ---

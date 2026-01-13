@@ -110,15 +110,18 @@
   },
   "packageManager": "pnpm@10.20.0",
   "lint-staged": {
-    "*.{ts,tsx}": [
+    "src/**/*.{ts,tsx}": [
       "eslint --fix --max-warnings 0",
       "prettier --write"
     ],
-    "*.{js,jsx}": [
+    "tests/**/*.{ts,tsx}": [
       "eslint --fix --max-warnings 0",
       "prettier --write"
     ],
     "*.{json,css,md}": [
+      "prettier --write"
+    ],
+    "*.config.{ts,js}": [
       "prettier --write"
     ]
   }
