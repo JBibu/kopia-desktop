@@ -1,5 +1,5 @@
 /**
- * Unit tests for Kopia error handling
+ * Unit tests for Kopia error handling (simplified error system)
  */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -9,7 +9,6 @@ import {
   OfficialKopiaAPIErrorCode,
   parseKopiaError,
   getErrorMessage,
-  isNotConnectedError,
 } from '@/lib/kopia/errors';
 
 // Mock i18n for testing
@@ -21,7 +20,7 @@ vi.mock('@/lib/i18n/config', () => ({
         'errors.unknownError': 'Unknown error',
         'errors.kopia.serverNotRunning': 'Server is not running',
         'errors.kopia.repositoryNotConnected': 'Repository is not connected',
-        'errors.kopia.authenticationFailed': 'Authentication failed',
+        'errors.kopia.operationFailed': 'Operation failed',
       };
       return translations[key] || key;
     },
@@ -46,8 +45,8 @@ describe('KopiaError', () => {
     });
 
     it('creates error with status code', () => {
-      const error = new KopiaError('Test error', KopiaErrorCode.UNAUTHORIZED, 401);
-      expect(error.statusCode).toBe(401);
+      const error = new KopiaError('Test error', KopiaErrorCode.NOT_FOUND, 404);
+      expect(error.statusCode).toBe(404);
     });
 
     it('creates error with details', () => {
@@ -76,36 +75,37 @@ describe('KopiaError', () => {
     });
   });
 
-  describe('isConnectionError()', () => {
-    it('identifies repository not connected', () => {
-      const error = new KopiaError('Test', KopiaErrorCode.REPOSITORY_NOT_CONNECTED);
-      expect(error.isConnectionError()).toBe(true);
-    });
-
-    it('identifies server not running', () => {
-      const error = new KopiaError('Test', KopiaErrorCode.SERVER_NOT_RUNNING);
-      expect(error.isConnectionError()).toBe(true);
-    });
-
-    it('identifies status code 0', () => {
-      const error = new KopiaError('Test', undefined, 0);
-      expect(error.isConnectionError()).toBe(true);
-    });
-
-    it('returns false for non-connection errors', () => {
-      const error = new KopiaError('Test', KopiaErrorCode.SNAPSHOT_NOT_FOUND);
-      expect(error.isConnectionError()).toBe(false);
-    });
-  });
-
   describe('isAuthError()', () => {
-    it('identifies authentication failed', () => {
-      const error = new KopiaError('Test', KopiaErrorCode.AUTHENTICATION_FAILED);
+    it('identifies invalid password (official API code)', () => {
+      const error = new KopiaError(
+        'Test',
+        undefined,
+        undefined,
+        undefined,
+        OfficialKopiaAPIErrorCode.INVALID_PASSWORD
+      );
       expect(error.isAuthError()).toBe(true);
     });
 
-    it('identifies unauthorized', () => {
-      const error = new KopiaError('Test', KopiaErrorCode.UNAUTHORIZED);
+    it('identifies invalid token (official API code)', () => {
+      const error = new KopiaError(
+        'Test',
+        undefined,
+        undefined,
+        undefined,
+        OfficialKopiaAPIErrorCode.INVALID_TOKEN
+      );
+      expect(error.isAuthError()).toBe(true);
+    });
+
+    it('identifies access denied (official API code)', () => {
+      const error = new KopiaError(
+        'Test',
+        undefined,
+        undefined,
+        undefined,
+        OfficialKopiaAPIErrorCode.ACCESS_DENIED
+      );
       expect(error.isAuthError()).toBe(true);
     });
 
@@ -120,7 +120,7 @@ describe('KopiaError', () => {
     });
 
     it('returns false for non-auth errors', () => {
-      const error = new KopiaError('Test', KopiaErrorCode.SNAPSHOT_NOT_FOUND);
+      const error = new KopiaError('Test', KopiaErrorCode.NOT_FOUND);
       expect(error.isAuthError()).toBe(false);
     });
   });
@@ -152,10 +152,8 @@ describe('KopiaError', () => {
     });
 
     it('returns fallback when translation returns the key itself', () => {
-      // This tests the case where i18n.t() returns the key when translation not found
       const error = new KopiaError('Fallback message', 'UNMAPPED_ERROR_CODE');
       const message = error.getUserMessage();
-      // Should fall back to original message since translation doesn't exist
       expect(message).toBe('Fallback message');
     });
 
@@ -341,10 +339,10 @@ describe('API Error Code Preservation', () => {
   it('checks specific API error codes with isAPIError()', () => {
     const error = new KopiaError(
       'Invalid password',
-      KopiaErrorCode.AUTHENTICATION_FAILED,
+      KopiaErrorCode.OPERATION_FAILED, // generic code
       undefined,
       undefined,
-      OfficialKopiaAPIErrorCode.INVALID_PASSWORD
+      OfficialKopiaAPIErrorCode.INVALID_PASSWORD // but preserves API code
     );
 
     expect(error.isAPIError(OfficialKopiaAPIErrorCode.INVALID_PASSWORD)).toBe(true);
@@ -354,7 +352,7 @@ describe('API Error Code Preservation', () => {
   it('handles authentication errors with official API codes', () => {
     const error = new KopiaError(
       'Auth failed',
-      KopiaErrorCode.AUTHENTICATION_FAILED,
+      undefined,
       401,
       undefined,
       OfficialKopiaAPIErrorCode.INVALID_PASSWORD
@@ -363,36 +361,29 @@ describe('API Error Code Preservation', () => {
     expect(error.isAuthError()).toBe(true);
     expect(error.is(OfficialKopiaAPIErrorCode.INVALID_PASSWORD)).toBe(true);
   });
-
-  it('handles connection errors with official API codes', () => {
-    const error = new KopiaError(
-      'Storage connection failed',
-      KopiaErrorCode.REPOSITORY_CONNECTION_FAILED,
-      undefined,
-      undefined,
-      OfficialKopiaAPIErrorCode.STORAGE_CONNECTION
-    );
-
-    expect(error.isConnectionError()).toBe(true);
-    expect(error.is(OfficialKopiaAPIErrorCode.STORAGE_CONNECTION)).toBe(true);
-  });
 });
 
-describe('Helper Functions', () => {
-  it('isNotConnectedError checks both code types', () => {
-    const error1 = {
-      type: 'REPOSITORY_NOT_CONNECTED',
-      data: { message: 'Not connected' },
-    };
-    expect(isNotConnectedError(error1)).toBe(true);
+describe('Simplified Error System', () => {
+  it('only has 9 error codes', () => {
+    const codes = Object.keys(KopiaErrorCode);
+    expect(codes.length).toBe(9);
+  });
 
-    const error2 = new KopiaError(
-      'Not connected',
-      undefined,
-      undefined,
-      undefined,
-      OfficialKopiaAPIErrorCode.NOT_CONNECTED
-    );
-    expect(isNotConnectedError(error2)).toBe(true);
+  it('includes only actively used error codes', () => {
+    expect(KopiaErrorCode.SERVER_NOT_RUNNING).toBe('SERVER_NOT_RUNNING');
+    expect(KopiaErrorCode.SERVER_ALREADY_RUNNING).toBe('SERVER_ALREADY_RUNNING');
+    expect(KopiaErrorCode.REPOSITORY_NOT_CONNECTED).toBe('REPOSITORY_NOT_CONNECTED');
+    expect(KopiaErrorCode.REPOSITORY_ALREADY_EXISTS).toBe('REPOSITORY_ALREADY_EXISTS');
+    expect(KopiaErrorCode.POLICY_NOT_FOUND).toBe('POLICY_NOT_FOUND');
+    expect(KopiaErrorCode.HTTP_REQUEST_FAILED).toBe('HTTP_REQUEST_FAILED');
+    expect(KopiaErrorCode.RESPONSE_PARSE_ERROR).toBe('RESPONSE_PARSE_ERROR');
+    expect(KopiaErrorCode.NOT_FOUND).toBe('NOT_FOUND');
+    expect(KopiaErrorCode.OPERATION_FAILED).toBe('OPERATION_FAILED');
+  });
+
+  it('OPERATION_FAILED is the generic fallback', () => {
+    const error = new KopiaError('Something went wrong', KopiaErrorCode.OPERATION_FAILED);
+    expect(error.code).toBe(KopiaErrorCode.OPERATION_FAILED);
+    expect(error.message).toBe('Something went wrong');
   });
 });
