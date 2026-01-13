@@ -14,6 +14,7 @@ export const test = base.extend({
     await page.addInitScript(() => {
       // @ts-expect-error - Tauri API mock
       window.__TAURI_INTERNALS__ = {
+        // eslint-disable-next-line @typescript-eslint/require-await
         invoke: async (cmd: string, args?: unknown) => {
           console.log(`[Mock] Tauri invoke: ${cmd}`, args);
           switch (cmd) {
@@ -44,6 +45,7 @@ export const test = base.extend({
         },
       };
     });
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(page);
   },
 });

@@ -27,6 +27,7 @@ async function globalSetup(config: FullConfig) {
       await page.addInitScript(() => {
         // @ts-expect-error - Tauri API mock for testing
         window.__TAURI_INTERNALS__ = {
+          // eslint-disable-next-line @typescript-eslint/require-await
           invoke: async (cmd: string) => {
             switch (cmd) {
               case 'kopia_server_status':
