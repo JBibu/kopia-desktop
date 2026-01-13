@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, master, dev, nightly]
+    branches: [main, dev, nightly]
   pull_request:
-    branches: [main, master, dev, nightly]
+    branches: [main, dev, nightly]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -51,7 +51,6 @@ jobs:
           path: coverage/
           retention-days: 7
 
-
   rust-tests:
     name: Rust Tests & Lint
     runs-on: ubuntu-latest
@@ -78,13 +77,6 @@ jobs:
           workspaces: src-tauri
           # Include deps action hash to invalidate cache when system deps change
           shared-key: ubuntu-deps-${{ hashFiles('.github/actions/setup-ubuntu-deps/action.yml') }}
-
-      - name: Verify pkg-config files
-        run: |
-          pkg-config --modversion glib-2.0 || echo "glib-2.0 not found"
-          pkg-config --modversion gobject-2.0 || echo "gobject-2.0 not found"
-          pkg-config --modversion gio-2.0 || echo "gio-2.0 not found"
-          pkg-config --modversion gtk+-3.0 || echo "gtk+-3.0 not found"
 
       - name: Cache Kopia binaries
         uses: actions/cache@v4
