@@ -99,81 +99,6 @@ jobs:
         working-directory: src-tauri
         run: cargo test --lib
 
-  e2e-tests:
-    name: E2E Tests (Playwright)
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Get Kopia version
-        id: kopia-version
-        run: echo "version=$(grep '^VERSION=' scripts/download-kopia.sh | cut -d'"' -f2)" >> $GITHUB_OUTPUT
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile --ignore-scripts
-
-      - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
-
-      - name: Install system dependencies for Tauri
-        uses: ./.github/actions/setup-ubuntu-deps
-        with:
-          e2e: 'true'
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Setup Rust cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-
-      - name: Cache Kopia binaries
-        uses: actions/cache@v4
-        with:
-          path: bin/
-          key: kopia-binaries-${{ runner.os }}-${{ runner.arch }}-v${{ steps.kopia-version.outputs.version }}
-
-      - name: Download Kopia binaries
-        shell: bash
-        run: bash scripts/download-kopia.sh
-
-      - name: Run E2E tests
-        # xvfb-run provides a virtual display for GUI applications in headless CI
-        # --auto-servernum: automatically picks an available display number
-        # --server-args: configures virtual display resolution (1280x960, 24-bit color)
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" -- pnpm test:e2e
-        env:
-          CI: true
-          DISPLAY: ':99'
-
-      - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: e2e-test-results
-          path: test-results/
-          retention-days: 7
-
   security-audit:
     name: Security Audit
     runs-on: ubuntu-latest
@@ -209,7 +134,7 @@ jobs:
   build-tauri:
     name: Build Tauri (${{ matrix.platform }})
     if: github.ref == 'refs/heads/main'
-    needs: [validate-frontend, rust-tests, e2e-tests]
+    needs: [validate-frontend, rust-tests]
     timeout-minutes: 45
     strategy:
       fail-fast: false

@@ -20,7 +20,6 @@ pnpm validate         # Run all checks (typecheck, lint:check, format:check, tes
 pnpm validate:fix     # Auto-fix issues
 pnpm test:rust        # Run Rust backend tests
 pnpm test:run         # Run frontend tests
-pnpm test:e2e         # Run E2E tests with Playwright
 ```
 
 ---
@@ -53,7 +52,6 @@ pnpm test:e2e         # Run E2E tests with Playwright
 **Testing:**
 
 - Vitest 4.0 (frontend unit tests)
-- Playwright 1.56 (E2E tests)
 - Rust cargo test (backend tests)
 - cargo-llvm-cov (Rust code coverage)
 
@@ -341,26 +339,7 @@ All error variants tested in Rust (src-tauri/src/tests/) and TypeScript (tests/)
 ```bash
 pnpm test:run         # Unit tests (Vitest)
 pnpm test:coverage    # Coverage report
-pnpm test:e2e         # E2E tests (Playwright)
-pnpm test:e2e:ui      # E2E interactive UI
 ```
-
-**E2E Test Requirements (Linux):**
-
-E2E tests run the full Tauri app and require a display server. On Linux, install `xvfb` for headless testing:
-
-```bash
-# Ubuntu/Debian
-sudo apt-get install -y xvfb
-
-# Fedora
-sudo dnf install -y xorg-x11-server-Xvfb
-
-# Arch
-sudo pacman -S xorg-server-xvfb
-```
-
-The test scripts automatically use `xvfb-run` if available, or fall back to using your current display.
 
 **Backend:**
 

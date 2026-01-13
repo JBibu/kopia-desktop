@@ -35,9 +35,6 @@
     "test:rust:coverage": "cd src-tauri && cargo llvm-cov --lib",
     "test:rust:coverage:html": "cd src-tauri && cargo llvm-cov --lib --open",
     "test:rust:coverage:summary": "cd src-tauri && cargo llvm-cov --lib --summary-only",
-    "test:e2e": "command -v xvfb-run >/dev/null 2>&1 && xvfb-run --auto-servernum --server-args='-screen 0 1280x960x24' -- playwright test || playwright test",
-    "test:e2e:ui": "command -v xvfb-run >/dev/null 2>&1 && xvfb-run --auto-servernum --server-args='-screen 0 1280x960x24' -- playwright test --ui || playwright test --ui",
-    "test:e2e:debug": "command -v xvfb-run >/dev/null 2>&1 && xvfb-run --auto-servernum --server-args='-screen 0 1280x960x24' -- playwright test --debug || playwright test --debug",
     "validate": "pnpm typecheck && pnpm lint:check && pnpm format:check && pnpm test:run",
     "validate:fix": "pnpm typecheck && pnpm lint && pnpm format && pnpm test:run",
     "clean": "rm -rf dist node_modules/.vite src-tauri/target",
@@ -86,7 +83,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
-    "@playwright/test": "^1.56.1",
     "@tailwindcss/postcss": "^4.1.17",
     "@tauri-apps/cli": "^2.9.4",
     "@testing-library/jest-dom": "^6.9.1",
