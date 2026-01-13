@@ -5,7 +5,7 @@
  * view file/directory details, and download individual files.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Button } from '@/components/ui/button';
@@ -22,14 +22,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Spinner } from '@/components/ui/spinner';
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,18 +42,16 @@ import {
   Copy,
   FolderOpen,
   FileArchive,
-  ArrowLeft,
-  Home,
-  ChevronRight,
 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader, type BreadcrumbItemType } from '@/components/layout/PageHeader';
 import type { DirectoryEntry } from '@/lib/kopia';
 import { browseObject, downloadObject, saveFile, selectFolder, restoreStart } from '@/lib/kopia';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia';
 import { formatBytes, formatDateTime } from '@/lib/utils';
-import { usePreferencesStore } from '@/stores';
-import { useCurrentRepoId, useMounts } from '@/hooks';
+import { usePreferencesStore, useProfilesStore } from '@/stores';
+import { useCurrentRepoId, useMounts, useSnapshots } from '@/hooks';
 
 export function SnapshotBrowse() {
   const { t } = useTranslation();
@@ -76,11 +66,16 @@ export function SnapshotBrowse() {
     isLoading: isMountLoading,
   } = useMounts();
   const currentRepoId = useCurrentRepoId();
+  const { snapshots } = useSnapshots();
 
   const snapshotId = searchParams.get('snapshotId') || '';
   const objectId = searchParams.get('oid') || '';
-  const rootOid = searchParams.get('rootOid') || objectId; // Fallback to oid for backwards compatibility
+  const rootOid = searchParams.get('rootOid') || objectId;
   const pathParam = searchParams.get('path') || '/';
+  const profileId = searchParams.get('profileId') || '';
+  const sourcePath = searchParams.get('sourcePath') || '';
+
+  const profile = useProfilesStore((state) => state.profiles.find((p) => p.id === profileId));
 
   const [entries, setEntries] = useState<DirectoryEntry[]>([]);
   const [currentPath, setCurrentPath] = useState<string[]>([]);
@@ -88,10 +83,13 @@ export function SnapshotBrowse() {
   const [error, setError] = useState<string | null>(null);
   const [downloadingFiles, setDownloadingFiles] = useState<Set<string>>(new Set());
 
-  // Check if current object is mounted
   const mountedPath = getMountForObject(objectId);
 
-  // Parse the path parameter
+  // Get snapshot info for display
+  const snapshotInfo = useMemo(() => {
+    return snapshots.find((s) => s.id === snapshotId);
+  }, [snapshots, snapshotId]);
+
   useEffect(() => {
     if (pathParam === '/') {
       setCurrentPath([]);
@@ -130,29 +128,33 @@ export function SnapshotBrowse() {
 
   const handleNavigateToEntry = (entry: DirectoryEntry) => {
     if (entry.type === 'd') {
-      // Navigate to directory
       const newPath = [...currentPath, entry.name].join('/');
-      setSearchParams({
+      const params = new URLSearchParams({
         snapshotId,
         oid: entry.obj,
-        rootOid, // Preserve root OID
+        rootOid,
         path: `/${newPath}`,
       });
+      if (profileId) params.set('profileId', profileId);
+      if (sourcePath) params.set('sourcePath', sourcePath);
+      setSearchParams(params);
     }
   };
 
-  const handleNavigateToBreadcrumb = (index: number) => {
-    // Navigate to a specific breadcrumb segment
+  const handleNavigateToPathSegment = (index: number) => {
     if (index === -1) {
-      // Navigate to root
-      setSearchParams({
+      // Navigate to snapshot root
+      const params = new URLSearchParams({
         snapshotId,
         oid: rootOid,
         rootOid,
         path: '/',
       });
+      if (profileId) params.set('profileId', profileId);
+      if (sourcePath) params.set('sourcePath', sourcePath);
+      setSearchParams(params);
     } else {
-      // Navigate to specific folder level using browser back navigation
+      // Navigate to specific folder level using browser back
       const stepsBack = currentPath.length - index - 1;
       if (stepsBack > 0) {
         void navigate(-stepsBack);
@@ -167,13 +169,10 @@ export function SnapshotBrowse() {
     }
 
     try {
-      // Mark file as downloading
       setDownloadingFiles((prev) => new Set(prev).add(entry.obj));
 
-      // Get download location from user with save dialog
       const targetPath = await saveFile(entry.name);
       if (!targetPath) {
-        // User cancelled
         setDownloadingFiles((prev) => {
           const next = new Set(prev);
           next.delete(entry.obj);
@@ -182,7 +181,6 @@ export function SnapshotBrowse() {
         return;
       }
 
-      // Download the file
       if (!currentRepoId) {
         toast.error(t('browse.noRepositorySelected'));
         return;
@@ -205,9 +203,7 @@ export function SnapshotBrowse() {
     try {
       setDownloadingFiles((prev) => new Set(prev).add(entry.obj));
 
-      // Get download location from user (parent directory)
       const parentPath = await selectFolder();
-
       if (!parentPath) {
         setDownloadingFiles((prev) => {
           const next = new Set(prev);
@@ -217,9 +213,6 @@ export function SnapshotBrowse() {
         return;
       }
 
-      // Create a subdirectory with the folder name
-      // This ensures we don't overwrite an existing non-empty directory
-      // User selects /home/user/Desktop -> contents go to /home/user/Desktop/foldername
       const targetPath = `${parentPath}/${entry.name}`;
 
       if (!currentRepoId) {
@@ -227,7 +220,6 @@ export function SnapshotBrowse() {
         return;
       }
 
-      // Start restore operation
       const taskId = await restoreStart(currentRepoId, {
         root: entry.obj,
         fsOutput: {
@@ -239,8 +231,8 @@ export function SnapshotBrowse() {
         options: {
           incremental: false,
           ignoreErrors: false,
-          restoreDirEntryAtDepth: 2147483647, // Max int32 - never use shallow restore
-          minSizeForPlaceholder: 2147483647, // Max int32 - never create placeholder files
+          restoreDirEntryAtDepth: 2147483647,
+          minSizeForPlaceholder: 2147483647,
         },
       });
 
@@ -265,7 +257,6 @@ export function SnapshotBrowse() {
     try {
       setDownloadingFiles((prev) => new Set(prev).add(entry.obj));
 
-      // Get save location with .zip extension
       const defaultFilename = `${entry.name}.zip`;
       const targetPath = await saveFile(defaultFilename);
       if (!targetPath) {
@@ -282,7 +273,6 @@ export function SnapshotBrowse() {
         return;
       }
 
-      // Start restore operation as ZIP
       const taskId = await restoreStart(currentRepoId, {
         root: entry.obj,
         zipFile: targetPath,
@@ -310,7 +300,6 @@ export function SnapshotBrowse() {
     try {
       setDownloadingFiles((prev) => new Set(prev).add(entry.obj));
 
-      // Get save location with .tar extension
       const defaultFilename = `${entry.name}.tar`;
       const targetPath = await saveFile(defaultFilename);
       if (!targetPath) {
@@ -327,7 +316,6 @@ export function SnapshotBrowse() {
         return;
       }
 
-      // Start restore operation as TAR
       const taskId = await restoreStart(currentRepoId, {
         root: entry.obj,
         tarFile: targetPath,
@@ -351,7 +339,6 @@ export function SnapshotBrowse() {
   };
 
   const handleRestore = () => {
-    // Navigate to restore page with current context
     void navigate(
       `/snapshots/restore?snapshotId=${snapshotId}&oid=${objectId}&path=${encodeURIComponent(pathParam)}`
     );
@@ -417,75 +404,80 @@ export function SnapshotBrowse() {
   };
 
   const sortedEntries = [...entries].sort((a, b) => {
-    // Directories first
     if (a.type === 'd' && b.type !== 'd') return -1;
     if (a.type !== 'd' && b.type === 'd') return 1;
-    // Then alphabetically
     return a.name.localeCompare(b.name);
   });
 
+  // Build breadcrumbs with profile context
+  const breadcrumbs: BreadcrumbItemType[] = useMemo(() => {
+    const crumbs: BreadcrumbItemType[] = [{ label: t('nav.profiles'), path: '/profiles' }];
+
+    if (profile && profileId) {
+      crumbs.push({ label: profile.name, path: `/profiles/${profileId}` });
+    }
+
+    if (sourcePath) {
+      const dirName = sourcePath.split('/').filter(Boolean).pop() || sourcePath;
+      const sourceParams = new URLSearchParams();
+      if (snapshotInfo?.source) {
+        sourceParams.set('userName', snapshotInfo.source.userName || '');
+        sourceParams.set('host', snapshotInfo.source.host || '');
+        sourceParams.set('path', sourcePath);
+      }
+      crumbs.push({
+        label: dirName,
+        path: profileId ? `/profiles/${profileId}/history?${sourceParams.toString()}` : undefined,
+      });
+    }
+
+    // Add snapshot time as breadcrumb
+    if (snapshotInfo) {
+      crumbs.push({
+        label: formatDateTime(snapshotInfo.startTime, locale),
+        onClick: () => handleNavigateToPathSegment(-1),
+      });
+    }
+
+    // Add path segments
+    currentPath.forEach((segment, index) => {
+      if (index === currentPath.length - 1) {
+        crumbs.push({ label: segment });
+      } else {
+        crumbs.push({
+          label: segment,
+          onClick: () => handleNavigateToPathSegment(index),
+        });
+      }
+    });
+
+    return crumbs;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, profileId, sourcePath, snapshotInfo, currentPath, locale, t]);
+
+  // Title for current location
+  const pageTitle =
+    currentPath.length > 0
+      ? currentPath[currentPath.length - 1]
+      : snapshotInfo
+        ? formatDateTime(snapshotInfo.startTime, locale)
+        : t('browse.title');
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {currentPath.length > 0 && (
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => void navigate(-1)}
-                title={t('common.back')}
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            )}
-            <h1 className="text-3xl font-bold tracking-tight">{t('browse.title')}</h1>
-          </div>
+      <PageHeader
+        title={pageTitle}
+        subtitle={pathParam === '/' ? t('browse.snapshotRoot') : pathParam}
+        breadcrumbs={breadcrumbs}
+        showBack={currentPath.length > 0}
+        onBack={() => void navigate(-1)}
+        actions={
           <Button onClick={handleRestore}>
             <RotateCcw className="mr-2 h-4 w-4" />
             {t('browse.restore')}
           </Button>
-        </div>
-
-        {/* Breadcrumb Navigation */}
-        <Breadcrumb>
-          <BreadcrumbList className="gap-1.5">
-            <BreadcrumbItem className="gap-1">
-              <BreadcrumbLink
-                className="cursor-pointer flex items-center gap-1"
-                onClick={() => handleNavigateToBreadcrumb(-1)}
-              >
-                <Home className="h-3.5 w-3.5" />
-                <span>{t('browse.root')}</span>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            {currentPath.map((segment, index) => (
-              <div key={index} className="flex items-center gap-1.5">
-                <BreadcrumbSeparator className="mx-0">
-                  <ChevronRight className="h-4 w-4" />
-                </BreadcrumbSeparator>
-                <BreadcrumbItem className="gap-1">
-                  {index === currentPath.length - 1 ? (
-                    <BreadcrumbPage className="flex items-center gap-1">
-                      <Folder className="h-3.5 w-3.5" />
-                      <span className="font-medium">{segment}</span>
-                    </BreadcrumbPage>
-                  ) : (
-                    <BreadcrumbLink
-                      className="cursor-pointer flex items-center gap-1 hover:text-foreground transition-colors"
-                      onClick={() => handleNavigateToBreadcrumb(index)}
-                    >
-                      <Folder className="h-3.5 w-3.5" />
-                      <span>{segment}</span>
-                    </BreadcrumbLink>
-                  )}
-                </BreadcrumbItem>
-              </div>
-            ))}
-          </BreadcrumbList>
-        </Breadcrumb>
-      </div>
+        }
+      />
 
       {/* Mount Controls */}
       {mountedPath ? (

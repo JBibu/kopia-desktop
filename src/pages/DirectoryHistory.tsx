@@ -1,13 +1,13 @@
 /**
- * Snapshot History page - View and manage snapshots for a specific source
+ * DirectoryHistory - View and manage snapshots for a specific directory
  *
- * This page shows all snapshots for a given user@host:/path source.
- * Users can delete individual snapshots or the entire source with all its snapshots.
+ * Shows all snapshots for a given directory path within a profile context.
+ * Users can browse, restore, delete snapshots, and manage pins.
  */
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -52,24 +52,27 @@ import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/kopia';
 import { formatBytes, formatDateTime } from '@/lib/utils';
 import { logger } from '@/lib/utils/logger';
-import { usePreferencesStore } from '@/stores';
+import { usePreferencesStore, useProfilesStore } from '@/stores';
 import { useSnapshots } from '@/hooks';
 import { navigateToSnapshotBrowse, navigateToSnapshotRestore } from '@/lib/utils/navigation';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PinDialog, RetentionTags, DescriptionDialog } from '@/components/kopia/snapshots';
+import { PageHeader, type BreadcrumbItemType } from '@/components/layout/PageHeader';
 
-export function SnapshotHistory() {
+export function DirectoryHistory() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { profileId } = useParams<{ profileId: string }>();
   const [searchParams] = useSearchParams();
   const locale = usePreferencesStore((state) => state.getLocale());
   const byteFormat = usePreferencesStore((state) => state.byteFormat);
+
+  const profile = useProfilesStore((state) => state.profiles.find((p) => p.id === profileId));
 
   const userName = searchParams.get('userName') || '';
   const host = searchParams.get('host') || '';
   const path = searchParams.get('path') || '';
 
-  // Use store for snapshot operations
   const {
     fetchSnapshotsForSource,
     createSnapshot: storeCreateSnapshot,
@@ -78,7 +81,6 @@ export function SnapshotHistory() {
     error: snapshotsError,
   } = useSnapshots();
 
-  // Local state for this page
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSnapshots, setSelectedSnapshots] = useState<Set<string>>(new Set());
@@ -112,7 +114,6 @@ export function SnapshotHistory() {
       );
       setSnapshots(fetchedSnapshots);
     } catch (err) {
-      // Error is already handled by the store
       logger.error(t('snapshots.errors.fetchFailed'), err);
     }
   };
@@ -181,7 +182,6 @@ export function SnapshotHistory() {
       toast.success(t('snapshots.snapshotCreated'), {
         description: t('snapshots.snapshotCreatedDescription'),
       });
-      // Refresh after a short delay to allow the snapshot to be registered
       setTimeout(() => {
         void fetchSnapshots();
       }, 2000);
@@ -197,17 +197,44 @@ export function SnapshotHistory() {
 
     setIsDeletingSource(true);
     try {
-      // Delete all snapshots (empty array means delete all + source + policy)
       await storeDeleteSnapshots(userName, host, path, []);
       toast.success(t('snapshots.deleteSource.deleteSuccess'));
       setIsDeleteSourceDialogOpen(false);
-      // Navigate back to snapshots page after deletion
-      void navigate('/snapshots');
+      void navigate(`/profiles/${profileId}`);
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
       setIsDeletingSource(false);
     }
+  };
+
+  const handleBrowseSnapshot = (snapshot: Snapshot) => {
+    if (!snapshot.rootID) {
+      toast.error(t('snapshots.cannotBrowse'), {
+        description: t('snapshots.cannotBrowseDesc'),
+      });
+      return;
+    }
+    // Pass profile context to snapshot browse
+    navigateToSnapshotBrowse(
+      navigate,
+      snapshot.id,
+      snapshot.rootID,
+      snapshot.rootID,
+      '/',
+      profileId,
+      path
+    );
+  };
+
+  const handleRestoreSnapshot = (snapshot: Snapshot) => {
+    if (!snapshot.rootID) {
+      toast.error(t('snapshots.cannotRestore'), {
+        description: t('snapshots.cannotRestoreDesc'),
+      });
+      return;
+    }
+    navigateToSnapshotRestore(navigate, snapshot.id, snapshot.rootID, '/');
   };
 
   const filteredSnapshots = snapshots.filter((snapshot) => {
@@ -218,64 +245,78 @@ export function SnapshotHistory() {
     );
   });
 
+  // Get directory name for display
+  const directoryName = path.split('/').filter(Boolean).pop() || path;
   const sourceLabel = `${userName}@${host}:${path}`;
+
+  // Build breadcrumbs
+  const breadcrumbs: BreadcrumbItemType[] = [{ label: t('nav.profiles'), path: '/profiles' }];
+
+  if (profile) {
+    breadcrumbs.push({ label: profile.name, path: `/profiles/${profileId}` });
+  }
+  breadcrumbs.push({ label: directoryName });
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">{t('snapshots.snapshotHistory')}</h1>
-          <p className="text-sm text-muted-foreground">{sourceLabel}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void handleRefresh()}
-            disabled={isRefreshing}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-            {t('common.refresh')}
-          </Button>
-          {snapshots.length === 0 && !isSnapshotsLoading ? (
+      <PageHeader
+        title={directoryName}
+        subtitle={path}
+        breadcrumbs={breadcrumbs}
+        actions={
+          <div className="flex items-center gap-2">
             <Button
-              variant="destructive"
+              variant="outline"
               size="sm"
-              onClick={() => setIsDeleteSourceDialogOpen(true)}
+              onClick={() => void handleRefresh()}
+              disabled={isRefreshing}
             >
-              <Trash2 className="h-4 w-4 mr-2" />
-              {t('snapshots.deleteSource.deleteSource')}
+              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+              {t('common.refresh')}
             </Button>
-          ) : (
-            <>
+            {snapshots.length === 0 && !isSnapshotsLoading ? (
               <Button
+                variant="destructive"
                 size="sm"
-                onClick={() => void handleSnapshotNow()}
-                disabled={isCreatingSnapshot || isSnapshotsLoading}
+                onClick={() => setIsDeleteSourceDialogOpen(true)}
               >
-                {isCreatingSnapshot ? (
-                  <>
-                    <Spinner className="h-4 w-4 mr-2" />
-                    {t('snapshots.creating')}
-                  </>
-                ) : (
-                  <>
-                    <Plus className="h-4 w-4 mr-2" />
-                    {t('snapshots.createSnapshotNow')}
-                  </>
-                )}
+                <Trash2 className="h-4 w-4 mr-2" />
+                {t('snapshots.deleteSource.deleteSource')}
               </Button>
-              {selectedSnapshots.size > 0 && (
-                <Button variant="destructive" size="sm" onClick={() => setIsDeleteDialogOpen(true)}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  {t('snapshots.deleteSelected', { count: selectedSnapshots.size })}
+            ) : (
+              <>
+                <Button
+                  size="sm"
+                  onClick={() => void handleSnapshotNow()}
+                  disabled={isCreatingSnapshot || isSnapshotsLoading}
+                >
+                  {isCreatingSnapshot ? (
+                    <>
+                      <Spinner className="h-4 w-4 mr-2" />
+                      {t('snapshots.creating')}
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4 mr-2" />
+                      {t('snapshots.createSnapshotNow')}
+                    </>
+                  )}
                 </Button>
-              )}
-            </>
-          )}
-        </div>
-      </div>
+                {selectedSnapshots.size > 0 && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setIsDeleteDialogOpen(true)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    {t('snapshots.deleteSelected', { count: selectedSnapshots.size })}
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+        }
+      />
 
       {/* Error Alert */}
       {snapshotsError && (
@@ -455,21 +496,7 @@ export function SnapshotHistory() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => {
-                            if (!snapshot.rootID) {
-                              toast.error(t('snapshots.cannotBrowse'), {
-                                description: t('snapshots.cannotBrowseDesc'),
-                              });
-                              return;
-                            }
-                            navigateToSnapshotBrowse(
-                              navigate,
-                              snapshot.id,
-                              snapshot.rootID,
-                              snapshot.rootID,
-                              '/'
-                            );
-                          }}
+                          onClick={() => handleBrowseSnapshot(snapshot)}
                           disabled={!snapshot.rootID}
                           title={
                             snapshot.rootID ? t('snapshots.browse') : t('snapshots.cannotBrowse')
@@ -483,15 +510,7 @@ export function SnapshotHistory() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => {
-                            if (!snapshot.rootID) {
-                              toast.error(t('snapshots.cannotRestore'), {
-                                description: t('snapshots.cannotRestoreDesc'),
-                              });
-                              return;
-                            }
-                            navigateToSnapshotRestore(navigate, snapshot.id, snapshot.rootID, '/');
-                          }}
+                          onClick={() => handleRestoreSnapshot(snapshot)}
                           disabled={!snapshot.rootID}
                           title={
                             snapshot.rootID ? t('snapshots.restore') : t('snapshots.cannotRestore')
@@ -605,7 +624,7 @@ export function SnapshotHistory() {
             </AlertDescription>
           </Alert>
           <div className="text-sm text-muted-foreground">
-            <p className="font-medium mb-1">Source to delete:</p>
+            <p className="font-medium mb-1">{t('snapshots.deleteSource.sourceToDelete')}:</p>
             <p className="font-mono text-xs bg-muted p-2 rounded">{sourceLabel}</p>
           </div>
           <DialogFooter>

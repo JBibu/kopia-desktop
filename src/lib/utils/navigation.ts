@@ -23,13 +23,17 @@ export function navigateBack(navigate: NavigateFunction, fallback: string): void
  * @param oid - The current object ID to browse
  * @param rootOid - The root object ID of the snapshot (for breadcrumb navigation)
  * @param path - The current path within the snapshot
+ * @param profileId - Optional profile ID for breadcrumb context
+ * @param sourcePath - Optional source path for breadcrumb context
  */
 export function navigateToSnapshotBrowse(
   navigate: NavigateFunction,
   snapshotId: string,
   oid: string,
   rootOid: string,
-  path: string
+  path: string,
+  profileId?: string,
+  sourcePath?: string
 ): void {
   const params = new URLSearchParams({
     snapshotId,
@@ -37,6 +41,8 @@ export function navigateToSnapshotBrowse(
     rootOid,
     path,
   });
+  if (profileId) params.set('profileId', profileId);
+  if (sourcePath) params.set('sourcePath', sourcePath);
   void navigate(`/snapshots/browse?${params.toString()}`);
 }
 

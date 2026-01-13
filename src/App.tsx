@@ -5,22 +5,15 @@ import { useKopiaStore } from './stores/kopia';
 import { AppLayout } from './components/layout/AppLayout';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import { WindowCloseHandler } from './components/layout/WindowCloseHandler';
-import { Overview } from './pages/Overview';
-import { Repository } from './pages/Repository';
-import { Snapshots } from './pages/Snapshots';
-import { SnapshotCreate } from './pages/SnapshotCreate';
-import { SnapshotHistory } from './pages/SnapshotHistory';
+import { Dashboard } from './pages/Dashboard';
+import { Profiles } from './pages/Profiles';
+import { ProfileDetail } from './pages/ProfileDetail';
+import { DirectoryHistory } from './pages/DirectoryHistory';
 import { SnapshotBrowse } from './pages/SnapshotBrowse';
 import { SnapshotRestore } from './pages/SnapshotRestore';
-import { ProfileHistory } from './pages/ProfileHistory';
-import { Policies } from './pages/Policies';
-import { PolicyEdit } from './pages/PolicyEdit';
+import { RepositoryPage } from './pages/RepositoryPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { Tasks } from './pages/Tasks';
-import { TaskDetail } from './pages/TaskDetail';
-import { Mounts } from './pages/Mounts';
-import { Preferences } from './pages/Preferences';
-import { Setup } from './pages/Setup';
-import { Repositories } from './pages/Repositories';
 import { NotFound } from './pages/NotFound';
 import Onboarding from './pages/Onboarding';
 import './lib/i18n/config';
@@ -44,7 +37,7 @@ function OnboardingGuard() {
   return <Outlet />;
 }
 
-/** Layout component that protects child routes - redirects to setup if not connected */
+/** Layout component that protects child routes - redirects to repository if not connected */
 function ProtectedLayout() {
   const isConnected = useKopiaStore((state) => state.isRepoConnected());
   const isLoading = useKopiaStore((state) => state.isRepositoryLoading);
@@ -54,7 +47,7 @@ function ProtectedLayout() {
   }
 
   if (!isConnected) {
-    return <Navigate to="/setup" replace />;
+    return <Navigate to="/repository?tab=connect" replace />;
   }
 
   return <Outlet />;
@@ -105,26 +98,30 @@ function App(): React.JSX.Element {
           <Route element={<OnboardingGuard />}>
             <Route path="/" element={<AppLayout />}>
               {/* Public routes (no auth required) */}
-              <Route path="setup" element={<Setup />} />
-              <Route path="repository" element={<Repository />} />
-              <Route path="preferences" element={<Preferences />} />
-              <Route path="repositories" element={<Repositories />} />
+              <Route path="repository" element={<RepositoryPage />} />
+              <Route path="settings" element={<SettingsPage />} />
 
               {/* Protected routes (require connected repository) */}
               <Route element={<ProtectedLayout />}>
-                <Route index element={<Overview />} />
-                <Route path="snapshots" element={<Snapshots />} />
-                <Route path="snapshots/:profileId/history" element={<ProfileHistory />} />
-                <Route path="snapshots/create" element={<SnapshotCreate />} />
-                <Route path="snapshots/history" element={<SnapshotHistory />} />
+                <Route index element={<Dashboard />} />
+                <Route path="profiles" element={<Profiles />} />
+                <Route path="profiles/:profileId" element={<ProfileDetail />} />
+                <Route path="profiles/:profileId/history" element={<DirectoryHistory />} />
                 <Route path="snapshots/browse" element={<SnapshotBrowse />} />
                 <Route path="snapshots/restore" element={<SnapshotRestore />} />
-                <Route path="policies" element={<Policies />} />
-                <Route path="policies/edit" element={<PolicyEdit />} />
                 <Route path="tasks" element={<Tasks />} />
-                <Route path="tasks/:taskId" element={<TaskDetail />} />
-                <Route path="mounts" element={<Mounts />} />
               </Route>
+
+              {/* Legacy redirects for old routes */}
+              <Route path="snapshots" element={<Navigate to="/profiles" replace />} />
+              <Route path="preferences" element={<Navigate to="/settings" replace />} />
+              <Route path="policies" element={<Navigate to="/settings?tab=policies" replace />} />
+              <Route path="mounts" element={<Navigate to="/settings?tab=mounts" replace />} />
+              <Route path="setup" element={<Navigate to="/repository?tab=connect" replace />} />
+              <Route
+                path="repositories"
+                element={<Navigate to="/repository?tab=switch" replace />}
+              />
 
               {/* 404 Catch-all route */}
               <Route path="*" element={<NotFound />} />

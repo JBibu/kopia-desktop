@@ -3,10 +3,10 @@
  */
 
 import { Fragment, useState } from 'react';
-import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useTasks, useSnapshots } from '@/hooks';
 import { useKopiaStore } from '@/stores';
+import { PageHeader, type BreadcrumbItemType } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -52,7 +52,6 @@ import { formatDateTime } from '@/lib/utils';
 import { usePreferencesStore } from '@/stores';
 
 export function Tasks() {
-  const navigate = useNavigate();
   const { t } = useTranslation();
   const locale = usePreferencesStore((state) => state.getLocale());
   const { tasks, summary, isLoading, error, cancelTask, getTask } = useTasks();
@@ -181,25 +180,27 @@ export function Tasks() {
     return `${hours}h ${minutes}m`;
   };
 
+  const breadcrumbs: BreadcrumbItemType[] = [{ label: t('nav.tasks') }];
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">{t('tasks.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('tasks.subtitle')}</p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => void handleRefresh()}
-          disabled={isRefreshing}
-          title={t('common.refresh')}
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-          {t('common.refresh')}
-        </Button>
-      </div>
+      <PageHeader
+        title={t('tasks.title')}
+        subtitle={t('tasks.subtitle')}
+        breadcrumbs={breadcrumbs}
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void handleRefresh()}
+            disabled={isRefreshing}
+            title={t('common.refresh')}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {t('common.refresh')}
+          </Button>
+        }
+      />
 
       {/* Error Alert */}
       {error && (
@@ -323,9 +324,7 @@ export function Tasks() {
                             <button
                               type="button"
                               className="h-auto p-0 font-mono text-xs text-primary hover:underline cursor-pointer"
-                              onClick={() => {
-                                void navigate(`/tasks/${task.id}`);
-                              }}
+                              onClick={() => void handleToggleDetails(task.id)}
                               title={t('tasks.viewDetails')}
                             >
                               {task.id.slice(0, 8)}...

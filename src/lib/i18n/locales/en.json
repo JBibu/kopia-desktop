@@ -48,15 +48,17 @@
     "goHome": "Go to Overview"
   },
   "nav": {
+    "dashboard": "Dashboard",
     "overview": "Overview",
-    "repository": "Destination",
+    "repository": "Repository",
     "snapshots": "Backups",
     "profiles": "Profiles",
     "policies": "Backup Rules",
     "tasks": "Tasks",
     "mounts": "Browse Backups",
     "preferences": "Preferences",
-    "repositories": "Repositories"
+    "repositories": "Repositories",
+    "settings": "Settings"
   },
   "overview": {
     "title": "Overview",
@@ -97,9 +99,51 @@
       "FAILED": "Failed"
     }
   },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Overview of your backup system",
+    "status": {
+      "title": "System Status",
+      "connected": "Connected",
+      "disconnected": "Disconnected",
+      "serverRunning": "Server running",
+      "uptime": "Uptime"
+    },
+    "stats": {
+      "totalSnapshots": "Total Backups",
+      "storageUsed": "Storage Used",
+      "profiles": "Profiles",
+      "runningTasks": "Running Tasks"
+    },
+    "quickActions": {
+      "title": "Quick Actions",
+      "newBackup": "New Backup",
+      "newProfile": "New Profile"
+    },
+    "recentSnapshots": {
+      "title": "Recent Backups",
+      "viewAll": "View all",
+      "noSnapshots": "No recent backups",
+      "profile": "Profile",
+      "directory": "Directory",
+      "time": "Time",
+      "status": "Status"
+    },
+    "profiles": {
+      "title": "Profiles",
+      "viewAll": "View all",
+      "noProfiles": "No profiles yet",
+      "createFirst": "Create your first profile to organize your backups"
+    }
+  },
   "repository": {
-    "title": "Destination",
-    "subtitle": "Connect to your backup destination",
+    "title": "Repository",
+    "subtitle": "Manage your backup repository",
+    "tabs": {
+      "status": "Status",
+      "connect": "Connect",
+      "switch": "Switch"
+    },
     "connectedToRepository": "Connected to Destination",
     "repositoryIn": "Destination in {{provider}}: {{path}}",
     "connectionStatus": "Connection Status",
@@ -200,6 +244,8 @@
     "cannotBrowseDesc": "This backup does not have browseable content. Try creating a new backup.",
     "cannotRestore": "Cannot restore Backup",
     "cannotRestoreDesc": "This backup does not have restorable content. Try creating a new backup.",
+    "totalSnapshots": "Total Backups",
+    "totalSize": "Total Size",
     "pins": {
       "pins": "Pins",
       "managePins": "Manage pins",
@@ -281,6 +327,7 @@
   },
   "browse": {
     "title": "Browse Backup",
+    "snapshotRoot": "Snapshot Root",
     "root": "Root",
     "contents": "Directory contents",
     "itemsFound": "{{count}} item found",
@@ -322,7 +369,8 @@
     "unmountSuccess": "Backup unmounted successfully",
     "unmountFailed": "Unmount failed: {{error}}",
     "noObjectId": "No object ID provided",
-    "breadcrumbNavInfo": "Navigate up by using the back button for now"
+    "breadcrumbNavInfo": "Navigate up by using the back button for now",
+    "noRepositorySelected": "No repository selected"
   },
   "restore": {
     "title": "Restore Backup",
@@ -450,7 +498,16 @@
     "backupSchedule": "Backup Schedule",
     "backupScheduleDescription": "Choose when and how often to backup these directories",
     "schedule": "Schedule",
-    "editCustomPolicy": "Edit Custom Policy"
+    "editCustomPolicy": "Edit Custom Policy",
+    "searchPlaceholder": "Search profiles...",
+    "noResultsFound": "No profiles match your search",
+    "tryDifferentSearch": "Try a different search term",
+    "duplicate": "Duplicate",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "pinned": "Profile '{{name}}' pinned",
+    "unpinned": "Profile '{{name}}' unpinned",
+    "backupAll": "Backup All"
   },
   "policies": {
     "title": "Backup Rules",
@@ -693,6 +750,15 @@
     "pathCopied": "Path copied to clipboard",
     "unmountSuccess": "Backup unmounted successfully",
     "unmountFailed": "Unmount failed: {{error}}"
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Configure your application",
+    "tabs": {
+      "general": "General",
+      "policies": "Policies",
+      "mounts": "Mounts"
+    }
   },
   "preferences": {
     "title": "Preferences",

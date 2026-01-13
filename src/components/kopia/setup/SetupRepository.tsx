@@ -15,7 +15,14 @@ import type { StorageType, StorageConfig } from '@/lib/kopia';
 import type { SetupWizardState } from './types';
 import { ProviderSelection, ProviderConfig, StorageVerification, PasswordSetup } from './steps';
 
-export function SetupRepository() {
+interface SetupRepositoryProps {
+  /** If true, renders without outer card and centering (for embedding in tabs) */
+  embedded?: boolean;
+  /** Callback when connection is successful (for embedded mode) */
+  onSuccess?: () => void;
+}
+
+export function SetupRepository({ embedded = false, onSuccess }: SetupRepositoryProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -25,7 +32,8 @@ export function SetupRepository() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Check if we're adding a new repository (vs configuring existing/first)
-  const isAddingNew = searchParams.get('new') === 'true';
+  // In embedded mode, always treat as adding new
+  const isAddingNew = embedded || searchParams.get('new') === 'true';
 
   const [state, setState] = useState<SetupWizardState>({
     step: 'provider',
@@ -198,7 +206,13 @@ export function SetupRepository() {
       await refreshRepositories();
       await setCurrentRepository(repoId);
       await refreshStatus();
-      void navigate('/', { replace: true });
+
+      // In embedded mode, call callback instead of navigating
+      if (embedded && onSuccess) {
+        onSuccess();
+      } else if (!embedded) {
+        void navigate('/', { replace: true });
+      }
     } catch (error) {
       // Parse error for better user feedback
       const kopiaError = parseKopiaError(error);
@@ -231,56 +245,65 @@ export function SetupRepository() {
     }));
   };
 
+  const content = (
+    <>
+      {state.step === 'provider' && <ProviderSelection onSelect={handleProviderSelect} />}
+
+      {state.step === 'config' && state.provider && (
+        <ProviderConfig
+          provider={state.provider}
+          config={state.storageConfig}
+          onChange={handleConfigChange}
+          onBack={handleProviderBack}
+          onNext={handleConfigNext}
+        />
+      )}
+
+      {state.step === 'verify' && state.provider && (
+        <StorageVerification
+          storageConfig={{
+            type: state.provider,
+            config: state.storageConfig as unknown as StorageConfig['config'],
+          }}
+          isAddingNew={isAddingNew}
+          onBack={handleVerifyBack}
+          onCreateNew={handleCreateNew}
+          onConnect={handleConnect}
+        />
+      )}
+
+      {state.step === 'password' && state.mode && (
+        <PasswordSetup
+          mode={state.mode}
+          password={state.password}
+          confirmPassword={state.confirmPassword}
+          description={state.description}
+          advancedOptions={state.advancedOptions}
+          onPasswordChange={(password) => setState((prev) => ({ ...prev, password }))}
+          onConfirmPasswordChange={(confirmPassword) =>
+            setState((prev) => ({ ...prev, confirmPassword }))
+          }
+          onDescriptionChange={(description) => setState((prev) => ({ ...prev, description }))}
+          onAdvancedOptionsChange={(advancedOptions) =>
+            setState((prev) => ({ ...prev, advancedOptions }))
+          }
+          onBack={handlePasswordBack}
+          onSubmit={() => void handleSubmit()}
+          isSubmitting={isSubmitting}
+        />
+      )}
+    </>
+  );
+
+  // In embedded mode, render content directly without wrapper
+  if (embedded) {
+    return <div className="w-full max-w-3xl mx-auto">{content}</div>;
+  }
+
   return (
     <div className="flex items-center justify-center min-h-full">
       <Card className="w-full max-w-3xl">
-        <CardContent className="p-6">
-          {state.step === 'provider' && <ProviderSelection onSelect={handleProviderSelect} />}
-
-          {state.step === 'config' && state.provider && (
-            <ProviderConfig
-              provider={state.provider}
-              config={state.storageConfig}
-              onChange={handleConfigChange}
-              onBack={handleProviderBack}
-              onNext={handleConfigNext}
-            />
-          )}
-
-          {state.step === 'verify' && state.provider && (
-            <StorageVerification
-              storageConfig={{
-                type: state.provider,
-                config: state.storageConfig as unknown as StorageConfig['config'],
-              }}
-              isAddingNew={isAddingNew}
-              onBack={handleVerifyBack}
-              onCreateNew={handleCreateNew}
-              onConnect={handleConnect}
-            />
-          )}
-
-          {state.step === 'password' && state.mode && (
-            <PasswordSetup
-              mode={state.mode}
-              password={state.password}
-              confirmPassword={state.confirmPassword}
-              description={state.description}
-              advancedOptions={state.advancedOptions}
-              onPasswordChange={(password) => setState((prev) => ({ ...prev, password }))}
-              onConfirmPasswordChange={(confirmPassword) =>
-                setState((prev) => ({ ...prev, confirmPassword }))
-              }
-              onDescriptionChange={(description) => setState((prev) => ({ ...prev, description }))}
-              onAdvancedOptionsChange={(advancedOptions) =>
-                setState((prev) => ({ ...prev, advancedOptions }))
-              }
-              onBack={handlePasswordBack}
-              onSubmit={() => void handleSubmit()}
-              isSubmitting={isSubmitting}
-            />
-          )}
-        </CardContent>
+        <CardContent className="p-6">{content}</CardContent>
       </Card>
     </div>
   );

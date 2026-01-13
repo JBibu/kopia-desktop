@@ -29,7 +29,7 @@ import type { PolicyPresetId } from '@/lib/kopia/policy-presets';
 interface ProfileFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  profile: BackupProfile | null; // null = create mode, not null = edit mode
+  profile?: BackupProfile; // undefined = create mode, BackupProfile = edit mode
 }
 
 export function ProfileFormDialog({ open, onOpenChange, profile }: ProfileFormDialogProps) {

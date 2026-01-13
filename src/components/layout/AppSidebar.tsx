@@ -4,7 +4,7 @@
 
 import { Link, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { Database, Settings, Home, ListChecks, HardDrive, FolderArchive } from 'lucide-react';
+import { Database, Settings, Home, ListChecks, FolderArchive } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { StatusIndicator } from './StatusIndicator';
 import { useKopiaStore } from '@/stores';
@@ -19,12 +19,11 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { nameKey: 'nav.overview', path: '/', icon: Home },
-  { nameKey: 'nav.snapshots', path: '/snapshots', icon: FolderArchive },
-  { nameKey: 'nav.repository', path: '/repository', icon: Database },
+  { nameKey: 'nav.dashboard', path: '/', icon: Home },
+  { nameKey: 'nav.profiles', path: '/profiles', icon: FolderArchive },
   { nameKey: 'nav.tasks', path: '/tasks', icon: ListChecks },
-  { nameKey: 'nav.mounts', path: '/mounts', icon: HardDrive },
-  { nameKey: 'nav.preferences', path: '/preferences', icon: Settings },
+  { nameKey: 'nav.repository', path: '/repository', icon: Database },
+  { nameKey: 'nav.settings', path: '/settings', icon: Settings },
 ];
 
 interface AppSidebarProps {
@@ -78,7 +77,11 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
         <ul className="space-y-0.5">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = location.pathname === item.path;
+            // Check exact match for root, or startsWith for other routes
+            const isActive =
+              item.path === '/'
+                ? location.pathname === '/'
+                : location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
 
             return (
               <li key={item.path}>
