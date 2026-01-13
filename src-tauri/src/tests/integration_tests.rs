@@ -152,13 +152,13 @@ mod tests {
 
         // Test error conversion from API response
         let api_err = KopiaError::from_api_response(401, "Invalid token", "Login");
-        assert!(matches!(api_err, KopiaError::AuthenticationFailed { .. }));
+        assert!(matches!(api_err, KopiaError::OperationFailed { .. }));
 
         let api_err = KopiaError::from_api_response(404, "Not found", "Get snapshot");
         assert!(matches!(api_err, KopiaError::NotFound { .. }));
 
         let api_err = KopiaError::from_api_response(500, "Internal error", "Operation");
-        assert!(matches!(api_err, KopiaError::ApiError { .. }));
+        assert!(matches!(api_err, KopiaError::OperationFailed { .. }));
     }
 
     #[test]
@@ -196,15 +196,18 @@ mod tests {
             KopiaError::RepositoryNotConnected {
                 api_error_code: None,
             },
-            KopiaError::SnapshotNotFound {
-                snapshot_id: "abc123".to_string(),
+            KopiaError::NotFound {
+                resource: "snapshot abc123".to_string(),
             },
-            KopiaError::TaskNotFound {
-                task_id: "task-456".to_string(),
+            KopiaError::NotFound {
+                resource: "task task-456".to_string(),
             },
-            KopiaError::InvalidInput {
-                message: "Invalid path".to_string(),
-                field: Some("path".to_string()),
+            KopiaError::OperationFailed {
+                operation: "input validation".to_string(),
+                message: "Invalid path for field 'path'".to_string(),
+                details: None,
+                status_code: None,
+                api_error_code: None,
             },
         ];
 
@@ -218,10 +221,13 @@ mod tests {
     #[test]
     fn test_complex_error_with_optional_fields() {
         // Error with all optional fields present
-        let err1 = KopiaError::SnapshotCreationFailed {
-            message: "Failed to create".to_string(),
-            snapshot_source: Some("user@host:/path".to_string()),
-            snapshot_path: Some("/backup/path".to_string()),
+        let err1 = KopiaError::OperationFailed {
+            operation: "snapshot creation".to_string(),
+            message: "Failed to create snapshot for source user@host:/path at /backup/path"
+                .to_string(),
+            details: Some("Additional context".to_string()),
+            status_code: Some(500),
+            api_error_code: Some("INTERNAL".to_string()),
         };
 
         let json1 = serde_json::to_string(&err1).unwrap();
@@ -229,10 +235,12 @@ mod tests {
         assert_eq!(err1, deser1);
 
         // Error with no optional fields
-        let err2 = KopiaError::SnapshotCreationFailed {
+        let err2 = KopiaError::OperationFailed {
+            operation: "snapshot creation".to_string(),
             message: "Failed to create".to_string(),
-            snapshot_source: None,
-            snapshot_path: None,
+            details: None,
+            status_code: None,
+            api_error_code: None,
         };
 
         let json2 = serde_json::to_string(&err2).unwrap();
@@ -240,8 +248,8 @@ mod tests {
         assert_eq!(err2, deser2);
 
         // JSON should skip None fields
-        assert!(!json2.contains("snapshot_source"));
-        assert!(!json2.contains("snapshot_path"));
+        assert!(!json2.contains("\"details\""));
+        assert!(!json2.contains("status_code"));
     }
 
     #[test]

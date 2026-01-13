@@ -50,105 +50,29 @@ export enum OfficialKopiaAPIErrorCode {
 
 /**
  * Extended error codes for Kopia Desktop
- * These include official API codes plus additional application-specific codes
+ *
+ * Includes official API codes (12) plus essential application-specific codes (5)
+ * that drive different UI behaviors.
  *
  * IMPORTANT: Keep this synchronized with src-tauri/src/error.rs
  */
 export enum KopiaErrorCode {
   // ============================================================================
-  // Server Lifecycle Errors
+  // Active Desktop Codes (checked in business logic)
   // ============================================================================
-  SERVER_START_FAILED = 'SERVER_START_FAILED',
-  SERVER_STOP_FAILED = 'SERVER_STOP_FAILED',
-  SERVER_NOT_RUNNING = 'SERVER_NOT_RUNNING',
-  SERVER_ALREADY_RUNNING = 'SERVER_ALREADY_RUNNING',
-  SERVER_NOT_READY = 'SERVER_NOT_READY',
-  BINARY_NOT_FOUND = 'BINARY_NOT_FOUND',
-  BINARY_EXECUTION_FAILED = 'BINARY_EXECUTION_FAILED',
+  SERVER_NOT_RUNNING = 'SERVER_NOT_RUNNING', // Suppressed during polling
+  SERVER_ALREADY_RUNNING = 'SERVER_ALREADY_RUNNING', // Suppressed during startup
+  REPOSITORY_NOT_CONNECTED = 'REPOSITORY_NOT_CONNECTED', // Specific error message
+  REPOSITORY_ALREADY_EXISTS = 'REPOSITORY_ALREADY_EXISTS', // Specific error message
+  POLICY_NOT_FOUND = 'POLICY_NOT_FOUND', // Treated as "new policy"
+  HTTP_REQUEST_FAILED = 'HTTP_REQUEST_FAILED', // Policy load fallback
+  RESPONSE_PARSE_ERROR = 'RESPONSE_PARSE_ERROR', // Policy load fallback
+  NOT_FOUND = 'NOT_FOUND', // Policy load fallback
 
   // ============================================================================
-  // Repository Errors
+  // Generic fallback for all other errors
   // ============================================================================
-  REPOSITORY_CONNECTION_FAILED = 'REPOSITORY_CONNECTION_FAILED',
-  REPOSITORY_NOT_CONNECTED = 'REPOSITORY_NOT_CONNECTED',
-  REPOSITORY_ALREADY_CONNECTED = 'REPOSITORY_ALREADY_CONNECTED',
-  REPOSITORY_NOT_INITIALIZED = 'REPOSITORY_NOT_INITIALIZED',
-  REPOSITORY_CREATION_FAILED = 'REPOSITORY_CREATION_FAILED',
-  REPOSITORY_OPERATION_FAILED = 'REPOSITORY_OPERATION_FAILED',
-  REPOSITORY_ALREADY_EXISTS = 'REPOSITORY_ALREADY_EXISTS',
-  INVALID_REPOSITORY_CONFIG = 'INVALID_REPOSITORY_CONFIG',
-
-  // ============================================================================
-  // Snapshot Errors
-  // ============================================================================
-  SNAPSHOT_CREATION_FAILED = 'SNAPSHOT_CREATION_FAILED',
-  SNAPSHOT_NOT_FOUND = 'SNAPSHOT_NOT_FOUND',
-  SNAPSHOT_DELETION_FAILED = 'SNAPSHOT_DELETION_FAILED',
-  SNAPSHOT_EDIT_FAILED = 'SNAPSHOT_EDIT_FAILED',
-
-  // ============================================================================
-  // Policy Errors
-  // ============================================================================
-  POLICY_NOT_FOUND = 'POLICY_NOT_FOUND',
-  POLICY_UPDATE_FAILED = 'POLICY_UPDATE_FAILED',
-  INVALID_POLICY_CONFIG = 'INVALID_POLICY_CONFIG',
-
-  // ============================================================================
-  // Task Errors
-  // ============================================================================
-  TASK_NOT_FOUND = 'TASK_NOT_FOUND',
-  TASK_CANCELLATION_FAILED = 'TASK_CANCELLATION_FAILED',
-
-  // ============================================================================
-  // Restore/Mount Errors
-  // ============================================================================
-  RESTORE_FAILED = 'RESTORE_FAILED',
-  MOUNT_FAILED = 'MOUNT_FAILED',
-  UNMOUNT_FAILED = 'UNMOUNT_FAILED',
-  MOUNT_NOT_FOUND = 'MOUNT_NOT_FOUND',
-
-  // ============================================================================
-  // Maintenance Errors
-  // ============================================================================
-  MAINTENANCE_FAILED = 'MAINTENANCE_FAILED',
-
-  // ============================================================================
-  // HTTP/API Errors
-  // ============================================================================
-  HTTP_REQUEST_FAILED = 'HTTP_REQUEST_FAILED',
-  RESPONSE_PARSE_ERROR = 'RESPONSE_PARSE_ERROR',
-  API_ERROR = 'API_ERROR',
-  AUTHENTICATION_FAILED = 'AUTHENTICATION_FAILED',
-  UNAUTHORIZED = 'UNAUTHORIZED',
-  NOT_FOUND = 'NOT_FOUND',
-
-  // ============================================================================
-  // File System Errors
-  // ============================================================================
-  FILE_IO_ERROR = 'FILE_IO_ERROR',
-  INVALID_PATH = 'INVALID_PATH',
-  PATH_NOT_FOUND = 'PATH_NOT_FOUND',
-  PERMISSION_DENIED = 'PERMISSION_DENIED',
-  PATH_RESOLUTION_FAILED = 'PATH_RESOLUTION_FAILED',
-
-  // ============================================================================
-  // Notification Errors
-  // ============================================================================
-  NOTIFICATION_PROFILE_CREATION_FAILED = 'NOTIFICATION_PROFILE_CREATION_FAILED',
-  NOTIFICATION_PROFILE_DELETION_FAILED = 'NOTIFICATION_PROFILE_DELETION_FAILED',
-  NOTIFICATION_TEST_FAILED = 'NOTIFICATION_TEST_FAILED',
-
-  // ============================================================================
-  // General Errors
-  // ============================================================================
-  JSON_ERROR = 'JSON_ERROR',
-  INVALID_INPUT = 'INVALID_INPUT',
-  INTERNAL_ERROR = 'INTERNAL_ERROR',
-  ENVIRONMENT_ERROR = 'ENVIRONMENT_ERROR',
-  TIMEOUT = 'TIMEOUT',
-  CANCELLED = 'CANCELLED',
-  UNSUPPORTED_PLATFORM = 'UNSUPPORTED_PLATFORM',
-  IO_ERROR = 'IO_ERROR',
+  OPERATION_FAILED = 'OPERATION_FAILED', // Replaces all unused specific codes
 }
 
 /**
@@ -181,28 +105,13 @@ export class KopiaError extends Error {
   }
 
   /**
-   * Check if error is connection-related
-   */
-  isConnectionError(): boolean {
-    return (
-      this.is(KopiaErrorCode.REPOSITORY_NOT_CONNECTED) ||
-      this.is(OfficialKopiaAPIErrorCode.NOT_CONNECTED) ||
-      this.is(OfficialKopiaAPIErrorCode.STORAGE_CONNECTION) ||
-      this.is(KopiaErrorCode.SERVER_NOT_RUNNING) ||
-      this.statusCode === 0
-    );
-  }
-
-  /**
    * Check if error is authentication-related
    */
   isAuthError(): boolean {
     return (
-      this.is(KopiaErrorCode.AUTHENTICATION_FAILED) ||
       this.is(OfficialKopiaAPIErrorCode.INVALID_PASSWORD) ||
       this.is(OfficialKopiaAPIErrorCode.INVALID_TOKEN) ||
       this.is(OfficialKopiaAPIErrorCode.ACCESS_DENIED) ||
-      this.is(KopiaErrorCode.UNAUTHORIZED) ||
       this.statusCode === 401 ||
       this.statusCode === 403
     );
@@ -318,28 +227,6 @@ export function parseKopiaError(error: unknown): KopiaError {
 }
 
 /**
- * Mapping from official Kopia API error codes to custom error codes
- * This maintains API parity while providing more granular error handling
- *
- * NOTE: Most official API errors return HTTP 400 Bad Request.
- * Only NOT_FOUND (404), ACCESS_DENIED (403), and INTERNAL (500) have specific status codes.
- */
-export const API_ERROR_CODE_MAPPING: Record<OfficialKopiaAPIErrorCode, KopiaErrorCode> = {
-  [OfficialKopiaAPIErrorCode.INTERNAL]: KopiaErrorCode.INTERNAL_ERROR,
-  [OfficialKopiaAPIErrorCode.ALREADY_CONNECTED]: KopiaErrorCode.REPOSITORY_ALREADY_CONNECTED,
-  [OfficialKopiaAPIErrorCode.ALREADY_INITIALIZED]: KopiaErrorCode.REPOSITORY_ALREADY_EXISTS,
-  [OfficialKopiaAPIErrorCode.INVALID_PASSWORD]: KopiaErrorCode.AUTHENTICATION_FAILED,
-  [OfficialKopiaAPIErrorCode.INVALID_TOKEN]: KopiaErrorCode.AUTHENTICATION_FAILED,
-  [OfficialKopiaAPIErrorCode.MALFORMED_REQUEST]: KopiaErrorCode.INVALID_INPUT,
-  [OfficialKopiaAPIErrorCode.NOT_CONNECTED]: KopiaErrorCode.REPOSITORY_NOT_CONNECTED,
-  [OfficialKopiaAPIErrorCode.NOT_FOUND]: KopiaErrorCode.NOT_FOUND,
-  [OfficialKopiaAPIErrorCode.NOT_INITIALIZED]: KopiaErrorCode.REPOSITORY_NOT_INITIALIZED,
-  [OfficialKopiaAPIErrorCode.PATH_NOT_FOUND]: KopiaErrorCode.PATH_NOT_FOUND,
-  [OfficialKopiaAPIErrorCode.STORAGE_CONNECTION]: KopiaErrorCode.REPOSITORY_CONNECTION_FAILED,
-  [OfficialKopiaAPIErrorCode.ACCESS_DENIED]: KopiaErrorCode.PERMISSION_DENIED,
-};
-
-/**
  * Extract user-friendly error message
  *
  * Pattern from official HTMLui: errorAlert()
@@ -348,16 +235,4 @@ export function getErrorMessage(error: unknown, prefix?: string): string {
   const kopiaError = parseKopiaError(error);
   const message = kopiaError.getUserMessage();
   return prefix ? `${prefix}: ${message}` : message;
-}
-
-/**
- * Helper to check if error is a repository not connected error
- * Supports both custom and official API error codes
- */
-export function isNotConnectedError(error: unknown): boolean {
-  const kopiaError = parseKopiaError(error);
-  return (
-    kopiaError.is(KopiaErrorCode.REPOSITORY_NOT_CONNECTED) ||
-    kopiaError.is(OfficialKopiaAPIErrorCode.NOT_CONNECTED)
-  );
 }

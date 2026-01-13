@@ -206,9 +206,12 @@ mod tests {
 
     #[test]
     fn test_error_with_details() {
-        let error = KopiaError::ServerStartFailed {
+        let error = KopiaError::OperationFailed {
+            operation: "server startup".to_string(),
             message: "Failed to bind port".to_string(),
             details: Some("Port 51515 already in use".to_string()),
+            status_code: None,
+            api_error_code: None,
         };
 
         let display = error.to_string();
@@ -217,17 +220,18 @@ mod tests {
 
     #[test]
     fn test_binary_not_found_error() {
-        let error = KopiaError::BinaryNotFound {
+        let error = KopiaError::OperationFailed {
+            operation: "binary lookup".to_string(),
             message: "Kopia binary not found".to_string(),
-            searched_paths: vec![
-                "/usr/bin/kopia".to_string(),
-                "/usr/local/bin/kopia".to_string(),
-                "./bin/kopia".to_string(),
-            ],
+            details: Some(
+                "Searched paths: /usr/bin/kopia, /usr/local/bin/kopia, ./bin/kopia".to_string(),
+            ),
+            status_code: None,
+            api_error_code: None,
         };
 
         let json = serde_json::to_string(&error).unwrap();
-        assert!(json.contains("searched_paths"));
+        assert!(json.contains("binary lookup"));
         assert!(json.contains("/usr/bin/kopia"));
     }
 }

@@ -88,9 +88,11 @@ impl ServerManager {
             return Ok(vec![]);
         }
 
-        let entries = fs::read_dir(&config_path).map_err(|e| KopiaError::InternalError {
-            message: format!("Failed to read config directory: {}", e),
-            details: None,
+        let entries = fs::read_dir(&config_path).map_err(|e| {
+            KopiaError::operation_failed(
+                "directory read",
+                format!("Failed to read config directory: {}", e),
+            )
         })?;
 
         let mut repo_ids = Vec::new();
@@ -159,12 +161,12 @@ impl ServerManager {
 
     /// Stop a server for a specific repository
     pub fn stop_server(&mut self, repo_id: &str) -> Result<()> {
-        let server = self
-            .servers
-            .get(repo_id)
-            .ok_or_else(|| KopiaError::RepositoryNotFound {
-                repo_id: repo_id.to_string(),
-            })?;
+        let server = self.servers.get(repo_id).ok_or_else(|| {
+            KopiaError::operation_failed(
+                "repository lookup",
+                format!("Repository '{}' not found", repo_id),
+            )
+        })?;
 
         let mut server_guard = server.lock().unwrap();
 
@@ -189,21 +191,22 @@ impl ServerManager {
         if errors.is_empty() {
             Ok(())
         } else {
-            Err(KopiaError::InternalError {
-                message: "Failed to stop some servers".to_string(),
-                details: Some(errors.join(", ")),
-            })
+            Err(KopiaError::operation_failed_with_details(
+                "server shutdown",
+                "Failed to stop some servers",
+                errors.join(", "),
+            ))
         }
     }
 
     /// Get server status for a specific repository
     pub fn get_server_status(&mut self, repo_id: &str) -> Result<KopiaServerStatus> {
-        let server = self
-            .servers
-            .get(repo_id)
-            .ok_or_else(|| KopiaError::RepositoryNotFound {
-                repo_id: repo_id.to_string(),
-            })?;
+        let server = self.servers.get(repo_id).ok_or_else(|| {
+            KopiaError::operation_failed(
+                "repository lookup",
+                format!("Repository '{}' not found", repo_id),
+            )
+        })?;
 
         let mut server_guard = server.lock().unwrap();
 
@@ -258,7 +261,10 @@ impl ServerManager {
         // Validate ID doesn't already exist
         let config_file = self.get_config_file_path(&id);
         if PathBuf::from(&config_file).exists() {
-            return Err(KopiaError::RepositoryConfigAlreadyExists { repo_id: id });
+            return Err(KopiaError::operation_failed(
+                "repository creation",
+                format!("Repository '{}' already exists", id),
+            ));
         }
 
         // Create and start server instance (required for API calls)
@@ -281,10 +287,10 @@ impl ServerManager {
     pub fn remove_repository(&mut self, repo_id: &str) -> Result<()> {
         // Cannot remove default repository
         if repo_id == DEFAULT_REPO_ID {
-            return Err(KopiaError::InternalError {
-                message: "Cannot remove the default repository".to_string(),
-                details: None,
-            });
+            return Err(KopiaError::operation_failed(
+                "repository removal",
+                "Cannot remove the default repository",
+            ));
         }
 
         // Stop server if running
@@ -340,12 +346,12 @@ impl ServerManager {
         &self,
         repo_id: &str,
     ) -> Result<impl std::future::Future<Output = Result<()>>> {
-        let server = self
-            .servers
-            .get(repo_id)
-            .ok_or_else(|| KopiaError::RepositoryNotFound {
-                repo_id: repo_id.to_string(),
-            })?;
+        let server = self.servers.get(repo_id).ok_or_else(|| {
+            KopiaError::operation_failed(
+                "repository lookup",
+                format!("Repository '{}' not found", repo_id),
+            )
+        })?;
 
         server.lock().unwrap().get_ready_waiter()
     }

@@ -88,8 +88,11 @@ pub fn get_current_user_from_os() -> Result<(String, String)> {
         .unwrap_or_else(|_| "unknown".into());
 
     let hostname = hostname::get()
-        .map_err(|e| KopiaError::EnvironmentError {
-            message: format!("Failed to get hostname: {}", e),
+        .map_err(|e| {
+            KopiaError::operation_failed(
+                "hostname lookup",
+                format!("Failed to get hostname: {}", e),
+            )
         })?
         .to_string_lossy()
         .into_owned();
@@ -110,8 +113,8 @@ pub async fn select_folder(app: AppHandle, default_path: Option<String>) -> Resu
         let _ = tx.send(path.map(|p| p.to_string()));
     });
 
-    rx.await.map_err(|_| KopiaError::Cancelled {
-        operation: "folder selection".to_string(),
+    rx.await.map_err(|_| {
+        KopiaError::operation_failed("folder selection", "Operation cancelled by user")
     })
 }
 
@@ -131,9 +134,8 @@ pub async fn save_file(app: AppHandle, default_filename: Option<String>) -> Resu
         let _ = tx.send(path.map(|p| p.to_string()));
     });
 
-    rx.await.map_err(|_| KopiaError::Cancelled {
-        operation: "file save".to_string(),
-    })
+    rx.await
+        .map_err(|_| KopiaError::operation_failed("file save", "Operation cancelled by user"))
 }
 
 /// Configure dialog with optional default path

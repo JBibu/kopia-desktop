@@ -5,7 +5,7 @@
 //!
 //! All commands now take a `repo_id` parameter to support multiple repositories.
 
-use crate::error::{HttpResultExt, IoResultExt, JsonResultExt, KopiaError, Result};
+use crate::error::{HttpResultExt, KopiaError, Result};
 use crate::kopia_server::{KopiaServerInfo, KopiaServerStatus};
 use crate::server_manager::{RepositoryEntry, ServerManagerState};
 use crate::types::{RepositoryConnectRequest, RepositoryStatus, StorageConfig};
@@ -114,8 +114,11 @@ pub fn get_default_config_dir() -> Result<String> {
 
     let home_dir = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
-        .map_err(|_| KopiaError::EnvironmentError {
-            message: "Cannot determine home directory (HOME or USERPROFILE not set)".to_string(),
+        .map_err(|_| {
+            KopiaError::operation_failed(
+                "environment",
+                "Cannot determine home directory (HOME or USERPROFILE not set)",
+            )
         })?;
 
     let mut config_path = PathBuf::from(home_dir);
@@ -127,16 +130,23 @@ pub fn get_default_config_dir() -> Result<String> {
     config_path.extend(&[".config", "kopia"]);
 
     // Ensure directory exists
-    std::fs::create_dir_all(&config_path)
-        .map_io_error(config_path.to_str().unwrap_or("config directory"))?;
+    std::fs::create_dir_all(&config_path).map_err(|e| {
+        KopiaError::operation_failed(
+            "directory creation",
+            format!(
+                "Failed to create config directory '{}': {}",
+                config_path.to_str().unwrap_or("config directory"),
+                e
+            ),
+        )
+    })?;
 
-    config_path
-        .to_str()
-        .map(String::from)
-        .ok_or_else(|| KopiaError::InternalError {
-            message: "Config path contains invalid UTF-8 characters".to_string(),
-            details: None,
-        })
+    config_path.to_str().map(String::from).ok_or_else(|| {
+        KopiaError::operation_failed(
+            "path conversion",
+            "Config path contains invalid UTF-8 characters",
+        )
+    })
 }
 
 // ============================================================================
@@ -286,16 +296,16 @@ pub async fn repository_exists(
                 return Ok(false);
             }
             // Return the detailed error message
-            return Err(KopiaError::RepositoryOperationFailed {
-                operation: "Check repository exists".to_string(),
-                message: err.error.unwrap_or(error_text),
-            });
+            return Err(KopiaError::operation_failed(
+                "check repository exists",
+                err.error.unwrap_or(error_text),
+            ));
         }
 
-        return Err(KopiaError::RepositoryOperationFailed {
-            operation: "Check repository exists".to_string(),
-            message: error_text,
-        });
+        return Err(KopiaError::operation_failed(
+            "check repository exists",
+            &error_text,
+        ));
     }
 
     // Success response is just an empty object {}, which means repository exists
@@ -433,10 +443,10 @@ pub async fn snapshot_create(
                 .await
                 .unwrap_or_else(|_| "Unknown error".to_string());
             log::error!("Failed to resolve path: {}", error_text);
-            return Err(KopiaError::PathResolutionFailed {
-                path: path.clone(),
-                message: error_text,
-            });
+            return Err(KopiaError::operation_failed(
+                "path resolution",
+                format!("Failed to resolve path '{}': {}", path, error_text),
+            ));
         }
 
         #[derive(Deserialize)]
@@ -492,11 +502,13 @@ pub async fn snapshot_create(
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
         log::error!("Failed to create snapshot: {}", error_text);
-        return Err(KopiaError::SnapshotCreationFailed {
-            message: error_text,
-            snapshot_source: None,
-            snapshot_path: Some(path.clone()),
-        });
+        return Err(KopiaError::operation_failed(
+            "snapshot creation",
+            format!(
+                "Failed to create snapshot for path '{}': {}",
+                path, error_text
+            ),
+        ));
     }
 
     // API returns {"snapshotted": bool}
@@ -513,11 +525,10 @@ pub async fn snapshot_create(
 
     // Only check if snapshot was started if we requested it
     if should_create_snapshot && !result.snapshotted {
-        return Err(KopiaError::SnapshotCreationFailed {
-            message: "Snapshot was not started by server".to_string(),
-            snapshot_source: None,
-            snapshot_path: Some(path),
-        });
+        return Err(KopiaError::operation_failed(
+            "snapshot creation",
+            format!("Snapshot was not started by server for path '{}'", path),
+        ));
     }
 
     Ok(source_info)
@@ -780,7 +791,12 @@ pub async fn object_download(
         .map_http_error("Failed to read response")?;
 
     // Write to target path
-    std::fs::write(&target_path, bytes).map_io_error(&target_path)?;
+    std::fs::write(&target_path, bytes).map_err(|e| {
+        KopiaError::operation_failed(
+            "file write",
+            format!("Failed to write to '{}': {}", target_path, e),
+        )
+    })?;
 
     Ok(())
 }
@@ -934,8 +950,7 @@ pub async fn policy_resolve(
     let mut payload = serde_json::Map::new();
 
     if let Some(upd) = updates {
-        let value =
-            serde_json::to_value(upd).map_json_error("Failed to serialize policy updates")?;
+        let value = serde_json::to_value(upd)?;
         payload.insert("updates".to_string(), value);
     } else {
         // Send null for updates when just fetching (not modifying)
@@ -1132,10 +1147,10 @@ pub async fn path_resolve(
             .text()
             .await
             .unwrap_or_else(|_| "Unknown error".to_string());
-        return Err(KopiaError::PathResolutionFailed {
-            path,
-            message: error_text,
-        });
+        return Err(KopiaError::operation_failed(
+            "path resolution",
+            format!("Failed to resolve path '{}': {}", path, error_text),
+        ));
     }
 
     #[derive(Deserialize)]
@@ -1310,12 +1325,12 @@ fn get_server_client(
 ) -> Result<(String, reqwest::Client)> {
     let manager_guard = manager.lock().unwrap();
 
-    let server_url =
-        manager_guard
-            .get_server_url(repo_id)
-            .ok_or_else(|| KopiaError::RepositoryNotFound {
-                repo_id: repo_id.to_string(),
-            })?;
+    let server_url = manager_guard.get_server_url(repo_id).ok_or_else(|| {
+        KopiaError::operation_failed(
+            "repository lookup",
+            format!("Repository '{}' not found", repo_id),
+        )
+    })?;
 
     let client = manager_guard
         .get_http_client(repo_id)

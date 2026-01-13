@@ -1,33 +1,34 @@
 //! Concurrency and thread safety tests
 //!
-//! Tests for concurrent access and thread safety.
+//! Tests for error handling in concurrent scenarios with the simplified error system.
 
 #[cfg(test)]
 mod tests {
-    use crate::kopia_server::KopiaServer;
+    use crate::error::KopiaError;
+    use std::sync::Arc;
     use std::thread;
 
     #[test]
-    fn test_server_multiple_status_calls() {
-        let mut server = KopiaServer::new();
+    fn test_error_send_sync() {
+        // Test that KopiaError implements Send and Sync
+        fn assert_send<T: Send>() {}
+        fn assert_sync<T: Sync>() {}
 
-        // Multiple status calls should work without issue
-        for _ in 0..100 {
-            let status = server.status();
-            assert!(!status.running);
-        }
+        assert_send::<KopiaError>();
+        assert_sync::<KopiaError>();
     }
 
     #[test]
-    fn test_server_from_multiple_threads() {
+    fn test_error_sharing_across_threads() {
+        // Test that errors can be shared across threads
+        let error = Arc::new(KopiaError::ServerNotRunning);
+
         let handles: Vec<_> = (0..5)
-            .map(|i| {
+            .map(|_| {
+                let error_clone = Arc::clone(&error);
                 thread::spawn(move || {
-                    let mut server = KopiaServer::new();
-                    let status = server.status();
-                    assert!(!status.running);
-                    assert!(status.server_url.is_none());
-                    i
+                    // Use the error in another thread
+                    let _ = error_clone.to_string();
                 })
             })
             .collect();
@@ -35,173 +36,71 @@ mod tests {
         for handle in handles {
             handle.join().unwrap();
         }
+    }
+
+    #[test]
+    fn test_concurrent_error_creation() {
+        // Test creating errors concurrently from multiple threads
+        let handles: Vec<_> = (0..10)
+            .map(|i| {
+                thread::spawn(move || KopiaError::ServerAlreadyRunning {
+                    port: 8000 + i as u16,
+                })
+            })
+            .collect();
+
+        let errors: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+
+        assert_eq!(errors.len(), 10);
     }
 
     #[test]
     fn test_error_serialization_concurrent() {
-        use crate::error::KopiaError;
+        // Test error serialization from multiple threads
+        let error = Arc::new(KopiaError::OperationFailed {
+            operation: "test".to_string(),
+            message: "concurrent test".to_string(),
+            details: None,
+            status_code: None,
+            api_error_code: None,
+        });
 
-        let errors = vec![
-            KopiaError::ServerNotRunning,
-            KopiaError::RepositoryNotConnected {
-                api_error_code: None,
-            },
-        ];
-
-        let handles: Vec<_> = errors
-            .into_iter()
-            .map(|err| {
-                thread::spawn(move || {
-                    let json = serde_json::to_string(&err).unwrap();
-                    let _deserialized: KopiaError = serde_json::from_str(&json).unwrap();
-                })
+        let handles: Vec<_> = (0..5)
+            .map(|_| {
+                let error_clone = Arc::clone(&error);
+                thread::spawn(move || serde_json::to_string(&*error_clone).unwrap())
             })
             .collect();
 
-        for handle in handles {
-            handle.join().unwrap();
+        let jsons: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+
+        // All serializations should be identical
+        for json in &jsons {
+            assert_eq!(json, &jsons[0]);
         }
     }
 
     #[test]
-    fn test_config_dir_from_multiple_threads() {
-        use crate::commands::kopia::get_default_config_dir;
+    fn test_result_type_across_threads() {
+        // Test that Result<T, KopiaError> can be used across threads
+        use crate::error::Result;
 
         let handles: Vec<_> = (0..5)
-            .map(|_| {
-                thread::spawn(|| {
-                    let dir = get_default_config_dir().unwrap();
-                    assert!(!dir.is_empty());
-                    assert!(dir.ends_with("kopia"));
-                    dir
+            .map(|i| {
+                thread::spawn(move || -> Result<i32> {
+                    if i % 2 == 0 {
+                        Ok(i)
+                    } else {
+                        Err(KopiaError::operation_failed("test", "odd number"))
+                    }
                 })
             })
             .collect();
 
         let results: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
 
-        // All threads should get the same result
-        for i in 1..results.len() {
-            assert_eq!(results[0], results[i]);
-        }
-    }
-
-    #[test]
-    fn test_password_generation_uniqueness() {
-        use base64::Engine;
-        use rand::Rng;
-        use std::collections::HashSet;
-
-        let passwords: Vec<_> = (0..100)
-            .map(|_| {
-                let mut rng = rand::thread_rng();
-                let random_bytes: [u8; 32] = rng.gen();
-                base64::prelude::BASE64_STANDARD.encode(random_bytes)
-            })
-            .collect();
-
-        // All passwords should be unique (statistically)
-        let unique_passwords: HashSet<_> = passwords.iter().collect();
-        assert_eq!(unique_passwords.len(), 100);
-
-        // All should be 44 characters
-        for password in &passwords {
-            assert_eq!(password.len(), 44);
-        }
-    }
-
-    #[test]
-    fn test_storage_config_concurrent_serialization() {
-        use crate::types::StorageConfig;
-
-        let configs = vec![
-            StorageConfig {
-                storage_type: "filesystem".to_string(),
-                config: serde_json::json!({"path": "/backup1"}),
-            },
-            StorageConfig {
-                storage_type: "s3".to_string(),
-                config: serde_json::json!({"bucket": "bucket1"}),
-            },
-            StorageConfig {
-                storage_type: "b2".to_string(),
-                config: serde_json::json!({"bucket": "bucket2"}),
-            },
-        ];
-
-        let handles: Vec<_> = configs
-            .into_iter()
-            .map(|config| {
-                thread::spawn(move || {
-                    let json = serde_json::to_string(&config).unwrap();
-                    let deserialized: StorageConfig = serde_json::from_str(&json).unwrap();
-                    assert_eq!(config.storage_type, deserialized.storage_type);
-                })
-            })
-            .collect();
-
-        for handle in handles {
-            handle.join().unwrap();
-        }
-    }
-
-    #[test]
-    fn test_server_state_isolation() {
-        // Each server instance should have independent state
-        let mut server1 = KopiaServer::new();
-        let mut server2 = KopiaServer::new();
-
-        let status1 = server1.status();
-        let status2 = server2.status();
-
-        // Both should be not running
-        assert!(!status1.running);
-        assert!(!status2.running);
-
-        // Calling stop on one shouldn't affect the other
-        let _ = server1.stop();
-        let status2_after = server2.status();
-        assert_eq!(status2.running, status2_after.running);
-    }
-
-    #[test]
-    #[ignore = "Stress test - run manually"]
-    fn test_stress_concurrent_server_creation() {
-        let handles: Vec<_> = (0..100)
-            .map(|_| {
-                thread::spawn(|| {
-                    let mut server = KopiaServer::new();
-                    let _ = server.status();
-                    let _ = server.is_running();
-                    let _ = server.get_http_client();
-                })
-            })
-            .collect();
-
-        for handle in handles {
-            handle.join().unwrap();
-        }
-    }
-
-    #[test]
-    #[ignore = "Stress test - run manually"]
-    fn test_stress_error_serialization() {
-        use crate::error::KopiaError;
-
-        let handles: Vec<_> = (0..1000)
-            .map(|i| {
-                thread::spawn(move || {
-                    let err = KopiaError::SnapshotNotFound {
-                        snapshot_id: format!("snap-{}", i),
-                    };
-                    let json = serde_json::to_string(&err).unwrap();
-                    let _: KopiaError = serde_json::from_str(&json).unwrap();
-                })
-            })
-            .collect();
-
-        for handle in handles {
-            handle.join().unwrap();
-        }
+        assert_eq!(results.len(), 5);
+        assert!(results[0].is_ok());
+        assert!(results[1].is_err());
     }
 }

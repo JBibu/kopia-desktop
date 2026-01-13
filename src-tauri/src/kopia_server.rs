@@ -272,10 +272,11 @@ impl KopiaServer {
             cmd.creation_flags(CREATE_NO_WINDOW);
         }
 
-        let mut child = cmd.spawn().map_err(|e| KopiaError::BinaryExecutionFailed {
-            message: format!("Failed to spawn Kopia server: {}", e),
-            exit_code: None,
-            stderr: None,
+        let mut child = cmd.spawn().map_err(|e| {
+            KopiaError::operation_failed(
+                "binary execution",
+                format!("Failed to spawn Kopia server: {}", e),
+            )
         })?;
 
         let pid = child.id();
@@ -339,9 +340,8 @@ impl KopiaServer {
     /// - SERVER CERT SHA256: <hex>
     /// - SERVER CERTIFICATE: <base64>
     fn parse_server_params(&self, child: &mut Child) -> Result<ServerParams> {
-        let stderr = child.stderr.take().ok_or(KopiaError::ServerStartFailed {
-            message: "Failed to capture server stderr".to_string(),
-            details: None,
+        let stderr = child.stderr.take().ok_or_else(|| {
+            KopiaError::operation_failed("server startup", "Failed to capture server stderr")
         })?;
 
         let reader = BufReader::new(stderr);
@@ -354,18 +354,18 @@ impl KopiaServer {
             if start.elapsed() > timeout {
                 // Check if process crashed
                 if let Ok(Some(status)) = child.try_wait() {
-                    return Err(KopiaError::ServerStartFailed {
-                        message: format!("Server process exited with status: {}", status),
-                        details: None,
-                    });
+                    return Err(KopiaError::operation_failed(
+                        "server startup",
+                        format!("Server process exited with status: {}", status),
+                    ));
                 }
-                return Err(KopiaError::ServerStartFailed {
-                    message: format!(
+                return Err(KopiaError::operation_failed(
+                    "server startup",
+                    format!(
                         "Timeout waiting for server parameters after {}s",
                         SERVER_PARAM_TIMEOUT_SECS
                     ),
-                    details: None,
-                });
+                ));
             }
 
             match line {
@@ -383,10 +383,11 @@ impl KopiaServer {
                 Err(e) => {
                     // Check if process exited
                     if let Ok(Some(status)) = child.try_wait() {
-                        return Err(KopiaError::ServerStartFailed {
-                            message: format!("Server process exited with status: {}", status),
-                            details: Some(format!("stderr read error: {}", e)),
-                        });
+                        return Err(KopiaError::operation_failed_with_details(
+                            "server startup",
+                            format!("Server process exited with status: {}", status),
+                            format!("stderr read error: {}", e),
+                        ));
                     }
                     log::warn!("Error reading stderr line: {}", e);
                 }
@@ -395,29 +396,35 @@ impl KopiaServer {
 
         // If we get here, stderr was closed but params incomplete
         if let Ok(Some(status)) = child.try_wait() {
-            return Err(KopiaError::ServerStartFailed {
-                message: format!("Server process exited unexpectedly with status: {}", status),
-                details: None,
-            });
+            return Err(KopiaError::operation_failed(
+                "server startup",
+                format!("Server process exited unexpectedly with status: {}", status),
+            ));
         }
 
-        Err(KopiaError::ServerStartFailed {
-            message: "Server stderr closed before all parameters received".to_string(),
-            details: Some(format!("Received: {:?}", params)),
-        })
+        Err(KopiaError::operation_failed_with_details(
+            "server startup",
+            "Server stderr closed before all parameters received",
+            format!("Received: {:?}", params),
+        ))
     }
 
     /// Extract port number from server URL
     fn extract_port(url: &str) -> Result<u16> {
         url::Url::parse(url)
-            .map_err(|e| KopiaError::ServerStartFailed {
-                message: format!("Invalid server URL: {}", url),
-                details: Some(e.to_string()),
+            .map_err(|e| {
+                KopiaError::operation_failed_with_details(
+                    "server startup",
+                    format!("Invalid server URL: {}", url),
+                    e.to_string(),
+                )
             })?
             .port()
-            .ok_or_else(|| KopiaError::ServerStartFailed {
-                message: format!("No port in server URL: {}", url),
-                details: None,
+            .ok_or_else(|| {
+                KopiaError::operation_failed(
+                    "server startup",
+                    format!("No port in server URL: {}", url),
+                )
             })
     }
 
@@ -427,14 +434,20 @@ impl KopiaServer {
 
         let cert_bytes = base64::prelude::BASE64_STANDARD
             .decode(base64_cert)
-            .map_err(|e| KopiaError::ServerStartFailed {
-                message: "Failed to decode server certificate".to_string(),
-                details: Some(e.to_string()),
+            .map_err(|e| {
+                KopiaError::operation_failed_with_details(
+                    "server startup",
+                    "Failed to decode server certificate",
+                    e.to_string(),
+                )
             })?;
 
-        String::from_utf8(cert_bytes).map_err(|e| KopiaError::ServerStartFailed {
-            message: "Invalid certificate encoding".to_string(),
-            details: Some(e.to_string()),
+        String::from_utf8(cert_bytes).map_err(|e| {
+            KopiaError::operation_failed_with_details(
+                "server startup",
+                "Invalid certificate encoding",
+                e.to_string(),
+            )
         })
     }
 
@@ -486,14 +499,18 @@ impl KopiaServer {
 
         // Graceful shutdown didn't work, force kill
         log::warn!("Graceful shutdown timed out, killing process");
-        process.kill().map_err(|e| KopiaError::ServerStopFailed {
-            message: format!("Failed to kill server process: {}", e),
-            details: None,
+        process.kill().map_err(|e| {
+            KopiaError::operation_failed(
+                "server shutdown",
+                format!("Failed to kill server process: {}", e),
+            )
         })?;
 
-        process.wait().map_err(|e| KopiaError::ServerStopFailed {
-            message: format!("Failed to wait for server termination: {}", e),
-            details: None,
+        process.wait().map_err(|e| {
+            KopiaError::operation_failed(
+                "server shutdown",
+                format!("Failed to wait for server termination: {}", e),
+            )
         })?;
 
         self.cleanup();
@@ -567,9 +584,11 @@ impl KopiaServer {
         let exe_dir = std::env::current_exe()
             .ok()
             .and_then(|p| p.parent().map(std::path::PathBuf::from))
-            .ok_or(KopiaError::BinaryNotFound {
-                message: "Failed to determine executable directory".to_string(),
-                searched_paths: vec![],
+            .ok_or_else(|| {
+                KopiaError::operation_failed(
+                    "binary lookup",
+                    "Failed to determine executable directory",
+                )
             })?;
 
         // Search paths in priority order
@@ -586,12 +605,17 @@ impl KopiaServer {
             .find(|path| path.exists())
             .and_then(|p| p.to_str())
             .map(String::from)
-            .ok_or_else(|| KopiaError::BinaryNotFound {
-                message: format!("Kopia binary '{}' not found", binary_name),
-                searched_paths: search_paths
+            .ok_or_else(|| {
+                let searched = search_paths
                     .iter()
-                    .filter_map(|p| p.to_str().map(String::from))
-                    .collect(),
+                    .filter_map(|p| p.to_str())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                KopiaError::operation_failed_with_details(
+                    "binary lookup",
+                    format!("Kopia binary '{}' not found", binary_name),
+                    format!("Searched paths: {}", searched),
+                )
             })
     }
 
@@ -654,19 +678,19 @@ impl KopiaServer {
         headers.insert(
             reqwest::header::AUTHORIZATION,
             reqwest::header::HeaderValue::from_str(&auth_header).map_err(|e| {
-                KopiaError::InternalError {
-                    message: format!("Failed to create auth header: {}", e),
-                    details: None,
-                }
+                KopiaError::operation_failed(
+                    "http client setup",
+                    format!("Failed to create auth header: {}", e),
+                )
             })?,
         );
 
         // Parse the certificate for TLS validation
         let cert = reqwest::Certificate::from_pem(certificate_pem.as_bytes()).map_err(|e| {
-            KopiaError::InternalError {
-                message: format!("Failed to parse server certificate: {}", e),
-                details: None,
-            }
+            KopiaError::operation_failed(
+                "http client setup",
+                format!("Failed to parse server certificate: {}", e),
+            )
         })?;
 
         reqwest::Client::builder()
@@ -675,9 +699,11 @@ impl KopiaServer {
             .connect_timeout(Duration::from_secs(HTTP_CONNECT_TIMEOUT_SECS))
             .add_root_certificate(cert)
             .build()
-            .map_err(|e| KopiaError::InternalError {
-                message: format!("Failed to create HTTP client: {}", e),
-                details: None,
+            .map_err(|e| {
+                KopiaError::operation_failed(
+                    "http client setup",
+                    format!("Failed to create HTTP client: {}", e),
+                )
             })
     }
 
@@ -728,10 +754,14 @@ async fn wait_for_server_ready(http_client: reqwest::Client, server_url: String)
     }
 
     let timeout_secs = (HEALTH_CHECK_RETRIES as u64 * HEALTH_CHECK_INTERVAL_MS) / 1000;
-    Err(KopiaError::ServerNotReady {
-        message: last_error.unwrap_or_else(|| "Unknown error".to_string()),
-        timeout_seconds: timeout_secs,
-    })
+    Err(KopiaError::operation_failed(
+        "server startup",
+        format!(
+            "Server did not become ready within {} seconds: {}",
+            timeout_secs,
+            last_error.unwrap_or_else(|| "Unknown error".to_string())
+        ),
+    ))
 }
 
 #[cfg(test)]

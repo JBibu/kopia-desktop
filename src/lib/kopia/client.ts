@@ -31,8 +31,6 @@ export {
   OfficialKopiaAPIErrorCode,
   parseKopiaError,
   getErrorMessage,
-  isNotConnectedError,
-  API_ERROR_CODE_MAPPING,
 } from './errors';
 
 // ============================================================================
