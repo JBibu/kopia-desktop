@@ -15,6 +15,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Accordion,
   AccordionContent,
   AccordionItem,
@@ -72,6 +82,7 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Current policy being edited
@@ -182,12 +193,15 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
     }
   };
 
-  const handleDelete = async () => {
+  const handleDeleteClick = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = async () => {
     if (!currentRepoId) {
       toast.error(t('common.noRepositorySelected'));
       return;
     }
-    if (!confirm(t('policies.confirmDelete'))) return;
 
     setIsDeleting(true);
     try {
@@ -201,6 +215,7 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
       toast.error(getErrorMessage(err));
     } finally {
       setIsDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -1048,7 +1063,7 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
         {!isNew && !isGlobalPolicy && (
           <Button
             variant="destructive"
-            onClick={() => void handleDelete()}
+            onClick={handleDeleteClick}
             disabled={isSaving || isDeleting}
           >
             {isDeleting ? (
@@ -1064,6 +1079,25 @@ export function PolicyEditor({ target, onClose, onSave }: PolicyEditorProps) {
           {t('common.save')}
         </Button>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('policies.confirmDeleteTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('policies.confirmDelete')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void handleConfirmDelete()}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {t('common.delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -12,6 +12,16 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -94,6 +104,7 @@ export function Dashboard() {
 
   // Dialog states
   const [editingProfile, setEditingProfile] = useState<BackupProfile | null>(null);
+  const [deletingProfile, setDeletingProfile] = useState<BackupProfile | null>(null);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
   const [showNewBackupDialog, setShowNewBackupDialog] = useState(false);
 
@@ -211,9 +222,14 @@ export function Dashboard() {
   };
 
   const handleDeleteProfile = (profile: BackupProfile) => {
-    if (confirm(t('profiles.confirmDelete', { name: profile.name }))) {
-      deleteProfile(profile.id);
-      toast.success(t('profiles.deleted'));
+    setDeletingProfile(profile);
+  };
+
+  const handleConfirmDelete = () => {
+    if (deletingProfile) {
+      deleteProfile(deletingProfile.id);
+      toast.success(t('profiles.profileDeleted', { name: deletingProfile.name }));
+      setDeletingProfile(null);
     }
   };
 
@@ -620,6 +636,30 @@ export function Dashboard() {
         onOpenChange={setShowNewBackupDialog}
         onSuccess={() => void navigate('/profiles')}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={!!deletingProfile}
+        onOpenChange={(open) => !open && setDeletingProfile(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('profiles.deleteConfirmTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('profiles.deleteConfirmMessage', { name: deletingProfile?.name })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {t('profiles.deleteProfile')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -479,6 +479,7 @@
     "policyDeleted": "Regla de respaldo eliminada",
     "policyDeletedDescription": "La regla de respaldo se ha eliminado correctamente",
     "confirmDelete": "¿Estás seguro de que quieres eliminar esta regla de respaldo? Los valores volverán a los valores predeterminados heredados.",
+    "confirmDeleteTitle": "Eliminar Regla de Respaldo",
     "editorInfo": "Configura las opciones de regla de respaldo a continuación. Deja los campos vacíos para heredar de las reglas superiores.",
     "inheritanceInfo": "Los campos marcados como 'heredado' usan valores de reglas superiores en la jerarquía.",
     "globalEditorInfo": "Configura las opciones de la regla de respaldo global a continuación. Estos valores se usarán como predeterminados para todos los respaldos.",
@@ -783,6 +784,7 @@
       "created": "Perfil de notificación creado",
       "updated": "Perfil de notificación actualizado",
       "confirmDelete": "¿Estás seguro de que quieres eliminar el perfil \"{{profileName}}\"?",
+      "confirmDeleteTitle": "Eliminar Perfil de Notificación",
       "profileNameRequired": "El nombre del perfil es obligatorio",
       "email": {
         "smtpServer": "Servidor SMTP",

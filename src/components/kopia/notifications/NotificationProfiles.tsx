@@ -3,6 +3,16 @@ import { useTranslation } from 'react-i18next';
 import { Plus, Trash2, Copy, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Table,
   TableBody,
   TableCell,
@@ -31,6 +41,7 @@ export function NotificationProfiles() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<NotificationProfile | null>(null);
   const [isNewProfile, setIsNewProfile] = useState(false);
+  const [deletingProfileName, setDeletingProfileName] = useState<string | null>(null);
   const hasLoadedRef = useRef(false);
 
   const loadProfiles = useCallback(async () => {
@@ -91,20 +102,23 @@ export function NotificationProfiles() {
     setDialogOpen(true);
   };
 
-  const handleDelete = async (profileName: string) => {
-    if (!currentRepoId) return;
-    if (!confirm(t('preferences.notificationProfiles.confirmDelete', { profileName }))) {
-      return;
-    }
+  const handleDeleteClick = (profileName: string) => {
+    setDeletingProfileName(profileName);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!currentRepoId || !deletingProfileName) return;
 
     try {
-      await deleteNotificationProfile(currentRepoId, profileName);
+      await deleteNotificationProfile(currentRepoId, deletingProfileName);
       toast.success(t('preferences.notificationProfiles.deleted'));
       await loadProfiles();
     } catch (error) {
       toast.error(t('preferences.notificationProfiles.deleteFailed'), {
         description: getErrorMessage(error),
       });
+    } finally {
+      setDeletingProfileName(null);
     }
   };
 
@@ -203,7 +217,7 @@ export function NotificationProfiles() {
                     <Button
                       size="sm"
                       variant="destructive"
-                      onClick={() => void handleDelete(profile.profile)}
+                      onClick={() => handleDeleteClick(profile.profile)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -238,6 +252,34 @@ export function NotificationProfiles() {
           isNew={isNewProfile}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={deletingProfileName !== null}
+        onOpenChange={(open) => !open && setDeletingProfileName(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('preferences.notificationProfiles.confirmDeleteTitle')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('preferences.notificationProfiles.confirmDelete', {
+                profileName: deletingProfileName,
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void handleConfirmDelete()}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {t('common.delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

@@ -536,6 +536,7 @@
     "policyDeleted": "Backup rule deleted",
     "policyDeletedDescription": "Backup rule has been deleted successfully",
     "confirmDelete": "Are you sure you want to delete this backup rule? Values will revert to inherited defaults.",
+    "confirmDeleteTitle": "Delete Backup Rule",
     "editorInfo": "Configure backup rule settings below. Leave fields empty to inherit from parent rules.",
     "inheritanceInfo": "Fields marked as 'inherited' use values from parent rules in the hierarchy.",
     "globalEditorInfo": "Configure global backup rule settings below. These values will be used as defaults for all backups.",
@@ -849,6 +850,7 @@
       "created": "Notification profile created",
       "updated": "Notification profile updated",
       "confirmDelete": "Are you sure you want to delete the profile \"{{profileName}}\"?",
+      "confirmDeleteTitle": "Delete Notification Profile",
       "profileNameRequired": "Profile name is required",
       "email": {
         "smtpServer": "SMTP Server",
